@@ -1,0 +1,53 @@
+icp-defi-app/
+├── public/
+│   └── index.html
+├── src/
+│   ├── assets/
+│   │   └── styles/
+│   │       └── globals.css
+│   ├── components/
+│   │   ├── auth/
+│   │   │   └── InternetIdentityButton.tsx
+│   │   ├── layout/
+│   │   │   └── Layout.tsx
+│   │   ├── navbar/
+│   │   │   └── Navbar.tsx
+│   │   ├── pools/
+│   │   │   ├── CreatePoolForm.tsx
+│   │   │   ├── LiquidityDepthChart.tsx
+│   │   │   ├── LiquidityPositionCard.tsx
+│   │   │   └── PoolAnalyticsCard.tsx
+│   │   ├── staking/
+│   │   │   ├── RewardHistoryChart.tsx
+│   │   │   └── StakingCard.tsx
+│   │   ├── swap/
+│   │   │   ├── SwapCard.tsx
+│   │   │   └── TokenSelectModal.tsx
+│   │   ├── ui/
+│   │   │   └── SpeedIndicator.tsx
+│   │   └── WalletManager.tsx
+│   ├── context/
+│   │   ├── AuthContext.tsx
+│   │   └── WalletContext.tsx
+│   ├── hooks/
+│   │   └── useBlockchainData.ts
+│   ├── pages/
+│   │   ├── Dashboard.tsx
+│   │   ├── Pools.tsx
+│   │   ├── Staking.tsx
+│   │   └── Swap.tsx
+│   ├── services/
+│   │   ├── blockchain.ts
+│   │   ├── eventService.ts
+│   │   ├── priceOracle.ts
+│   │   └── transactionService.ts
+│   ├── types/
+│   │   └── index.ts
+│   ├── App.tsx
+│   ├── main.tsx
+│   └── index.css
+├── .env.local
+├── package.json
+├── tailwind.config.js
+├── tsconfig.json
+└── vite.config.ts

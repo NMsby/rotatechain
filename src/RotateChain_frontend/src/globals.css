@@ -1,0 +1,49 @@
+@import "tailwindcss"
+
+
+
+
+/*@tailwind base;
+@tailwind components;
+@tailwind utilities;*/
+
+/*body {
+  @apply bg-deep-space text-white font-sans overflow-x-hidden;
+}*/
+
+/*.glass-card {
+  @apply bg-opacity-10 backdrop-blur-lg border border-white border-opacity-10 rounded-xl;
+}*/
+
+/*for the liquidity pool analytics*/
+
+/*@layer utilities {
+  .animate-pulse {
+    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+  
+  .animate-marquee {
+    animation: marquee 25s linear infinite;
+  }
+}*/
+
+/*for the internet identity login*/
+/*@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}*/
+
+/*.animate-fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+}*/
+
+/* Glowing effect for II button */
+/*@keyframes glow {
+  0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+}
+
+.glow-on-hover:hover {
+  animation: glow 1.5s infinite;
+}*/
