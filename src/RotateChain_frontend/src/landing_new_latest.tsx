@@ -8,7 +8,7 @@ const RotateChain = () => {
   const [activeTab, setActiveTab] = useState('savings');
   const [currentRound, setCurrentRound] = useState(3);
   const [isMenuOpen, setIsMenuOpen] = useState(false);
-  const [activeFaq, setActiveFaq] = useState(null);
+  const [activeFaq, setActiveFaq] = useState<any>(null);
   const notification = useNotification()
   
   // Mock group data
@@ -208,7 +208,7 @@ const RotateChain = () => {
                 whileTap={{ scale: 0.95 }}
                 onClick={(e) => {}}
               >
-                <Link to="/onboarding"  className='w-full h-full text-inherit no-underline'>
+                <Link to="/login"  className='w-full h-full text-inherit no-underline'>
                   Start Rotating
                 </Link>
               </motion.button>

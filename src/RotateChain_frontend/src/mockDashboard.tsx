@@ -1,6 +1,6 @@
 // src/components/Dashboard.tsx
 import React from 'react';
-import { DashboardProps } from '../types';
+import { DashboardProps } from './types';
 
 const Dashboard: React.FC<DashboardProps> = ({ 
   userData, 

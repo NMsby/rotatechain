@@ -30,6 +30,21 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
     setError('');
     setSuccess('');
     setLoading(true);
+
+    const amountNum = parseFloat(amount);
+    if (isNaN(amountNum)) {
+      throw new Error('Invalid amount');
+    }
+
+
+    // Record payment in backend
+    const paymentCanister = await getPaymentCanister();
+    const paymentId = await paymentCanister.recordPayment(
+      recipient,
+      BigInt(amountNum * 100000000),
+      network === 'testnet' ? { testnet: null } : { mainnet: null }
+    );
+
     
     try {
       if (!recipient.trim()) {
@@ -49,13 +64,6 @@ const PaymentForm: React.FC<PaymentFormProps> = ({
         throw new Error('Insufficient balance');
       }
       
-      // Record payment in backend
-      const paymentCanister = await getPaymentCanister();
-      const paymentId = await paymentCanister.recordPayment(
-        recipient,
-        BigInt(amountNum * 100000000),
-        network === 'testnet' ? { testnet: null } : { mainnet: null }
-      );
       
       // Send transaction
       const txId = await sendICP(recipient, amountNum, network);

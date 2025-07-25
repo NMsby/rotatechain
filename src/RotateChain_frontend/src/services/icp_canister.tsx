@@ -1,12 +1,18 @@
 import { createActor } from "../../../declarations/icp_backend";
 import { AuthClient } from "@dfinity/auth-client";
 import { ActorSubclass } from "@dfinity/agent";
-import { _SERVICE } from "../../declarations/icp_backend/payment_processor.did";
+import { _SERVICE }  from "../../../declarations/icp_backend/icp_backend.did"
+//import { _SERVICE } from "../../../../declarations/icp_backend/payment_processor.did";
 
 export const getPaymentCanister = async (): Promise<ActorSubclass<_SERVICE>> => {
   const authClient = await AuthClient.create();
   const identity = authClient.getIdentity();
-  const canisterId = process.env.PAYMENT_CANISTER_ID!;
+  //here I should be using our id probably i've commented theirs
+  //const canisterId = process.env.PAYMENT_CANISTER_ID!;
+  //even this frontendCid is incorrect, however let it remain since I'll change my code to be using a ledger.
+  const frontendCid = window.location.origin.split('//')[1].split('.')[0];
+
+  const canisterId = frontendCid;
   
   return createActor(canisterId, {
     agentOptions: { identity },
@@ -18,9 +24,10 @@ export const connectPlug = async (network: 'mainnet' | 'testnet'): Promise<{ pri
     window.open("https://plugwallet.ooo/", "_blank");
     throw new Error("Plug wallet not installed");
   }
+  const frontendCid = window.location.origin.split('//')[1].split('.')[0];
 
   await window.ic.plug.requestConnect({
-    whitelist: [process.env.PAYMENT_CANISTER_ID!],
+    whitelist: [frontendCid],
     host: network === 'testnet' 
       ? 'https://ic0.app' 
       : 'https://mainnet.ic0.app'
@@ -39,7 +46,7 @@ export const getICPBalance = async (network: 'mainnet' | 'testnet'): Promise<num
   if (!window.ic?.plug) throw new Error("Plug wallet not connected");
   
   const balance = await window.ic.plug.requestBalance();
-  const icpBalance = balance.find(b => b.symbol === "ICP");
+  const icpBalance = balance.find((b:any) => { return b.symbol === "ICP"});
   
   if (!icpBalance) return 0;
   return Number(icpBalance.amount);

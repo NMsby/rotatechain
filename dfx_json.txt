@@ -4,9 +4,10 @@
       "main": "src/RotateChain_backend/main.mo",
       "type": "motoko"
     },
-    "chain_management" : {
-      "main": "src/RotateChain_backend/chain_management_corrected.mo",
-      "type": "motoko"
+    "group_manager": {
+      "type": "motoko",
+      "main": "src/RotateChain_backend/group_manager.mo",
+      "features": ["http_request"]
     },
     "RotateChain_frontend": {
       "dependencies": [
@@ -29,12 +30,6 @@
       "type": "motoko"
     }
   },
-  "networks": {
-    "local" :{
-      "type": "ephemeral",
-      "bind": "127.0.0.1:4943"
-    }
-  },
   "defaults": {
     "build": {
       "args": "",
@@ -44,3 +39,5 @@
   "output_env_file": ".env",
   "version": 1
 }
+
+//initial init-arg written in my dfx.json file but here I've changed it a bit

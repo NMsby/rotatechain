@@ -7,19 +7,28 @@ interface PlugConnectProps {
 
 const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [principal, setPrincipal] = useState<string | null>(null);
+  const [principal, setPrincipal] = useState<string | undefined>();
+  const [accountId, setAccountId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
       if (window.ic?.plug) {
-        const connected = await window.ic.plug.isConnected();
+        const connected = window.ic.plug.isConnected();
+        
         if (connected) {
-          const principal = await window.ic.plug.agent.getPrincipal();
-          const accountId = await window.ic.plug.agent.getAccountId();
-          setPrincipal(principal.toString());
-          setIsConnected(true);
-          onConnect(principal.toString(), toHexString(accountId));
+          //const principal = await window.ic.plug.agent.getPrincipal();
+          //const accountId = await window.ic.plug.agent.getAccountId();
+          //const principal = window.ic.plug.principalId;
+          //const accountId = window.ic.plug.accountId;
+
+          console.log(`principal : ${principal} and accountId: ${accountId} and its connected: ${connected}`)
+          
+          if(principal && accountId){
+            setPrincipal(principal.toString());
+            setIsConnected(true);
+            onConnect(principal.toString(), toHexString(accountId));
+          }
         }
       }
     };
@@ -35,17 +44,44 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
         return;
       }
 
-      await window.ic.plug.requestConnect({
-        whitelist: [process.env.REACT_APP_PAYMENT_CANISTER_ID!],
+      //my own programmatic canister id access
+      const frontendCid = window.location.origin.split('//')[1].split('.')[0];
+      let identity = await window.ic.plug.requestConnect({
+        //whitelist: [process.env.REACT_APP_PAYMENT_CANISTER_ID!],
+        //add the icp backend canister over here, to allow for signing of requests by the wallet.
+        /*whitelist: [frontendCid],
         host: network === 'testnet' 
           ? 'https://ic0.app' 
           : 'https://mainnet.ic0.app'
-      });
+        */
+        whitelist:["umunu-kh777-77774-qaaca-cai"],
+        //host:"http://127.0.0.1:4943"
+        host: network === 'testnet' 
+          ? 'https://ic0.app' 
+          : 'https://mainnet.ic0.app'
+      })
 
-      const principal = await window.ic.plug.agent.getPrincipal();
-      const accountId = await window.ic.plug.agent.getAccountId();
+      console.log(`connected result: ${JSON.stringify(identity)}, raw key is ${JSON.stringify(identity.rawKey)}`)
+      console.log(`plug connected via window.ic ${window.ic.plug.isConnected}`)
+
+
+      //const principal = await window.ic.plug.agent.getPrincipal();
+      //const principal = await window.ic.plug.agent.getAccountId();
+      //const principal = window.ic.plug.principalId;
+      //const accountId = window.ic.plug.accountId;
+
+      //changed it to derive the principal and Id from the requestConnect
+      //principal is same as accountId from what I've learnt
+      let principal = identity.principal
+      let accountId = principal
+
+      setPrincipal(principal)
+      setAccountId(accountId)
+
+
       setPrincipal(principal.toString());
       setIsConnected(true);
+
       onConnect(principal.toString(), toHexString(accountId));
     } catch (err) {
       console.error("Plug connection error:", err);

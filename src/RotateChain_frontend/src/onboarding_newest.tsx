@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useNotification } from './notificationContext';
 
 // Define types for our state objects
 type Frequency = 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly';
@@ -40,6 +41,7 @@ const currencies = [
 const SmartOnboarding = () => {
   const [step, setStep] = useState<number>(1);
   const [chainType, setChainType] = useState<ChainType>(null);
+  const notification = useNotification()
   const [socialChainInfo, setSocialChainInfo] = useState<SocialChainInfo>({
     groupName: '',
     contribution: '',
@@ -65,12 +67,14 @@ const SmartOnboarding = () => {
   useEffect(() => {
     if (step === 3 && chainType) {
       const generateLink = () => {
-        const baseUrl = 'https://chainapp.com/join';
+        //const baseUrl = 'https://chainapp.com/join';
+        const baseUrl = window.location.origin
         const chainId = Math.random().toString(36).substring(2, 10);
-        return `${baseUrl}/${chainType}/${chainId}`;
+        return `${baseUrl}/${chainId}`;
       };
       
       const link = generateLink();
+      //send the link to the backend after generationssssss
       setInviteLink(link);
       
       if (chainType === 'social') {
@@ -137,7 +141,7 @@ const SmartOnboarding = () => {
         break;
       default:
         navigator.clipboard.writeText(inviteLink);
-        alert('Link copied to clipboard!');
+        notification.success('Link copied to clipboard!');
     }
   };
 

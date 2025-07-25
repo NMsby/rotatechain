@@ -26,5 +26,20 @@ dist/
 .env.local
 
 #accidental repos
+landing.tsx
+landingNew.tsx
+landingNewest.tsx
+testDisplay.tsx
+mockDashboard.tsx
+App.jsx
+onboarding_newest.tsx
+bitcoin_two
+ledger-ref
+bitcoin_two/
+tujiinue/
+tujiinue
+ledger-ref/
+full_folder
+full_folder/
 cycles-ledger/
 RotateChain_backend/cycles-ledger/

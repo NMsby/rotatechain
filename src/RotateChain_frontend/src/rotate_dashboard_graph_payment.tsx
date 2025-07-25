@@ -1,11 +1,25 @@
 // Dashboard.tsx
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useRevalidator } from 'react-router-dom';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import InstructionPalette from './instructions/InstructionPallete';
+import { ChainType, Frequency } from './onboarding_new';
+import { FaBars, FaCoins, FaRegWindowClose } from 'react-icons/fa';
+import { useNotification } from './notificationContext';
+import SassyBurgerMenu from "./hamburgerMenu";
+import { SplashScreen } from './sassySplash';
+import ICPShoppingPopup from './instructions/icp_buying-instructions';
+//import clsx from "clsx"
+import PlugConnect from './plug_wallet_icp';
+import PaymentForm from './Icp_payment_form';
+import { getICPBalance, getPaymentCanister } from './services/icp_canister';
+import { AuthClient } from '@dfinity/auth-client';
+import { Actor } from '@dfinity/agent';
+
 
 interface Member {
   id: string;
@@ -28,13 +42,16 @@ interface Loan {
   repaymentDate?: string;
 }
 
-interface Chain {
+export interface Chain {
   id: string;
   name: string;
+  userId:string | undefined , 
+  userName:string,
+  fineRate:number,
   type: 'social' | 'global';
   totalRounds: number;
   currentRound: number;
-  roundDuration: number; // in days
+  roundDuration: number;
   startDate: string;
   totalFunds: number;
   currentFunds: number;
@@ -44,13 +61,66 @@ interface Chain {
   interestRate: number;
 }
 
-// Helper function to format time
-const formatTime = (time: number) => {
-  return time < 10 ? `0${time}` : time;
+interface TimeRemaining {
+  days: number;
+  hours: number;
+  minutes: number;
+  seconds: number;
+}
+
+interface ChartColors {
+  contributed: string;
+  pending: string;
+  approved: string;
+  repaid: string;
+  defaulted: string;
+  active: string;
+  funds: string;
+  timeline: string;
+}
+
+interface PaymentProvider {
+  id: string;
+  name: string;
+  icon: string;
+}
+
+interface ChartData {
+  memberData: MemberChartData[];
+  loanData: LoanChartData[];
+  timelineData: TimelineData[];
+}
+
+interface MemberChartData {
+  name: string;
+  contribution: number;
+  contributed: string;
+}
+
+interface LoanChartData {
+  name: string;
+  value: number;
+}
+
+interface TimelineData {
+  round: number;
+  start: string;
+  end: string;
+  status: 'completed' | 'current' | 'upcoming';
+}
+
+interface LoanStatusCount {
+  pending: number;
+  approved: number;
+  repaid: number;
+  defaulted: number;
+}
+
+const formatTime = (time: number): string => {
+  return time < 10 ? `0${time}` : time.toString();
 };
 
-// Color constants for charts
-const CHART_COLORS = {
+const CHART_COLORS: ChartColors = {
   contributed: '#4ade80',
   pending: '#f87171',
   approved: '#60a5fa',
@@ -61,8 +131,7 @@ const CHART_COLORS = {
   timeline: '#c084fc'
 };
 
-// Payment providers
-const PAYMENT_PROVIDERS = [
+const PAYMENT_PROVIDERS: PaymentProvider[] = [
   { id: 'paypal', name: 'PayPal', icon: '🔵' },
   { id: 'stripe', name: 'Stripe', icon: '💳' },
   { id: 'coinbase', name: 'Coinbase', icon: '🟡' },
@@ -70,8 +139,110 @@ const PAYMENT_PROVIDERS = [
   { id: 'trustwallet', name: 'Trust Wallet', icon: '🔶' },
 ];
 
-const Dashboard = () => {
-  //const navigate = useNavigate();
+//a miniversion of a single chain group needing only the identifier and the name for the menu items.
+export type SingleChain ={
+  // the id of the chain
+  id:string,
+  // name of the chain
+  name:string
+}
+
+type Props = {
+  chainName:string,
+  userName:string,
+  userId:string,
+  interestRate:number,
+  fineRate:number,
+  contribution:number,
+  frequency:Frequency | number,
+  chainType:ChainType,
+  members:Member[],
+  currency:number,
+  loans:Loan[],
+      totalRounds: number,
+      currentRound: number,
+      roundDuration: number,
+      startDate: string,
+      totalFunds: number,
+      currentFunds: number,
+}
+
+const mockChains:SingleChain[] = [
+  {
+    id:"sbjbsjbdjs823o3nkjn4kkd399403",
+    name:"money hunters"
+  },
+  {
+    id:"sbjbsa6287bdjshb287824kkd399403",
+    name:"elites"
+  }
+
+]
+
+
+export function frequencyMatcher({frequency}:{frequency:Frequency | number}):number{
+  if(frequency == 'bi-weekly'){
+    return 14
+  }
+  else if(frequency == 'monthly'){
+    return 31
+  }
+  else if(frequency == 'quarterly'){
+    return Number(31 * 3)
+  }
+  else if(frequency == 'weekly'){
+    return 7
+  }
+  else if(typeof(frequency) == 'number'){
+    return Number(frequency)
+  }
+  else{
+    return 31
+  }
+}
+
+const  fakeMembers:Member[] = [
+  { id: 'm1', name: 'Alex Johnson', walletAddress: '0x742d35Cc...', contributed: true, contributionAmount: 1000, isLender: true, loans: [] },
+  { id: 'm2', name: 'Maria Garcia', walletAddress: '0xab5801a7...', contributed: true, contributionAmount: 1000, isLender: false, loans: [] },
+  { id: 'm3', name: 'James Smith', walletAddress: '0x4bb53b92...', contributed: false, contributionAmount: 1000, isLender: true, loans: [] },
+  { id: 'm4', name: 'Sarah Williams', walletAddress: '0xda9b1a6c...', contributed: true, contributionAmount: 1000, isLender: false, loans: [] },
+  { id: 'm5', name: 'Robert Brown', walletAddress: '0x184f4d2a...', contributed: true, contributionAmount: 1000, isLender: true, loans: [] },
+]
+
+const fakeLoans:Loan[] = [
+  { 
+    id: 'loan-001', 
+    borrowerId: 'm2', 
+    lenderId: 'm1', 
+    amount: 500, 
+    interestRate: 5, 
+    status: 'approved',
+    dueDate: '2023-12-15'
+  },
+  { 
+    id: 'loan-002', 
+    borrowerId: 'm4', 
+    lenderId: 'm3', 
+    amount: 800, 
+    interestRate: 5, 
+    status: 'pending',
+    dueDate: '2023-12-20'
+  }
+]
+
+
+
+ 
+
+
+
+type onLogout = () => void 
+
+
+
+export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActor:Actor | null | undefined,authClient:AuthClient | null,onLogout:() => Promise<void>,roundChain:Chain}){
+  const navigate = useNavigate();  
+  const notification = useNotification()
   const [chain, setChain] = useState<Chain | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'loans' | 'members' | 'settings'>('overview');
   const [loanAmount, setLoanAmount] = useState<string>('');
@@ -80,27 +251,131 @@ const Dashboard = () => {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState<boolean>(false);
   const [paymentAmount, setPaymentAmount] = useState<number>(0);
   const [currentDateTime, setCurrentDateTime] = useState<string>('');
-  const [roundTimeRemaining, setRoundTimeRemaining] = useState({
+  const [sliderHidden,setSliderHidden] = useState<boolean>(true)
+  const [sliderStyle,setSliderStyle] = useState({})
+  const [isBalanceEligible,setIsBalanceEligible] = useState<boolean>(false)
+  const [eligibleBalance,setEligibleBalance] = useState<number>(0)
+  const [walletBalance,setWalletBalance] = useState<number>(0)
+  const [inviteLink, setInviteLink] = useState<string>('absjnjn253782bjdj238kde3n2');
+  const [myLoanHistory,setMyLoanHistory] = useState<Loan[]>([])
+  const [chainGroups,setChainGroups] = useState<SingleChain[]>([])
+  const [showSplash, setShowSplash] = useState(true);
+  const [showPopup, setShowPopup] = useState(false);
+  const [payStyle,setPayStyle] = useState({})
+  const [payHidden,setPayHidden] = useState(true)
+  const [roundTimeRemaining, setRoundTimeRemaining] = useState<TimeRemaining>({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0
   });
-  const [seasonTimeRemaining, setSeasonTimeRemaining] = useState({
+  const [seasonTimeRemaining, setSeasonTimeRemaining] = useState<TimeRemaining>({
     days: 0,
     hours: 0,
     minutes: 0,
     seconds: 0
   });
-  const [isWalletConnected, setIsWalletConnected] = useState(false);
-  const [walletAddress, setWalletAddress] = useState('');
-  const [selectedPaymentProvider, setSelectedPaymentProvider] = useState('');
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentSuccess, setPaymentSuccess] = useState(false);
+  const [isWalletConnected, setIsWalletConnected] = useState<boolean>(false);
+  const [walletAddress, setWalletAddress] = useState<string>('');
+  const [selectedPaymentProvider, setSelectedPaymentProvider] = useState<string>('');
+  const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
+  const [paymentSuccess, setPaymentSuccess] = useState<boolean>(false);
 
-  // Initialize and update current time
+  //for the wallet
+  const [isConnected, setIsConnected] = useState(false);
+  const [principal, setPrincipal] = useState('');
+  const [accountId, setAccountId] = useState('');
+  const [balance, setBalance] = useState(0);
+  const [network, setNetwork] = useState<'mainnet' | 'testnet'>('testnet');
+  const [payments, setPayments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  
   useEffect(() => {
-    const updateDateTime = () => {
+    if (isConnected) {
+      fetchBalance();
+      fetchPayments();
+    }
+  }, [isConnected, network]);
+
+
+
+
+  //for gettingthe other user's chain groups
+  useEffect(function(){
+    //set the chain groups of the userId from the actor
+    
+    let mockChains:SingleChain[] = [
+      {
+        id:"abjsbjhb73947nbdjb37384b4373",
+        name:"go-getters"
+      },
+      {
+        id:"ab37434bhbrhf8479302803ndfhbj3",
+        name:"moneyhunters"
+      },
+      {
+        id:"abjdnjdhhf73947nbdjb37384b4373",
+        name:"elites"
+      }
+    ]
+
+    //use the chain actor to get the chain groups data.
+    //confirm whether it takes the userId or the chainId
+    //chainActor.getChain(userId)
+
+    setChainGroups(mockChains)
+
+  },[])
+
+  useEffect(function(){
+    let myFilteredHistory = roundChain.loans.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+    //create the three numbers
+    //user loan
+    //actor.getMemberLoans(userId,chainId)
+    setMyLoanHistory(myFilteredHistory)
+  },[chain])
+
+  useEffect(function(){
+    if(walletBalance > eligibleBalance){
+      setIsBalanceEligible(true)
+    }
+    else{
+      setIsBalanceEligible(false)
+    }
+  },[walletBalance,eligibleBalance])
+
+  useEffect(function(){
+    if(sliderHidden == false){
+      setSliderStyle({
+        visibllity:"visible",
+        display:"flex"
+      })
+    }else{
+      setSliderStyle({
+        visibllity:"hidden",
+        display:"none"
+      })
+    }
+  },[sliderHidden])
+
+  useEffect(function(){
+    if(payHidden == false){
+      setPayStyle({
+        visibllity:"visible",
+        display:"flex"
+      })
+    }else{
+      setPayStyle({
+        visibllity:"hidden",
+        display:"none"
+      })
+    }
+  },[payHidden])
+
+
+  useEffect(() => {
+    const updateDateTime = (): void => {
       const now = new Date();
       setCurrentDateTime(now.toLocaleString('en-US', {
         weekday: 'long',
@@ -119,91 +394,43 @@ const Dashboard = () => {
     return () => clearInterval(dateTimeInterval);
   }, []);
 
-  // Mock data initialization
   useEffect(() => {
-    const mockChain: Chain = {
-      id: 'chain-12345',
-      name: 'Crypto Investors Group',
-      type: 'social',
-      totalRounds: 12,
-      currentRound: 3,
-      roundDuration: 30,
-      startDate: '2023-10-01',
-      totalFunds: 12000,
-      currentFunds: 8500,
-      currency: 'USDC',
-      interestRate: 5,
-      members: [
-        { id: 'm1', name: 'Alex Johnson', walletAddress: '0x742d35Cc...', contributed: true, contributionAmount: 1000, isLender: true, loans: [] },
-        { id: 'm2', name: 'Maria Garcia', walletAddress: '0xab5801a7...', contributed: true, contributionAmount: 1000, isLender: false, loans: [] },
-        { id: 'm3', name: 'James Smith', walletAddress: '0x4bb53b92...', contributed: false, contributionAmount: 1000, isLender: true, loans: [] },
-        { id: 'm4', name: 'Sarah Williams', walletAddress: '0xda9b1a6c...', contributed: true, contributionAmount: 1000, isLender: false, loans: [] },
-        { id: 'm5', name: 'Robert Brown', walletAddress: '0x184f4d2a...', contributed: true, contributionAmount: 1000, isLender: true, loans: [] },
-      ],
-      loans: [
-        { 
-          id: 'loan-001', 
-          borrowerId: 'm2', 
-          lenderId: 'm1', 
-          amount: 500, 
-          interestRate: 5, 
-          status: 'approved',
-          dueDate: '2023-12-15'
-        },
-        { 
-          id: 'loan-002', 
-          borrowerId: 'm4', 
-          lenderId: 'm3', 
-          amount: 800, 
-          interestRate: 5, 
-          status: 'pending',
-          dueDate: '2023-12-20'
-        }
-      ]
-    };
-    
-    // Connect loans to members
-    mockChain.loans.forEach(loan => {
-      const borrower = mockChain.members.find(m => m.id === loan.borrowerId);
-      const lender = mockChain.members.find(m => m.id === loan.lenderId);
+
+    roundChain.loans.forEach(loan => {
+      const borrower = roundChain.members.find(m => m.id === loan.borrowerId);
+      const lender = roundChain.members.find(m => m.id === loan.lenderId);
       
       if (borrower) borrower.loans.push(loan);
       if (lender && lender.id !== borrower?.id) lender.loans.push(loan);
     });
     
-    setChain(mockChain);
+    setChain({...roundChain,userId:authClient?.getIdentity().getPrincipal().toString()});
   }, []);
 
-  // Calculate and update time remaining
   useEffect(() => {
     if (!chain) return;
     
-    const updateTimeRemaining = () => {
+    const updateTimeRemaining = (): void => {
       const start = new Date(chain.startDate);
       const now = new Date();
       
-      // Calculate round end time (current round start + round duration)
       const roundStart = new Date(start);
       roundStart.setDate(start.getDate() + ((chain.currentRound - 1) * chain.roundDuration));
       
       const roundEnd = new Date(roundStart);
       roundEnd.setDate(roundStart.getDate() + chain.roundDuration);
       
-      // Calculate season end time (start + total rounds * duration)
       const seasonEnd = new Date(start);
       seasonEnd.setDate(start.getDate() + (chain.totalRounds * chain.roundDuration));
       
-      // Calculate differences
       const roundDiff = roundEnd.getTime() - now.getTime();
       const seasonDiff = seasonEnd.getTime() - now.getTime();
       
-      // Calculate round time remaining
       const roundDays = Math.floor(roundDiff / (1000 * 60 * 60 * 24));
       const roundHours = Math.floor((roundDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const roundMinutes = Math.floor((roundDiff % (1000 * 60 * 60)) / (1000 * 60));
       const roundSeconds = Math.floor((roundDiff % (1000 * 60)) / 1000);
       
-      // Calculate season time remaining
       const seasonDays = Math.floor(seasonDiff / (1000 * 60 * 60 * 24));
       const seasonHours = Math.floor((seasonDiff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
       const seasonMinutes = Math.floor((seasonDiff % (1000 * 60 * 60)) / (1000 * 60));
@@ -230,7 +457,48 @@ const Dashboard = () => {
     return () => clearInterval(timerInterval);
   }, [chain]);
 
-  // Calculate contribution progress
+  const handleConnect = (principal: string, accountId: string) => {
+    setPrincipal(principal);
+    setAccountId(accountId);
+    setIsConnected(true);
+    fetchBalance();
+    fetchPayments();
+  };
+  
+  const fetchBalance = async () => {
+    if (!isConnected) return;
+    try {
+      const balance = await getICPBalance(network);
+      setBalance(balance);
+      
+      // Store balance in backend
+      const paymentCanister = await getPaymentCanister();
+      await paymentCanister.storeBalance(BigInt(balance * 100000000));
+    } catch (err) {
+      console.error("Failed to fetch balance:", err);
+    }
+  };
+
+  const fetchPayments = async () => {
+    if (!isConnected) return;
+    try {
+      const paymentCanister = await getPaymentCanister();
+      const payments = await paymentCanister.getPayments();
+      setPayments(payments);
+    } catch (err) {
+      console.error("Failed to fetch payments:", err);
+    }
+  };
+
+  const handlePaymentSent = () => {
+    fetchBalance();
+    fetchPayments();
+  };
+
+  const handleBalanceUpdate = (newBalance: number) => {
+    setBalance(newBalance);
+  };
+
   const contributionProgress = chain 
     ? (chain.currentFunds / chain.totalFunds) * 100 
     : 0;
@@ -239,19 +507,16 @@ const Dashboard = () => {
     ? chain.members.filter(m => m.contributed).length 
     : 0;
 
-  // Prepare chart data
-  const getChartData = () => {
+  const getChartData = (): ChartData => {
     if (!chain) return { memberData: [], loanData: [], timelineData: [] };
 
-    // Member contribution data
-    const memberData = chain.members.map(member => ({
+    const memberData: MemberChartData[] = chain.members.map(member => ({
       name: member.name,
       contribution: member.contributionAmount,
       contributed: member.contributed ? 'Yes' : 'No'
     }));
 
-    // Loan status data
-    const loanStatusCount = {
+    const loanStatusCount: LoanStatusCount = {
       pending: 0,
       approved: 0,
       repaid: 0,
@@ -262,13 +527,12 @@ const Dashboard = () => {
       loanStatusCount[loan.status]++;
     });
     
-    const loanData = Object.entries(loanStatusCount).map(([name, value]) => ({
+    const loanData: LoanChartData[] = Object.entries(loanStatusCount).map(([name, value]) => ({
       name,
       value
     }));
 
-    // Timeline data
-    const timelineData = [];
+    const timelineData: TimelineData[] = [];
     const start = new Date(chain.startDate);
     
     for (let i = 0; i < chain.totalRounds; i++) {
@@ -292,32 +556,32 @@ const Dashboard = () => {
 
   const { memberData, loanData, timelineData } = getChartData();
   
-  // Handle wallet connection
-  const handleConnectWallet = () => {
+  const handleConnectWallet = (): void => {
     if (!isWalletConnected) {
-      // In a real app, this would trigger wallet connection flow
-      const mockAddress = '0x742d35Cc6634C893292...';
-      setWalletAddress(mockAddress);
+      //change the mock address to point to a real address 
+      const address = '0x742d35Cc6634C893292...';
+      setWalletAddress(address);
       setIsWalletConnected(true);
-      alert('Wallet connected successfully!');
+
+      //update the member with the id, userName and the wallet address as the third parameter
+      //chainActor.updateMember(useId,userName,walletAddress)
+
+      notification.success('Wallet connected successfully!');
     } else {
       setIsWalletConnected(false);
       setWalletAddress('');
-      alert('Wallet disconnected');
+      notification.error("wallet disconnected")
     }
   };
 
-  // Handle payment processing
-  const handlePaymentProcessing = (provider: string) => {
+  const handlePaymentProcessing = (provider: string): void => {
     setIsProcessingPayment(true);
     setSelectedPaymentProvider(provider);
     
-    // Simulate payment processing
     setTimeout(() => {
       setIsProcessingPayment(false);
       setPaymentSuccess(true);
       
-      // Reset success after 3 seconds
       setTimeout(() => {
         setPaymentSuccess(false);
         handleCompletePayment();
@@ -325,24 +589,40 @@ const Dashboard = () => {
     }, 2000);
   };
   
-  const handleRequestLoan = () => {
+  const handleRequestLoan = (): void => {
+    //save it to the db first.
+    //might use userId or chainId as first parameter
+    /*chainActor.createLoan(chainId,{
+      status:,
+      borrowerId:,
+      dueDate:,
+      lenderId:,
+      interestRate:,
+      amount:,
+    })*/
+
+
+    /*
     if (!loanAmount) return;
-    // In real app, this would create a loan request
+
     alert(`Loan request for ${loanAmount} ${chain?.currency} submitted to the group!`);
-    setLoanAmount('');
+
+    setLoanAmount('');*/
+    notification.success("loan request submitted successfully")
   };
   
-  const handlePayContribution = () => {
+  const handlePayContribution = (): void => {
     if (!chain) return;
-    setPaymentAmount(chain.members[0].contributionAmount);
-    setIsPaymentModalOpen(true);
+    //this method will be useful once I incorporate the direct payment procedure
+    //setPaymentAmount(chain.members[0].contributionAmount);
+    //setIsPaymentModalOpen(true);
+    setPayHidden(false)
+    //use ledger for that then simply update the chain with the relevant data.
   };
   
-  const handleCompletePayment = () => {
-    // In real app, this would process payment
+  const handleCompletePayment = (): void => {
     setIsPaymentModalOpen(false);
     
-    // Update chain state
     if (chain) {
       const updatedMembers = [...chain.members];
       updatedMembers[0].contributed = true;
@@ -353,960 +633,814 @@ const Dashboard = () => {
         members: updatedMembers
       });
     }
+    //use ledger, then update the management canister
   };
+
+  let loanHandler = function(e:any){
+    e.preventDefault()    
+    if (!loanAmount) return;
+    notification.success("loan request received succesfuly, track progress in the loans tab")
+
+    //might use userId or chainId as first parameter
+    //confirm whether thiis function is meant to create or update
+    /*chainActor.createLoan(chainId,{
+      status:,
+      borrowerId:,
+      dueDate:,
+      lenderId:,
+      interestRate:,
+      amount:,
+    })*/
+
+  }
+
+  let inviteSlider = function(e:any){
+    setSliderHidden(false)
+  }
+
+  //share functionality for payment
+  const paymentLink = () => {
+        navigator.clipboard.writeText(inviteLink);
+        notification.success('payment address copied to clipboard!');
+  }
+
+  // Share functionality
+  const shareLink = (platform: string) => {
+    const message = `Join my ${chain?.type === 'social' ? 'SocialChain' : 'GlobalChain'} group: ${inviteLink}`;
+    
+    switch(platform) {
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank');
+        break;
+      case 'telegram':
+        window.open(`https://t.me/share/url?url=${encodeURIComponent(inviteLink)}&text=${encodeURIComponent(message)}`, '_blank');
+        break;
+      case 'facebook':
+        window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(inviteLink)}`, '_blank');
+        break;
+      case 'gmail':
+        window.open(`mailto:?subject=Join my chain group&body=${encodeURIComponent(message)}`, '_blank');
+        break;
+      default:
+        navigator.clipboard.writeText(inviteLink);
+        notification.success('Link copied to clipboard!');
+    }
+  };
+
+  let approveHandler = function(loan:Loan){
+    setEligibleBalance(loan.amount)
+    // isBalanceEligible determines whether the balance in the user's wallet can loan another
+    if(isBalanceEligible){
+      notification.info("approval request received please wait as we process your request")
+      //ledger request,then update the management as well.
+      //after ledger
+      //chainActor.updateLoanStatus(userId,chainId,approved)
+
+      //send the address that's to pay the loab to the backend.
+
+      //after the cash has been released to the chain member, it's updated in the backend and sent back to the system in the loan history      
+    }
+    else{
+      notification.error("you have insufficient funds to loan the rotatechain member")
+    }
+  }
+
+  let repayHandler = function(loan:Loan){
+    //for processing the loaning logic
+    //ledger then management
+  }
   
-  if (!chain) return <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">Loading dashboard...</div>;
-  
+  if (!chain) return <SplashScreen onFinish={() => setShowSplash(false) } />;
+
+  // The JSX portion remains exactly the same as in your original file
+  // I've omitted it here for brevity, but it should be included in your actual file
+  // ...
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
-      {/* Header */}
-      <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl">
-        <div className="max-w-7xl mx-auto px-4 py-6 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold">RotateChain</h1>
-              <p className="text-indigo-200 mt-1 hidden md:flex">Rotational Savings & Trading Platform</p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="text-right">
-                <div className="text-sm text-indigo-200 hidden md:flex ">{currentDateTime}</div>
-                {isWalletConnected && (
-                  <div className="text-xs text-indigo-300 truncate max-w-xs mt-1" title={walletAddress}>
-                    {walletAddress.substring(0, 6)}...{walletAddress.substring(walletAddress.length - 4)}
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50 relative">
+          <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-50">
+            {/* Header */}
+            <header className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-xl">
+              <div className="max-w-7xl mx-auto px-2 py-2 sm:px-3 lg:px-4">
+                <div className="flex justify-between items-center">
+                  <div>
+                    <h1 className="text-3xl font-bold flex gap-2"><FaCoins className="text-2xl text-blue-600"/><span className="hidden lg:flex">RotateChain</span> </h1>
+                    <p className="text-indigo-200 mt-1 hidden lg:flex">Rotational Savings & Trading Platform</p>
                   </div>
-                )}
+                  
+                  <PlugConnect 
+                    onConnect={handleConnect} 
+                    network={network} 
+                  />
+                  
+                  <div className="flex items-center space-x-4">
+                    <div 
+                      className="bg-transoarent flex items-center gap-4 px-4 py-2 rounded-lg "
+                    > 
+                      <span className='hidden md:flex text-xl font-bold text-white'>
+                        my chains  
+                      </span>
+                      <SassyBurgerMenu onLogout={onLogout} chainGroups={mockChains}/>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <button 
-                onClick={handleConnectWallet}
-                className={`px-4 py-2 rounded-lg transition-colors ${
-                  isWalletConnected
-                    ? 'bg-green-600 hover:bg-green-700'
-                    : 'bg-indigo-700 hover:bg-indigo-800'
-                }`}
-              >
-                {isWalletConnected ? 'Connected' : 'Connect Wallet'}
-              </button>
-              <button 
-                className="bg-indigo-700 hover:bg-indigo-800 px-4 py-2 rounded-lg transition-colors"
-                onClick={() => {navigate('/')}}
-              >
-                Back to Groups
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-      
-      {/* Main Dashboard */}
-      <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
-        {/* Chain Info Header */}
-        <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-            <div>
-              <h2 className="text-2xl font-bold text-gray-800">{chain.name}</h2>
-              <div className="flex items-center mt-2">
-                <span className={`px-3 py-1 rounded-full text-xs font-medium ${
-                  chain.type === 'social' 
-                    ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-purple-100 text-purple-800'
-                }`}>
-                  {chain.type === 'social' ? 'SocialChain' : 'GlobalChain'}
-                </span>
-                <span className="ml-3 text-gray-600">
-                  Round {chain.currentRound} of {chain.totalRounds}
-                </span>
-              </div>
-            </div>
+            </header>
             
-            <div className="mt-4 md:mt-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-indigo-50 p-4 rounded-xl">
-                <p className="text-sm text-indigo-700 font-medium">Current Round Ends In</p>
-                <p className="text-xl font-bold text-indigo-900">
-                  {roundTimeRemaining.days}d {roundTimeRemaining.hours}h {roundTimeRemaining.minutes}m {roundTimeRemaining.seconds}s
-                </p>
-              </div>
-              <div className="bg-purple-50 p-4 rounded-xl">
-                <p className="text-sm text-purple-700 font-medium">Season Ends In</p>
-                <p className="text-xl font-bold text-purple-900">
-                  {seasonTimeRemaining.days}d {seasonTimeRemaining.hours}h {seasonTimeRemaining.minutes}m {seasonTimeRemaining.seconds}s
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {/* Stats and Progress */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Funds Progress</h3>
-            <div className="space-y-4">
-              <div>
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-600">Current Funds</span>
-                  <span className="font-medium">{chain.currentFunds} {chain.currency}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-4">
-                  <motion.div 
-                    className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full"
-                    initial={{ width: 0 }}
-                    animate={{ width: `${contributionProgress}%` }}
-                    transition={{ duration: 1 }}
-                  />
-                </div>
-                <div className="text-right text-sm text-gray-500 mt-1">
-                  {contributionProgress.toFixed(1)}% of {chain.totalFunds} {chain.currency}
-                </div>
-              </div>
-              
-              <div className="pt-4 border-t border-gray-100">
-                <div className="flex justify-between mb-1">
-                  <span className="text-gray-600">Members Contributed</span>
-                  <span className="font-medium">{contributedMembers}/{chain.members.length}</span>
-                </div>
-                <div className="w-full bg-gray-200 rounded-full h-4">
-                  <div 
-                    className="bg-gradient-to-r from-green-500 to-emerald-500 h-4 rounded-full" 
-                    style={{ width: `${(contributedMembers / chain.members.length) * 100}%` }}
-                  />
-                </div>
-                {/* Pie Chart Integration */}
-                <div className="flex items-center mt-4">
-                  <div className="w-1/2">
-                    <ResponsiveContainer width="100%" height={120}>
-                      <PieChart>
-                        <Pie
-                          data={[
-                            { name: 'Contributed', value: contributedMembers },
-                            { name: 'Pending', value: chain.members.length - contributedMembers }
-                          ]}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={30}
-                          outerRadius={50}
-                          fill="#8884d8"
-                          paddingAngle={5}
-                          dataKey="value"
-                          label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                        >
-                          <Cell fill={CHART_COLORS.contributed} />
-                          <Cell fill={CHART_COLORS.pending} />
-                        </Pie>
-                        <Tooltip />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="w-1/2 pl-4">
-                    <div className="flex items-center mb-2">
-                      <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-                      <span className="text-sm">Contributed: {contributedMembers}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-                      <span className="text-sm">Pending: {chain.members.length - contributedMembers}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Position</h3>
-            <div className="space-y-4">
-              <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
-                <p className="text-sm text-indigo-700 font-medium">Your Next Rotation</p>
-                <p className="text-2xl font-bold text-indigo-900 mt-1">Round {chain.currentRound + 4}</p>
-                <p className="text-gray-600 text-sm mt-2">
-                  Estimated payout: {chain.members[0].contributionAmount * 1.05} {chain.currency}
-                </p>
-              </div>
-              
-              <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                <div>
-                  <p className="text-gray-600">Your Contribution</p>
-                  <p className="font-bold text-lg">{chain.members[0].contributionAmount} {chain.currency}</p>
-                </div>
-                <button 
-                  onClick={handlePayContribution}
-                  className={`px-4 py-2 rounded-lg font-medium ${
-                    chain.members[0].contributed 
-                      ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
-                      : 'bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:opacity-90'
-                  }`}
-                  disabled={chain.members[0].contributed}
-                >
-                  {chain.members[0].contributed ? 'Paid' : 'Pay Now'}
-                </button>
-              </div>
-            </div>
-          </div>
-          
-          <div className="bg-white rounded-2xl shadow-xl p-6">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
-            <div className="space-y-4">
-              <button 
-                className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
-                onClick={() => setActiveTab('loans')}
-              >
-                Request Loan
-              </button>
-              
-              <button className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity">
-                Invite Members
-              </button>
-              
-              <button 
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
-                onClick={() => setActiveTab('settings')}
-              >
-                Group Settings
-              </button>
-              <button className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity">
-                withdraw funds
-              </button>
-              <button className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity">
-                {/*automatically adds your money to the liquidity pool as it is received for a specific duration after which you can request for additional pooling, till the end of the season.*/}
-                join pool
-              </button>
-
-
-            </div>
-          </div>
-        </div>
-        
-        {/* Tabs */}
-        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
-          <div className="border-b border-gray-200">
-            <nav className="flex -mb-px">
-              {(['overview', 'loans', 'members', 'settings'] as const).map(tab => (
-                <button
-                  key={tab}
-                  className={`py-4 px-6 text-center font-medium text-sm ${
-                    activeTab === tab
-                      ? 'border-b-2 border-indigo-500 text-indigo-600'
-                      : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                  onClick={() => setActiveTab(tab)}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
-            </nav>
-          </div>
-          
-          <div className="p-6">
-            {/* Overview Tab */}
-            {activeTab === 'overview' && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Group Overview</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Main Dashboard */}
+            <main className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
+              {/* Chain Info Header */}
+              <div className="bg-white rounded-2xl shadow-xl p-6 mb-8">
+                <div className="flex flex-col md:flex-row flex-wrap justify-between items-start md:items-center">
                   <div>
-                    <h4 className="font-semibold text-gray-700 mb-3">Recent Activity</h4>
-                    <div className="space-y-4">
-                      {chain.loans.slice(0, 3).map(loan => {
-                        const borrower = chain.members.find(m => m.id === loan.borrowerId);
-                        const lender = chain.members.find(m => m.id === loan.lenderId);
-                        
-                        return (
-                          <div key={loan.id} className="border border-gray-200 rounded-xl p-4">
-                            <div className="flex justify-between">
-                              <div>
-                                <p className="font-medium">
-                                  {borrower?.name} requested a loan of {loan.amount} {chain.currency}
-                                </p>
-                                <p className="text-sm text-gray-500 mt-1">
-                                  Interest: {loan.interestRate}% • Due: {new Date(loan.dueDate).toLocaleDateString()}
-                                </p>
-                              </div>
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                loan.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                                loan.status === 'approved' ? 'bg-blue-100 text-blue-800' :
-                                loan.status === 'repaid' ? 'bg-green-100 text-green-800' :
-                                'bg-red-100 text-red-800'
-                              }`}>
-                                {loan.status}
-                              </span>
-                            </div>
-                            {lender && loan.status !== 'pending' && (
-                              <p className="text-sm text-gray-600 mt-2">
-                                Lender: {lender.name}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                    <h2 className="text-2xl font-bold text-gray-800">{chain.name}</h2>
+                    <div className="flex items-center mt-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                        chain.type === 'social' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-purple-100 text-purple-800'
+                      }`}>
+                        {chain.type === 'social' ? 'SocialChain' : 'GlobalChain'}
+                      </span>
+                      <span className="ml-3 text-gray-600">
+                        Round {chain.currentRound} of {chain.totalRounds}
+                      </span>
                     </div>
                   </div>
                   
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-3">Rotation Schedule</h4>
-                    <div className="bg-gray-50 rounded-xl p-4">
-                      <ResponsiveContainer width="100%" height={300}>
-                        <BarChart
-                          data={timelineData}
-                          layout="vertical"
-                          margin={{ top: 20, right: 30, left: 80, bottom: 20 }}
-                        >
-                          <CartesianGrid strokeDasharray="3 3" />
-                          <XAxis type="number" domain={[0, chain.totalRounds]} />
-                          <YAxis dataKey="round" type="category" />
-                          <Tooltip />
-                          <Bar dataKey="status" barSize={30}>
-                            {timelineData.map((entry, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={
-                                  entry.status === 'completed' ? CHART_COLORS.contributed : 
-                                  entry.status === 'current' ? CHART_COLORS.active : 
-                                  CHART_COLORS.timeline
-                                } 
-                              />
-                            ))}
-                          </Bar>
-                        </BarChart>
-                      </ResponsiveContainer>
+                  <div className="bg-blue-100 p-4 rounded-xl">
+                    <p className="text-sm text-indigo-700 font-medium">payment address</p>
+                    <p className="text-xl font-bold text-indigo-900">
+                      {chain.id}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 md:mt-0 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="bg-indigo-50 p-4 rounded-xl">
+                      <p className="text-sm text-indigo-700 font-medium">Current Round Ends In</p>
+                      <p className="text-xl font-bold text-indigo-900">
+                        {roundTimeRemaining.days}d {roundTimeRemaining.hours}h {roundTimeRemaining.minutes}m {roundTimeRemaining.seconds}s
+                      </p>
+                    </div>
+                    <div className="bg-purple-50 p-4 rounded-xl">
+                      <p className="text-sm text-purple-700 font-medium">Season Ends In</p>
+                      <p className="text-xl font-bold text-purple-900">
+                        {seasonTimeRemaining.days}d {seasonTimeRemaining.hours}h {seasonTimeRemaining.minutes}m {seasonTimeRemaining.seconds}s
+                      </p>
                     </div>
                   </div>
                 </div>
-                
-                {/* Financial Analytics Section */}
-                <div className="mt-8">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Financial Analytics</h3>
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Member Contributions Chart */}
-                    <div className="bg-white rounded-xl shadow p-4">
-                      <h4 className="font-semibold text-lg text-gray-800 mb-4">Member Contributions</h4>
-                      <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <BarChart
-                            data={memberData}
-                            margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" angle={-45} textAnchor="end" height={60} />
-                            <YAxis />
-                            <Tooltip />
-                            <Bar dataKey="contribution" name="Contribution Amount">
-                              {memberData.map((entry, index) => (
-                                <Cell 
-                                  key={`cell-${index}`} 
-                                  fill={entry.contributed === 'Yes' ? CHART_COLORS.contributed : CHART_COLORS.pending} 
-                                />
-                              ))}
-                            </Bar>
-                          </BarChart>
-                        </ResponsiveContainer>
+              </div>
+              
+              {/* Stats and Progress */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+                <div className="bg-white rounded-2xl shadow-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Funds Progress</h3>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-600">Current Funds</span>
+                        <span className="font-medium">{chain.currentFunds} {chain.currency}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-4">
+                        <motion.div 
+                          className="bg-gradient-to-r from-cyan-500 to-blue-500 h-4 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${contributionProgress}%` }}
+                          transition={{ duration: 1 }}
+                        />
+                      </div>
+                      <div className="text-right text-sm text-gray-500 mt-1">
+                        {contributionProgress.toFixed(1)}% of {chain.totalFunds} {chain.currency}
                       </div>
                     </div>
                     
-                    {/* Loan Status Chart */}
-                    <div className="bg-white rounded-xl shadow p-4">
-                      <h4 className="font-semibold text-lg text-gray-800 mb-4">Loan Status Distribution</h4>
-                      <div className="h-80">
-                        <ResponsiveContainer width="100%" height="100%">
-                          <PieChart>
-                            <Pie
-                              data={loanData}
-                              cx="50%"
-                              cy="50%"
-                              labelLine={false}
-                              outerRadius={80}
-                              fill="#8884d8"
-                              dataKey="value"
-                              label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                            >
-                              {loanData.map((entry, index) => (
-                                <Cell 
-                                  key={`cell-${index}`} 
-                                  fill={
-                                    entry.name === 'pending' ? CHART_COLORS.pending :
-                                    entry.name === 'approved' ? CHART_COLORS.approved :
-                                    entry.name === 'repaid' ? CHART_COLORS.repaid :
-                                    CHART_COLORS.defaulted
-                                  } 
-                                />
-                              ))}
-                            </Pie>
-                            <Tooltip />
-                            <Legend />
-                          </PieChart>
-                        </ResponsiveContainer>
+                    <div className="pt-4 border-t border-gray-100">
+                      <div className="flex justify-between mb-1">
+                        <span className="text-gray-600">Members Contributed</span>
+                        <span className="font-medium">{contributedMembers}/{chain.members.length}</span>
+                      </div>
+                      <div className="w-full bg-gray-200 rounded-full h-4">
+                        <div 
+                          className="bg-gradient-to-r from-green-500 to-emerald-500 h-4 rounded-full" 
+                          style={{ width: `${(contributedMembers / chain.members.length) * 100}%` }}
+                        />
                       </div>
                     </div>
+                  </div>
+                </div>
+                
+                <div className="bg-white rounded-2xl shadow-xl p-6">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Your Position</h3>
+                  <div className="space-y-4">
+                    <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
+                      <p className="text-sm text-indigo-700 font-medium">Your Rotation</p>
+                      <p className="text-2xl font-bold text-indigo-900 mt-1">Round {chain.currentRound + 4}</p>
+                      <p className="text-gray-600 text-sm mt-2">
+                        Estimated payout: {chain.members[0].contributionAmount * 1.05} {chain.currency}
+                      </p>
+                    </div>
+                    
+                    <div className="flex justify-between items-center pt-4 border-t border-gray-100">
+                      <div>
+                        <p className="text-gray-600">Your current Contribution</p>
+                        <p className="font-bold text-lg">{chain.members[2].contributionAmount} {chain.currency}</p>
+                      </div>
+                      <button 
+                        onClick={handlePayContribution}
+                        className={`px-4 py-2 rounded-lg font-medium ${
+                          chain.members[0].contributed 
+                            ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-blue-500 to-purple-500 text-white hover:opacity-90'
+                        }`}
+                        disabled={chain.members[2].contributed}
+                      >
+                        {chain.members[2].contributed ? 'Paid' : 'Pay Now'}
+                      </button>
+                    </div>
+                    <div className="flex justify-between items-center pt-4 border-t border-blue-100">
+                      <div>
+                        <p className="text-blue-600">Your current loan</p>
+                        <p className="font-bold text-lg">{chain.members[0].contributionAmount} {chain.currency}</p>
+                      </div>
+                      <button 
+                        onClick={handlePayContribution}
+                        className={`px-4 py-2 rounded-lg font-medium ${
+                          chain.members[0].contributed 
+                            ? 'bg-slate-200 text-blue-500 cursor-not-allowed' 
+                            : 'bg-gradient-to-r from-violet-500 to-pink-500 text-white hover:opacity-90'
+                        }`}
+                        disabled={chain.members[0].contributed}
+                      >
+                        {chain.members[0].contributed ? 'Paid' : 'Pay Now'}
+                      </button>
+                    </div>
+                    <div style={payStyle} className="flex-col relative mt-6">
+                      <h3 className=" font-medium text-blue-800 mb-3 flex justify-between "> <span>pay via address</span><FaRegWindowClose onClick={(e:any) => {return setSliderHidden(true)}} className='text-red-600 text-2xl' /></h3>
+                      <div   className=" items-center justify-between bg-white p-3 rounded-lg border border-blue-200 mb-4">
+                        <div className="truncate text-sm text-gray-600 mr-2">
+                          {chain.id}
+                        </div>
+                        <button 
+                          onClick={() => paymentLink()}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                    </div>
+
+
+                  </div>
+                </div>
+                
+                <div className="h-auto bg-white rounded-2xl shadow-xl p-6 overflow-hidden">
+                  <h3 className="text-lg font-semibold text-gray-800 mb-4">Quick Actions</h3>
+                  <div className="space-y-4">
+                    <button 
+                      className="w-full bg-gradient-to-r from-cyan-500 to-blue-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                      onClick={() => setActiveTab('loans')}
+                    >
+                      Request Loan
+                    </button>
+                    
+                    <button onClick={inviteSlider}  className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity">
+                      Invite Members
+                    </button>
+                    <div style={sliderStyle} className="flex-col relative mt-6">
+                      <h3 className=" font-medium text-blue-800 mb-3 flex justify-between "> <span>Invite Members</span><FaRegWindowClose onClick={(e:any) => {return setSliderHidden(true)}} className='text-red-600 text-2xl' /></h3>
+                      <div   className=" items-center justify-between bg-white p-3 rounded-lg border border-blue-200 mb-4">
+                        <div className="truncate text-sm text-gray-600 mr-2">
+                          {inviteLink}
+                        </div>
+                        <button 
+                          onClick={() => shareLink('copy')}
+                          className="text-blue-500 hover:text-blue-700"
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+                          </svg>
+                        </button>
+                      </div>
+                      
+                      <div className="flex justify-center space-x-4">
+                        <button onClick={() => shareLink('whatsapp')} className="p-2 rounded-full bg-green-100 hover:bg-green-200">
+                          <svg className="w-6 h-6 text-green-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
+                          </svg>
+                        </button>
+                        <button onClick={() => shareLink('telegram')} className="p-2 rounded-full bg-blue-100 hover:bg-blue-200">
+                          <svg className="w-6 h-6 text-blue-500" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm5.894 8.221l-1.97 9.28c-.145.658-.537.818-1.084.508l-3-2.21-1.447 1.394c-.14.141-.259.259-.374.264l.213-3.053 5.56-5.022c.24-.213-.054-.334-.373-.121l-6.869 4.326-2.96-.924c-.64-.203-.658-.64.136-.954l11.566-4.458c.538-.196 1.006.128.832.941z"/>
+                          </svg>
+                        </button>
+                        <button onClick={() => shareLink('facebook')} className="p-2 rounded-full bg-blue-100 hover:bg-blue-200">
+                          <svg className="w-6 h-6 text-blue-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M22.675 0h-21.35c-.732 0-1.325.593-1.325 1.325v21.351c0 .731.593 1.324 1.325 1.324h11.495v-9.294h-3.128v-3.622h3.128v-2.671c0-3.1 1.893-4.788 4.659-4.788 1.325 0 2.463.099 2.795.143v3.24l-1.918.001c-1.504 0-1.795.715-1.795 1.763v2.313h3.587l-.467 3.622h-3.12v9.293h6.116c.73 0 1.323-.593 1.323-1.325v-21.35c0-.732-.593-1.325-1.325-1.325z"/>
+                          </svg>
+                        </button>
+                        <button onClick={() => shareLink('gmail')} className="p-2 rounded-full bg-red-100 hover:bg-red-200">
+                          <svg className="w-6 h-6 text-red-600" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 0c-6.627 0-12 5.373-12 12s5.373 12 12 12 12-5.373 12-12-5.373-12-12-12zm4.441 16.892c-2.102.144-6.784.144-8.883 0-2.276-.156-2.541-1.27-2.558-4.892.017-3.629.285-4.736 2.558-4.892 2.099-.144 6.782-.144 8.883 0 2.277.156 2.541 1.27 2.559 4.892-.018 3.629-.285 4.736-2.559 4.892zm-6.441-7.234l4.917 2.338-4.917 2.346v-4.684z"/>
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
+                    <div className="w-full h-auto relative">
+                      <button
+                        onClick={() => setShowPopup(true)}
+                        className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-full shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-105"
+                      >
+                        Show Me How to Buy ICP!
+                      </button>
+                
+                      {showPopup && <ICPShoppingPopup onClose={() => setShowPopup(false)} />}                    
+                    </div>
+                    
+                    <button 
+                      className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
+                      onClick={() => setActiveTab('settings')}
+                    >
+                      Group Settings
+                    </button>
                   </div>
                 </div>
               </div>
-            )}
-            
-            {/* Loans Tab */}
-            {activeTab === 'loans' && (
-              <div>
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
-                  <h3 className="text-xl font-bold text-gray-800">Loan Management</h3>
-                  <button 
-                    className="mt-4 md:mt-0 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:opacity-90"
-                  >
-                    Request New Loan
-                  </button>
+              
+              {/* Tabs */}
+              <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-8">
+                <div className="border-b border-gray-200">
+                  <nav className="flex -mb-px">
+                    {(['overview', 'loans', 'members', 'settings'] as const).map(tab => (
+                      <button
+                        key={tab}
+                        className={`py-4 px-6 text-center font-medium text-sm ${
+                          activeTab === tab
+                            ? 'border-b-2 border-indigo-500 text-indigo-600'
+                            : 'text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                        }`}
+                        onClick={() => setActiveTab(tab)}
+                      >
+                        {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                      </button>
+                    ))}
+                  </nav>
                 </div>
                 
-                <div className="space-y-6">
-                  {/* Loan Request Form */}
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
-                    <h4 className="font-semibold text-indigo-800 mb-4">Request a Loan</h4>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-1">Amount ({chain.currency})</label>
-                        <input
-                          type="number"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          value={loanAmount}
-                          onChange={(e) => setLoanAmount(e.target.value)}
-                          placeholder="e.g. 500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-1">Duration (days)</label>
-                        <select
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          value={loanDuration}
-                          onChange={(e) => setLoanDuration(Number(e.target.value))}
-                        >
-                          <option value={15}>15 days</option>
-                          <option value={30}>30 days</option>
-                          <option value={60}>60 days</option>
-                          <option value={90}>90 days</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-1">Interest Rate</label>
-                        <div className="flex items-center">
-                          <input
-                            type="text"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            value={`${chain.interestRate}%`}
-                            readOnly
-                          />
-                          <span className="ml-2 text-sm text-gray-500">Fixed</span>
-                        </div>
-                      </div>
-                    </div>
-                    <button
-                      onClick={handleRequestLoan}
-                      className="mt-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-2 rounded-lg font-medium hover:opacity-90"
-                    >
-                      Submit Loan Request
-                    </button>
-                  </div>
-                  
-                  {/* Active Loans */}
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-4">Active Loans</h4>
-                    {chain.loans.filter(loan => loan.status !== 'repaid' && loan.status !== 'defaulted').length > 0 ? (
-                      <div className="space-y-4">
-                        {chain.loans.map(loan => {
-                          if (loan.status === 'repaid' || loan.status === 'defaulted') return null;
-                          
-                          const borrower = chain.members.find(m => m.id === loan.borrowerId);
-                          const lender = chain.members.find(m => m.id === loan.lenderId);
-                          
-                          return (
-                            <div key={loan.id} className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
-                              <div className="flex justify-between items-start">
-                                <div>
-                                  <p className="font-medium">
-                                    {borrower?.name} borrowed {loan.amount} {chain.currency}
-                                  </p>
-                                  <p className="text-sm text-gray-500 mt-1">
-                                    Interest: {loan.interestRate}% • Due: {new Date(loan.dueDate).toLocaleDateString()}
-                                  </p>
-                                </div>
-                                <span className={`px-2 py-1 rounded text-xs ${
-                                  loan.status === 'pending' ? 'bg-amber-100 text-amber-800' :
-                                  'bg-blue-100 text-blue-800'
-                                }`}>
-                                  {loan.status}
-                                </span>
-                              </div>
-                              
-                              {lender && loan.status !== 'pending' && (
-                                <p className="text-sm text-gray-600 mt-2">
-                                  Lender: {lender.name}
-                                </p>
-                              )}
-                              
-                              {/* Fund Flow Visualization */}
-                              <div className="mt-4">
-                                <div className="flex justify-between items-center mb-2">
-                                  <div className="flex items-center">
-                                    <div className="bg-gray-200 border-2 border-dashed rounded-full w-8 h-8 mr-2" />
-                                    <span>{lender?.name || 'Available Lender'}</span>
-                                  </div>
-                                  <div className="flex items-center">
-                                    <span>{borrower?.name}</span>
-                                    <div className="bg-gray-200 border-2 border-dashed rounded-full w-8 h-8 ml-2" />
-                                  </div>
-                                </div>
-                                
-                                <div className="relative pt-4">
-                                  <div className="absolute inset-0 flex items-center">
-                                    <div className="w-full border-t border-gray-300 border-dashed"></div>
-                                  </div>
-                                  <div className="relative flex justify-between">
-                                    <div className="bg-white pr-4">
-                                      <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center">
-                                        <span className="text-white text-xs">L</span>
-                                      </div>
-                                    </div>
-                                    <div className="bg-white px-4">
-                                      <motion.div
-                                        animate={{ x: [0, 20, 0] }}
-                                        transition={{ repeat: Infinity, duration: 2 }}
-                                        className="w-6 h-6 rounded-full bg-green-500 flex items-center justify-center"
-                                      >
-                                        <span className="text-white text-xs">$</span>
-                                      </motion.div>
-                                    </div>
-                                    <div className="bg-white pl-4">
-                                      <div className="w-6 h-6 rounded-full bg-purple-500 flex items-center justify-center">
-                                        <span className="text-white text-xs">B</span>
-                                      </div>
-                                    </div>
-                                  </div>
-                                </div>
-                                
-                                <div className="text-center mt-2 text-sm text-gray-500">
-                                  {loan.amount} {chain.currency} transfer
-                                </div>
-                              </div>
-                              
-                              {loan.borrowerId === chain.members[0].id && loan.status === 'approved' && (
-                                <div className="mt-4 flex justify-end">
-                                  <button className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-                                    Repay Loan
-                                  </button>
-                                </div>
-                              )}
-                              
-                              {loan.status === 'pending' && loan.lenderId !== chain.members[0].id && (
-                                <div className="mt-4 flex space-x-3 justify-end">
-                                  <button className="bg-gradient-to-r from-red-500 to-rose-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-                                    Decline
-                                  </button>
-                                  <button className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
-                                    Approve & Fund
-                                  </button>
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl">
-                        <p className="text-gray-500">No active loans in your group</p>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Loan History */}
-                  <div>
-                    <h4 className="font-semibold text-gray-700 mb-4">Loan History</h4>
-                    {chain.loans.filter(loan => loan.status === 'repaid' || loan.status === 'defaulted').length > 0 ? (
-                      <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                          <thead className="bg-gray-50">
-                            <tr>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Borrower</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lender</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
-                            </tr>
-                          </thead>
-                          <tbody className="bg-white divide-y divide-gray-200">
-                            {chain.loans.map(loan => {
-                              if (loan.status !== 'repaid' && loan.status !== 'defaulted') return null;
-                              
+                <div className="p-6">
+                  {/* Overview Tab */}
+                  {activeTab === 'overview' && (
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-4">Group Overview</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-3">Recent Activity</h4>
+                          <div className="space-y-4">
+                            {chain.loans.slice(0, 3).map(loan => {
                               const borrower = chain.members.find(m => m.id === loan.borrowerId);
                               const lender = chain.members.find(m => m.id === loan.lenderId);
                               
                               return (
-                                <tr key={loan.id}>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{borrower?.name}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lender?.name}</td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                    {loan.amount} {chain.currency}
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap">
+                                <div key={loan.id} className="border border-gray-200 rounded-xl p-4">
+                                  <div className="flex justify-between">
+                                    <div>
+                                      <p className="font-medium">
+                                        {borrower?.name} requested a loan of {loan.amount} {chain.currency}
+                                      </p>
+                                      <p className="text-sm text-gray-500 mt-1">
+                                        Interest: {loan.interestRate}% • Due: {new Date(loan.dueDate).toLocaleDateString()}
+                                      </p>
+                                    </div>
                                     <span className={`px-2 py-1 rounded text-xs ${
-                                      loan.status === 'repaid' 
-                                        ? 'bg-green-100 text-green-800' 
-                                        : 'bg-red-100 text-red-800'
-                                    }`}>
-                                      {loan.status}
-                                    </span>
-                                  </td>
-                                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {loan.repaymentDate 
-                                      ? new Date(loan.repaymentDate).toLocaleDateString() 
-                                      : new Date(loan.dueDate).toLocaleDateString()}
-                                  </td>
-                                </tr>
-                              );
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-center py-8 bg-gray-50 rounded-xl">
-                        <p className="text-gray-500">No loan history available</p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            {/* Members Tab */}
-            {activeTab === 'members' && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Group Members</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  {chain.members.map(member => (
-                    <div key={member.id} className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
-                      <div className="flex items-start">
-                        <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
-                        <div className="ml-4 flex-1">
-                          <div className="flex justify-between">
-                            <h4 className="font-semibold text-gray-800">{member.name}</h4>
-                            {member.isLender && (
-                              <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
-                                Lender
-                              </span>
-                            )}
-                          </div>
-                          
-                          <p className="text-sm text-gray-600 mt-1 truncate" title={member.walletAddress}>
-                            {member.walletAddress}
-                          </p>
-                          
-                          <div className="mt-3 flex items-center justify-between">
-                            <span className={`text-sm ${
-                              member.contributed 
-                                ? 'text-green-600' 
-                                : 'text-amber-600'
-                            }`}>
-                              {member.contributed ? 'Contributed' : 'Pending'}
-                            </span>
-                            <span className="font-medium">
-                              {member.contributionAmount} {chain.currency}
-                            </span>
-                          </div>
-                          
-                          {/* Contribution Visualization */}
-                          <div className="mt-3">
-                            <div className="flex justify-between mb-1">
-                              <span className="text-sm text-gray-600">Contribution Status</span>
-                            </div>
-                            <div className="w-full bg-gray-200 rounded-full h-2">
-                              <div 
-                                className={`h-2 rounded-full ${
-                                  member.contributed ? 'bg-green-500' : 'bg-red-500'
-                                }`} 
-                                style={{ width: member.contributed ? '100%' : '30%' }}
-                              ></div>
-                            </div>
-                          </div>
-                          
-                          {member.loans.length > 0 && (
-                            <div className="mt-3 pt-3 border-t border-gray-100">
-                              <p className="text-xs text-gray-500 uppercase mb-1">Loans</p>
-                              <div className="flex flex-wrap gap-2">
-                                {member.loans.slice(0, 4).map(loan => (
-                                  <div 
-                                    key={loan.id}
-                                    className={`px-2 py-1 rounded text-xs ${
                                       loan.status === 'pending' ? 'bg-amber-100 text-amber-800' :
                                       loan.status === 'approved' ? 'bg-blue-100 text-blue-800' :
                                       loan.status === 'repaid' ? 'bg-green-100 text-green-800' :
                                       'bg-red-100 text-red-800'
-                                    }`}
-                                    title={`${loan.status} ${loan.amount} ${chain.currency}`}
-                                  >
-                                    {loan.amount} {chain.currency}
+                                    }`}>
+                                      {loan.status}
+                                    </span>
                                   </div>
-                                ))}
-                                {member.loans.length > 4 && (
-                                  <div className="px-2 py-1 rounded text-xs bg-gray-100">
-                                    +{member.loans.length - 4}
+                                  {lender && loan.status !== 'pending' && (
+                                    <p className="text-sm text-gray-600 mt-2">
+                                      Lender: {lender.name}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-3">Rotation Schedule</h4>
+                          <div className="bg-gray-50 rounded-xl p-4">
+                            <div className="relative pt-4">
+                              {[...Array(chain.totalRounds)].map((_, i) => (
+                                <div 
+                                  key={i} 
+                                  className={`flex items-center pb-8 ${
+                                    i < chain.totalRounds - 1 ? 'border-l-2 border-gray-300 border-dashed' : ''
+                                  } pl-6 relative`}
+                                >
+                                  <div className={`absolute -left-1.5 w-6 h-6 rounded-full flex items-center justify-center ${
+                                    i < chain.currentRound 
+                                      ? 'bg-green-500 text-white' 
+                                      : i === chain.currentRound
+                                      ? 'bg-blue-500 text-white'
+                                      : 'bg-gray-300'
+                                  }`}>
+                                    {i + 1}
                                   </div>
-                                )}
+                                  <div className="ml-4">
+                                    <p className="font-medium">
+                                      Round {i + 1} {i < chain.currentRound ? '(Completed)' : i === chain.currentRound ? '(Current)' : ''}
+                                    </p>
+                                    <p className="text-sm text-gray-500">
+                                      {i === chain.currentRound ? `Ends in ${roundTimeRemaining.days} days` : ''}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                  
+                  {/* Loans Tab */}
+                  {activeTab === 'loans' && (
+                    <div>
+                      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6">
+                        <h3 className="text-xl font-bold text-gray-800">Loan Management</h3>
+                        <button 
+                          className="mt-4 md:mt-0 bg-gradient-to-r from-cyan-500 to-blue-500 text-white px-4 py-2 rounded-lg font-medium hover:opacity-90"
+                        >
+                          Request New Loan
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-6">
+                        {/* Loan Request Form */}
+                        <form onSubmit={loanHandler} className="bg-indigo-50 border border-indigo-100 rounded-xl p-6">
+                          <h4 className="font-semibold text-indigo-800 mb-4">Request a Loan</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                              <label className="block text-gray-700 text-sm font-medium mb-1">Amount ({chain.currency})</label>
+                              <input
+                                type="number"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                value={loanAmount}
+                                onChange={(e) => setLoanAmount(e.target.value)}
+                                placeholder="e.g. 500"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-gray-700 text-sm font-medium mb-1">Duration (days)</label>
+                              <div
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                              >
+                                {chain.roundDuration}
                               </div>
+                            </div>
+                            <div>
+                              <label className="block text-gray-700 text-sm font-medium mb-1">Interest Rate</label>
+                              <div className="flex items-center">
+                                <input
+                                  type="text"
+                                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                  value={`${chain.interestRate}%`}
+                                  readOnly
+                                />
+                                <span className="ml-2 text-sm text-gray-500">Fixed</span>
+                              </div>
+                            </div>
+                          </div>
+                          <button
+                            onClick={handleRequestLoan} type='submit'
+                            className="mt-4 bg-gradient-to-r from-indigo-500 to-purple-500 text-white px-6 py-2 rounded-lg font-medium hover:opacity-90"
+                          >
+                            Submit Loan Request
+                          </button>
+                        </form>
+                        
+                        {/* Active Loans */}
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-4">Active Loans</h4>
+                          {chain.loans.filter(loan => loan.status !== 'repaid' && loan.status !== 'defaulted').length > 0 ? (
+                            <div className="space-y-4">
+                              {chain.loans.map(loan => {
+                                if (loan.status === 'repaid' || loan.status === 'defaulted') return null;
+                                
+                                const borrower = chain.members.find(m => m.id === loan.borrowerId);
+                                const lender = chain.members.find(m => m.id === loan.lenderId);
+                                
+                                return (
+                                  <div key={loan.id} className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
+                                    <div className="flex justify-between items-start">
+                                      <div>
+                                        <p className="font-medium">
+                                          {borrower?.name} borrowed {loan.amount} {chain.currency}
+                                        </p>
+                                        <p className="text-sm text-gray-500 mt-1">
+                                          Interest: {loan.interestRate}% • Due: {new Date(loan.dueDate).toLocaleDateString()}
+                                        </p>
+                                      </div>
+                                      <span className={`px-2 py-1 rounded text-xs ${
+                                        loan.status === 'pending' ? 'bg-amber-100 text-amber-800' :
+                                        'bg-blue-100 text-blue-800'
+                                      }`}>
+                                        {loan.status}
+                                      </span>
+                                    </div>
+                                    
+                                    {lender && loan.status !== 'pending' && (
+                                      <p className="text-sm text-gray-600 mt-2">
+                                        Lender: {lender.name}
+                                      </p>
+                                    )}
+                                    
+                                    {loan.borrowerId === chain.members[0].id && loan.status === 'approved' && (
+                                      <div className="mt-4 flex justify-end">
+                                        <button onClick={(e:any) => repayHandler(loan)}  className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+                                          Repay Loan
+                                        </button>
+                                      </div>
+                                    )}
+                                    
+                                    {loan.status === 'pending' && loan.lenderId !== chain.members[0].id && (
+                                      <div className="mt-4 flex space-x-3 justify-end">
+                                        <button onClick={(e:any) => approveHandler(loan)} className="bg-gradient-to-r from-emerald-500 to-green-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:opacity-90">
+                                          Approve & Fund
+                                        </button>
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl">
+                              <p className="text-gray-500">No active loans in your group</p>
+                            </div>
+                          )}
+                        </div>
+                        
+                        {/* Loan History */}
+                        <div>
+                          <h4 className="font-semibold text-gray-700 mb-4">Loan History</h4>
+                          {chain.loans.filter(loan => loan.borrowerId === chain.userId || loan.lenderId === chain.userId).length > 0 ? (
+                            <div className="overflow-x-auto">
+                              <table className="min-w-full divide-y divide-gray-200">
+                                <thead className="bg-gray-50">
+                                  <tr>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Borrower</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Lender</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                                  </tr>
+                                </thead>
+                                <tbody className="bg-white divide-y divide-gray-200">
+                                  {myLoanHistory.map(loan => {
+                                    //all of them to be displayed
+                                    //if (loan.status !== 'repaid' && loan.status !== 'defaulted') return null;
+                                    
+                                    const borrower = chain.members.find(m => m.id === loan.borrowerId);
+                                    const lender = chain.members.find(m => m.id === loan.lenderId);
+                                    
+                                    return (
+                                      <tr key={loan.id}>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{borrower?.name}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{lender?.name}</td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                          {loan.amount} {chain.currency}
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap">
+                                          <span className={`px-2 py-1 rounded text-xs ${
+                                            loan.status === 'repaid' 
+                                              ? 'bg-green-100 text-green-800' 
+                                              : 'bg-red-100 text-red-800'
+                                          }`}>
+                                            {loan.status}
+                                          </span>
+                                        </td>
+                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                          {loan.repaymentDate 
+                                            ? new Date(loan.repaymentDate).toLocaleDateString() 
+                                            : new Date(loan.dueDate).toLocaleDateString()}
+                                        </td>
+                                      </tr>
+                                    );
+                                  })}
+                                </tbody>
+                              </table>
+                            </div>
+                          ) : (
+                            <div className="text-center py-8 bg-gray-50 rounded-xl">
+                              <p className="text-gray-500">No loan history available</p>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Settings Tab */}
-            {activeTab === 'settings' && (
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 mb-4">Group Settings</h3>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="bg-white border border-gray-200 rounded-xl p-6">
-                    <h4 className="font-semibold text-gray-800 mb-4">Chain Configuration</h4>
-                    
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-1">Group Name</label>
-                        <input
-                          type="text"
-                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                          value={chain.name}
-                          onChange={(e) => setChain({ ...chain, name: e.target.value })}
-                        />
-                      </div>
+                  )}
+                  
+                  {/* Members Tab */}
+                  {activeTab === 'members' && (
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-4">Group Members</h3>
                       
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-1">Contribution Amount</label>
-                        <div className="flex">
-                          <input
-                            type="number"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-l-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            value={chain.members[0].contributionAmount}
-                            onChange={(e) => {
-                              const updatedMembers = [...chain.members];
-                              updatedMembers[0].contributionAmount = Number(e.target.value);
-                              setChain({ ...chain, members: updatedMembers });
-                            }}
-                          />
-                          <div className="bg-gray-100 px-4 py-2 border-t border-b border-r border-gray-300 rounded-r-lg">
-                            {chain.currency}
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {chain.members.map(member => (
+                          <div key={member.id} className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow">
+                            <div className="flex items-start">
+                              <div className="bg-gray-200 border-2 border-dashed rounded-xl w-16 h-16" />
+                              <div className="ml-4 flex-1">
+                                <div className="flex justify-between">
+                                  <h4 className="font-semibold text-gray-800">{member.name}</h4>
+                                  {member.isLender && (
+                                    <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
+                                      Lender
+                                    </span>
+                                  )}
+                                </div>
+                                
+                                <p className="text-sm text-gray-600 mt-1 truncate" title={member.walletAddress}>
+                                  {member.walletAddress}
+                                </p>
+                                
+                                <div className="mt-3 flex items-center justify-between">
+                                  <span className={`text-sm ${
+                                    member.contributed 
+                                      ? 'text-green-600' 
+                                      : 'text-amber-600'
+                                  }`}>
+                                    {member.contributed ? 'Contributed' : 'Pending'}
+                                  </span>
+                                  <span className="font-medium">
+                                    {member.contributionAmount} {chain.currency}
+                                  </span>
+                                </div>
+                                
+                                {member.loans.length > 0 && (
+                                  <div className="mt-3 pt-3 border-t border-gray-100">
+                                    <p className="text-xs text-gray-500 uppercase mb-1">Loans</p>
+                                    {member.loans.map(loan => (
+                                      <div key={loan.id} className="text-sm text-gray-700">
+                                        {loan.status === 'pending' ? 'Requested' : loan.status} {loan.amount} {chain.currency}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           </div>
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <label className="block text-gray-700 text-sm font-medium mb-1">Interest Rate</label>
-                        <div className="flex items-center">
-                          <input
-                            type="number"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                            value={chain.interestRate}
-                            onChange={(e) => setChain({ ...chain, interestRate: Number(e.target.value) })}
-                          />
-                          <span className="ml-2 text-gray-500">%</span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <div className="bg-white border border-gray-200 rounded-xl p-6">
-                    <h4 className="font-semibold text-gray-800 mb-4">Danger Zone</h4>
-                    
-                    <div className="space-y-4">
-                      <div className="border border-red-200 bg-red-50 rounded-lg p-4">
-                        <h5 className="font-medium text-red-800">Leave Group</h5>
-                        <p className="text-sm text-red-600 mt-1">
-                          You will lose access to the group and any funds already contributed
-                        </p>
-                        <button className="mt-3 border border-red-500 text-red-500 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-50">
-                          Leave Group
-                        </button>
-                      </div>
-                      
-                      {chain.members[0].isLender && (
-                        <div className="border border-amber-200 bg-amber-50 rounded-lg p-4">
-                          <h5 className="font-medium text-amber-800">Transfer Ownership</h5>
-                          <p className="text-sm text-amber-700 mt-1">
-                            Transfer admin rights to another group member
-                          </p>
-                          <select className="mt-2 w-full px-4 py-2 border border-amber-300 rounded-lg bg-white">
-                            <option>Select a member</option>
-                            {chain.members.slice(1).map(member => (
-                              <option key={member.id} value={member.id}>
-                                {member.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button className="mt-3 bg-amber-500 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-600">
-                            Transfer Ownership
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      </main>
-      
-      {/* Payment Modal */}
-      {isPaymentModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
-            <div className="p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Complete Payment</h3>
-                <button 
-                  onClick={() => {
-                    setIsPaymentModalOpen(false);
-                    setIsProcessingPayment(false);
-                    setPaymentSuccess(false);
-                  }}
-                  className="text-gray-500 hover:text-gray-700"
-                  disabled={isProcessingPayment}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <div className="bg-gray-50 rounded-xl p-4 mb-6">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">Amount Due</span>
-                  <span className="font-bold text-lg">{paymentAmount} {chain?.currency}</span>
-                </div>
-                <p className="text-sm text-gray-500">Round {chain?.currentRound} Contribution</p>
-              </div>
-              
-              {!isProcessingPayment && !paymentSuccess && (
-                <>
-                  <div className="mb-6">
-                    <h4 className="font-medium text-gray-700 mb-3">Select Payment Method</h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <button
-                        className={`border-2 rounded-xl p-4 flex flex-col items-center ${
-                          paymentMethod === 'wallet' 
-                            ? 'border-indigo-500 bg-indigo-50' 
-                            : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        onClick={() => setPaymentMethod('wallet')}
-                      >
-                        <div className="text-2xl mb-2">💰</div>
-                        <span className="font-medium">Crypto Wallet</span>
-                      </button>
-                      
-                      <button
-                        className={`border-2 rounded-xl p-4 flex flex-col items-center ${
-                          paymentMethod === 'paypal' 
-                            ? 'border-indigo-500 bg-indigo-50' 
-                            : 'border-gray-300 hover:border-gray-400'
-                        }`}
-                        onClick={() => setPaymentMethod('paypal')}
-                      >
-                        <div className="text-2xl mb-2">🔵</div>
-                        <span className="font-medium">PayPal</span>
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {/* Payment Providers */}
-                  {paymentMethod === 'paypal' && (
-                    <div className="mb-6">
-                      <h4 className="font-medium text-gray-700 mb-3">Select Payment Provider</h4>
-                      <div className="grid grid-cols-3 gap-3">
-                        {PAYMENT_PROVIDERS.map(provider => (
-                          <button
-                            key={provider.id}
-                            className="border border-gray-300 rounded-lg p-3 flex flex-col items-center hover:bg-gray-50 transition-colors"
-                            onClick={() => handlePaymentProcessing(provider.id)}
-                          >
-                            <div className="text-2xl mb-1">{provider.icon}</div>
-                            <span className="text-sm">{provider.name}</span>
-                          </button>
                         ))}
                       </div>
                     </div>
                   )}
                   
-                  {/* Wallet Payment */}
-                  {paymentMethod === 'wallet' && (
-                    <div className="mb-6">
-                      <h4 className="font-medium text-gray-700 mb-3">Connect Wallet</h4>
-                      <div className="space-y-3">
-                        <button
-                          className="w-full flex items-center justify-center border border-gray-300 rounded-lg p-3 hover:bg-gray-50"
-                          onClick={() => handlePaymentProcessing('metamask')}
-                        >
-                          <span className="text-2xl mr-2">🦊</span>
-                          <span>Pay with MetaMask</span>
-                        </button>
-                        <button
-                          className="w-full flex items-center justify-center border border-gray-300 rounded-lg p-3 hover:bg-gray-50"
-                          onClick={() => handlePaymentProcessing('coinbase')}
-                        >
-                          <span className="text-2xl mr-2">🟡</span>
-                          <span>Pay with Coinbase Wallet</span>
-                        </button>
-                        {isWalletConnected && (
-                          <button
-                            className="w-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white py-3 rounded-lg font-medium hover:opacity-90"
-                            onClick={() => handlePaymentProcessing('connected')}
-                          >
-                            Pay with Connected Wallet
-                          </button>
-                        )}
+                  {/* Settings Tab */}
+                  {activeTab === 'settings' && (
+                    <div>
+                      <h3 className="text-xl font-bold text-gray-800 mb-4">Group Settings</h3>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="bg-white border border-gray-200 rounded-xl p-6">
+                          <h4 className="font-semibold text-gray-800 mb-4">user configuration</h4>
+                          
+                          <div className="space-y-4">
+                            <div>
+                              <label className="block text-gray-700 text-sm font-medium mb-1">User Name</label>
+                              <input
+                                type="text"
+                                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                value={chain.userName}
+                                onChange={(e) => setChain({ ...chain, userName: e.target.value })}
+                              />
+                            </div>
+                                                        
+                          </div>
+                        </div>
+                        
+                        <div className="bg-white border border-gray-200 rounded-xl p-6">
+                          <h4 className="font-semibold text-gray-800 mb-4">Danger Zone</h4>
+                          
+                          <div className="space-y-4">
+                            <div className="border border-red-200 bg-red-50 rounded-lg p-4">
+                              <h5 className="font-medium text-red-800">Leave Group</h5>
+                              <p className="text-sm text-red-600 mt-1">
+                                You will lose access to the group and any funds already contributed for this round. Note that you can't leave if you have any pending loans.
+                              </p>
+                              <button className="mt-3 border border-red-500 text-red-500 px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-50">
+                                Leave Group
+                              </button>
+                            </div>
+                            
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
-                </>
-              )}
-              
-              {/* Payment Processing State */}
-              {isProcessingPayment && (
-                <div className="flex flex-col items-center py-8">
-                  <div className="animate-spin rounded-full h-16 w-16 border-t-2 border-b-2 border-indigo-500 mb-4"></div>
-                  <p className="text-gray-700">Processing payment via {PAYMENT_PROVIDERS.find(p => p.id === selectedPaymentProvider)?.name || 'wallet'}...</p>
                 </div>
-              )}
-              
-              {/* Payment Success State */}
-              {paymentSuccess && (
-                <div className="flex flex-col items-center py-8">
-                  <div className="w-16 h-16 bg-green-500 rounded-full flex items-center justify-center mb-4">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
+              </div>
+            </main>
+            
+            {/* Payment Modal */}
+            {isPaymentModalOpen && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+                  <div className="p-6">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-xl font-bold text-gray-800">Complete Payment</h3>
+                      <button 
+                        onClick={() => setIsPaymentModalOpen(false)}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    
+                    <div className="bg-gray-50 rounded-xl p-4 mb-6">
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="text-gray-600">Amount Due</span>
+                        <span className="font-bold text-lg">{paymentAmount} {chain.currency}</span>
+                      </div>
+                      <p className="text-sm text-gray-500">Round {chain.currentRound} Contribution</p>
+                    </div>
+                    
+                    <div className="mb-6">
+                      <h4 className="font-medium text-gray-700 mb-3">Select Payment Method</h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <button
+                          className={`border-2 rounded-xl p-4 flex flex-col items-center ${
+                            paymentMethod === 'wallet' 
+                              ? 'border-indigo-500 bg-indigo-50' 
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                          onClick={() => setPaymentMethod('wallet')}
+                        >
+                          <div className="bg-gray-200 border-2 border-dashed rounded-xl w-12 h-12 mb-2" />
+                          <span className="font-medium">Crypto Wallet</span>
+                        </button>
+                        
+                        <button
+                          className={`border-2 rounded-xl p-4 flex flex-col items-center ${
+                            paymentMethod === 'paypal' 
+                              ? 'border-indigo-500 bg-indigo-50' 
+                              : 'border-gray-300 hover:border-gray-400'
+                          }`}
+                          onClick={() => setPaymentMethod('paypal')}
+                        >
+                          <div className="bg-gray-200 border-2 border-dashed rounded-xl w-12 h-12 mb-2" />
+                          <span className="font-medium">PayPal</span>
+                        </button>
+                      </div>
+                    </div>
+                    
+                    <button
+                      onClick={handleCompletePayment}
+                      className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-semibold hover:opacity-90"
+                    >
+                      Confirm Payment
+                    </button>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-800 mb-2">Payment Successful!</h3>
-                  <p className="text-gray-600 text-center">
-                    Your payment of {paymentAmount} {chain?.currency} has been processed
-                  </p>
                 </div>
-              )}
-              
-              {/* Direct Payment Button */}
-              {!isProcessingPayment && !paymentSuccess && paymentMethod === 'wallet' && !selectedPaymentProvider && (
-                <button
-                  onClick={handleCompletePayment}
-                  className="w-full py-3 bg-gradient-to-r from-indigo-500 to-purple-500 text-white rounded-lg font-semibold hover:opacity-90 mt-4"
-                >
-                  Confirm Payment
-                </button>
-              )}
-            </div>
+              </div>
+            )}         
+
+            <button
+              onClick={(e:any) => {
+                notification.success("earn with liquidity pools")
+                navigate("/metaDashboard")
+              }}
+              className="bottom-1 right-2 cursor-pointer mt-4 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full p-2 md:px-6 md:py-4 w-20 h-20 md:w-auto md:h-auto flex items-end justify-end shadow-lg hover:scale-110 transition-all focus:outline-none"
+            >
+              <span className="text-sm md:text-2xl font-medium text-center">liduidify</span>
+            </button>
+
+
+            <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
+              © {new Date().getFullYear()} RotateChain. All rights reserved. The future of rotational savings and trading.
+            </footer>
           </div>
-        </div>
-      )}
-      
-      <footer className="max-w-7xl mx-auto px-4 py-6 text-center text-gray-500 text-sm">
-        © {new Date().getFullYear()} RotateChain. All rights reserved. The future of rotational savings and trading.
-      </footer>
     </div>
   );
 };
 
 export default Dashboard;
+
+export function ChainGroupsMenu({menuItems}:{menuItems:SingleChain[]}){
+  return(
+    <div className="w-full sm:w-4/5 md:w-3/5 lg:w-2/5 h-screen">
+      {menuItems.map((item,index) => {return <div>{item.name}</div>})}
+    </div>
+  )
+}

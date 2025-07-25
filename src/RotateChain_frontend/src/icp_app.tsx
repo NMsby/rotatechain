@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import PlugConnect from './plug_wallet_icp';
-import PaymentForm from './cp_payment_form';
+import PaymentForm from './Icp_payment_form';
 import { getICPBalance, getPaymentCanister } from './services/icp_canister';
 
-function App() {
+function ICPApp() {
   const [isConnected, setIsConnected] = useState(false);
   const [principal, setPrincipal] = useState('');
   const [accountId, setAccountId] = useState('');
@@ -303,4 +303,4 @@ function App() {
   );
 }
 
-export default App;
+export default ICPApp;

@@ -1,15 +1,21 @@
 // src/App.tsx
-import React, { useState, useEffect } from 'react';
-import { AuthClient } from '@dfinity/auth-client';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import { AuthClient} from '@dfinity/auth-client';
 import LoginPage from './loginpage';
 import Dashboard from './mockDashboard';
 import { UserData } from './types';
+import SmartOnboarding from './onboarding_new';
+import { Chain } from './rotate_dashboard_graph_payment';
+import { Actor } from '@dfinity/agent';
+import { SplashScreen } from './sassySplash';
+import { useNavigate } from 'react-router-dom';
 
-function App() {
+function App({chainActor,setChainData}:{chainActor:Actor | undefined | null,setChainData:Dispatch<SetStateAction<Chain | undefined>>}) {
+  const [authClient,setAuthClient] = useState<AuthClient | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [userData, setUserData] = useState<UserData | null>(null);
-  const [authClient, setAuthClient] = useState<AuthClient | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const navigate = useNavigate()
   
   useEffect(() => {
     const initAuthClient = async () => {
@@ -56,19 +62,19 @@ function App() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-purple-100">
-        <div className="text-center">
-          <div className="w-16 h-16 mx-auto border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="mt-4 text-gray-700">Initializing Internet Identity...</p>
-        </div>
-      </div>
+      <SplashScreen onFinish={() => setIsLoading(false)}/>
     );
+  }
+  if(isLoggedIn && userData){
+    navigate("/join")
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
       {isLoggedIn && userData ? (
-        <Dashboard userData={userData} onLogout={handleLogout} />
+        
+        <SmartOnboarding chainActor={chainActor} setChainData={setChainData} authClient={authClient} onLogout={handleLogout}/>
+        /*<Dashboard userData={userData} onLogout={handleLogout} />*/
       ) : (
         <LoginPage onLogin={handleLogin} authClient={authClient} />
       )}
