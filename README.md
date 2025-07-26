@@ -197,15 +197,13 @@ rotatechain_improvized/
 
 ## 🤝 Team
 
-**Nelson Masbayi** - Lead Developer
+**Nelson Masbayi** - Co-Developer
 - Email: nmsby.dev@gmail.com
 - GitHub: [@NMsby](https://github.com/NMsby)
-- Expertise: Full-stack development, blockchain architecture, smart contracts
 
-**Ronny Ogeta** - Co-Developer & UI/UX Lead
+**Ronny Ogeta** - Co-Developer
 - Email: ronnyogetaz@gmail.com
 - GitHub: [@Rogetz](https://github.com/Rogetz)
-- Expertise: Frontend development, user experience, interface design
 
 ## 🏆 WCHL 2025 Submission Details
 
