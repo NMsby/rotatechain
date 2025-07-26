@@ -22,8 +22,7 @@ dist/
 .svelte-kit/
 
 # environment variables
-.env
-.env.local
+# let them be pushed
 
 #accidental repos
 http_whitelist.json

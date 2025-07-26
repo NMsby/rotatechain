@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 
+
 interface PlugConnectProps {
   onConnect: (principal: string, accountId: string) => void;
   network: 'mainnet' | 'testnet';
@@ -43,7 +44,7 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
       }
 
       let identity = await window.ic.plug.requestConnect({
-        whitelist: [process.env.REACT_APP_PAYMENT_CANISTER_ID],
+        whitelist: [import.meta.env.VITE_REACT_APP_PAYMENT_CANISTER_ID],
         host: network === 'testnet' 
           ? 'https://ic0.app' 
           : 'https://mainnet.ic0.app'
