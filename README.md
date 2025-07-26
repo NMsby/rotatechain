@@ -185,7 +185,7 @@ npm start
 ```bash
 # The project includes environment configuration
 # For local development, the .env.local is pre-configured but you can as well configure with .env whichever is prefferable
-# Edit the REACT_APP_PAYMENT_CANISTER_ID environment variable to match your whitelisted canister for the plug wallet.
+# Edit the VITE_REACT_APP_PAYMENT_CANISTER_ID environment variable to match your whitelisted canister for the plug wallet.
 
 ```
 
