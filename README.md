@@ -154,13 +154,13 @@ npm install
 
 
 # generate a new identity that will act as the minting account
-```bash
+
 dfx identity new minter
 dfx identity use minter
 echo $(dfx ledger account-id)
 
-# switch back to your primary developer identity and record its ledger accountId for use as the developer identity
-```bash
+# switch back to your primary developer identity and record its ledger accountId for use as the developer identity\
+
 dfx identity use MyIdentity
 echo $(dfx ledger account-id)
 
