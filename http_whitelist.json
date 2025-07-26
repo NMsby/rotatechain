@@ -1,6 +1,0 @@
-[
-  {
-    "hostname": "api.sendgrid.com",
-    "allowed_methods": ["POST"]
-  }
-]
