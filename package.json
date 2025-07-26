@@ -1,17 +1,38 @@
 {
-  "engines": {
-    "node": ">=16.0.0",
-    "npm": ">=7.0.0"
+  "name": "rotatechain",
+  "version": "1.0.0",
+  "description": "Decentralized rotational savings & crypto lending platform combining traditional chama savings with DeFi yield generation on Internet Computer",
+  "keywords": [
+    "rotational-savings",
+    "defi",
+    "internet-computer",
+    "icp",
+    "motoko",
+    "blockchain",
+    "fintech",
+    "chama",
+    "tanda",
+    "financial-inclusion",
+    "wchl2025"
+  ],
+  "homepage": "https://github.com/Rogetz/rotatechain_improvized",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Rogetz/rotatechain_improvized.git"
   },
-  "name": "RotateChain",
-  "scripts": {
-    "build": "npm run build --workspaces --if-present",
-    "prebuild": "npm run prebuild --workspaces --if-present",
-    "pretest": "npm run prebuild --workspaces --if-present",
-    "start": "npm start --workspaces --if-present",
-    "test": "npm test --workspaces --if-present"
-  },
-  "type": "module",
+  "authors": [
+    {
+      "name": "Nelson Masbayi",
+      "email": "nmsby.dev@gmail.com",
+      "github": "NMsby"
+    },
+    {
+      "name": "Ronny Ogeta", 
+      "email": "ronnyogetaz@gmail.com",
+      "github": "Rogetz"
+    }
+  ],
+  "license": "MIT",
   "workspaces": [
     "src/RotateChain_frontend"
   ],
@@ -19,5 +40,16 @@
     "@heroicons/react": "^2.2.0",
     "@types/node": "^24.0.12",
     "framer-motion": "^12.23.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=7.0.0"
+  },
+  "scripts": {
+    "setup": "npm install && dfx start --background && dfx deploy",
+    "start": "cd src/RotateChain_frontend && npm start",
+    "build": "cd src/RotateChain_frontend && npm run build",
+    "deploy": "dfx deploy",
+    "deploy:ic": "dfx deploy --network ic"
   }
 }
