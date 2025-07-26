@@ -151,8 +151,23 @@ cd rotatechain_improvized
 # Install dependencies
 npm install
 
+
+
+# generate a new identity that will act as the minting account
+```bash
+dfx identity new minter
+dfx identity use minter
+echo $(dfx ledger account-id)
+
+# switch back to your primary developer identity and record its ledger accountId for use as the developer identity
+```bash
+dfx identity use MyIdentity
+echo $(dfx ledger account-id)
+
+# Open the dfx.json file in your project's directory. Replace or edit the existing content with the following, updating the values of MINTER_ACCOUNT_ID and DEVELOPER_ACCOUNT_ID with the values obtained in the previous steps.
+
 # Start local IC replica
-dfx start --background
+dfx start --clean --background
 
 # Deploy canisters locally
 dfx deploy
@@ -161,12 +176,17 @@ dfx deploy
 npm start
 ```
 
+### dfx.json configuration to replace
+- replace the MINTER_ACCOUNT_ID with your minter identity you generated
+- replace the DEVELOPER_ACCOUNT_ID with your default identity you're using
+
 ### Environment Setup
 
 ```bash
 # The project includes environment configuration
-# For local development, the .env.local is pre-configured
-# Update canister IDs after deployment if needed
+# For local development, the .env.local is pre-configured but you can as well configure with .env whichever is prefferable
+# Edit the REACT_APP_PAYMENT_CANISTER_ID environment variable to match your whitelisted canister for the plug wallet.
+
 ```
 
 ### Project Structure
