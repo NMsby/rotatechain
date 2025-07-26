@@ -22,7 +22,7 @@
       "type": "custom",
       "candid": "src/RotateChain_backend/ledger.did",
       "wasm": "src/RotateChain_backend/ledger-canister_notify-method.wasm.gz",
-      "init_arg" : "(variant { Init = record { minting_account = \"MINTER_ACCOUNT_ID\"; initial_values = vec { record { \" DEVELOPER_ACCOUNT_ID \"; record { e8s = 10_000_000_000 : nat64; }; }; }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64; }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP\"; } })"
+      "init_arg" : "(variant { Init = record { minting_account = \"MINTER_ACCOUNT_ID\"; initial_values = vec { record { \"DEVELOPER_ACCOUNT_ID\"; record { e8s = 10_000_000_000 : nat64; }; }; }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64; }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP\"; } })"
     },
     "icp_backend":{
       "main": "src/RotateChain_backend/icp_integration.mo",

@@ -18,12 +18,9 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
         const connected = window.ic.plug.isConnected();
         
         if (connected) {
-          //const principal = await window.ic.plug.agent.getPrincipal();
-          //const accountId = await window.ic.plug.agent.getAccountId();
           const innerPrincipal = window.ic.plug.principalId;
           const innerAccountId = window.ic.plug.accountId;
           setIsWalletConnected(true)
-          console.log(`principal : ${innerPrincipal} and accountId: ${innerAccountId} and its connected: ${connected}`)
           
           if(innerPrincipal && innerAccountId){
             setPrincipal(innerPrincipal.toString());
@@ -45,26 +42,17 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
         return;
       }
 
-      //my own programmatic canister id access
-      const frontendCid = window.location.origin.split('//')[1].split('.')[0];
       let identity = await window.ic.plug.requestConnect({
-        //whitelist: [process.env.REACT_APP_PAYMENT_CANISTER_ID!],
-        //add the icp backend canister over here, to allow for signing of requests by the wallet.
-        /*whitelist: [frontendCid],
+        whitelist: [process.env.REACT_APP_PAYMENT_CANISTER_ID],
         host: network === 'testnet' 
           ? 'https://ic0.app' 
           : 'https://mainnet.ic0.app'
-        */
-        whitelist:["ulvla-h7777-77774-qaacq-cai"],
-        //host:"http://127.0.0.1:4943"
+        
+        /*whitelist:["ulvla-h7777-77774-qaacq-cai"],
         host: network === 'testnet' 
           ? 'https://ic0.app' 
-          : 'https://mainnet.ic0.app'
+          : 'https://mainnet.ic0.app'*/
       })
-
-      console.log(`connected result: ${JSON.stringify(identity)}, raw key is ${JSON.stringify(identity.rawKey)}`)
-      console.log(`plug connected via window.ic ${window.ic.plug.isConnected}`)
-
 
       if(identity && window.ic.plug.isConnected){
 
@@ -84,13 +72,6 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
 
       }
 
-      //const principal = await window.ic.plug.agent.getPrincipal();
-      //const principal = await window.ic.plug.agent.getAccountId();
-
-      //changed it to derive the principal and Id from the requestConnect
-      //principal is same as accountId from what I've learnt
-      //let principal = identity.principal
-      //let accountId = principal
 
     } catch (err) {
       console.error("Plug connection error:", err);

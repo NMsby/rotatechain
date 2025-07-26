@@ -1,8 +1,6 @@
-// src/App.tsx
 import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { AuthClient} from '@dfinity/auth-client';
 import LoginPage from './loginpage';
-import Dashboard from './mockDashboard';
 import { UserData } from './types';
 import SmartOnboarding from './onboarding_new';
 import { Chain } from './rotate_dashboard_graph_payment';
