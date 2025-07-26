@@ -173,7 +173,7 @@ dfx start --clean --background
 dfx deploy
 
 # Start frontend development server
-npm start
+npm run start
 ```
 
 ### dfx.json configuration to replace
@@ -184,7 +184,7 @@ npm start
 
 ```bash
 # The project includes environment configuration
-# For local development, the .env.local is pre-configured but you can as well configure with .env whichever is prefferable
+# For local development, the .env is pre-configured
 # Edit the VITE_REACT_APP_PAYMENT_CANISTER_ID environment variable to match your whitelisted canister for the plug wallet.
 
 ```
