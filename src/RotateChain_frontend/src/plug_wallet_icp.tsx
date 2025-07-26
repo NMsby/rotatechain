@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 
 interface PlugConnectProps {
   onConnect: (principal: string, accountId: string) => void;
   network: 'mainnet' | 'testnet';
+  setIsWalletConnected:Dispatch<SetStateAction<boolean>> ;
 }
 
-const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
+const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnect, network }) => {
   const [isConnected, setIsConnected] = useState(false);
   const [principal, setPrincipal] = useState<string | undefined>();
   const [accountId, setAccountId] = useState<string | undefined>();
@@ -19,15 +20,15 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
         if (connected) {
           //const principal = await window.ic.plug.agent.getPrincipal();
           //const accountId = await window.ic.plug.agent.getAccountId();
-          //const principal = window.ic.plug.principalId;
-          //const accountId = window.ic.plug.accountId;
-
-          console.log(`principal : ${principal} and accountId: ${accountId} and its connected: ${connected}`)
+          const innerPrincipal = window.ic.plug.principalId;
+          const innerAccountId = window.ic.plug.accountId;
+          setIsWalletConnected(true)
+          console.log(`principal : ${innerPrincipal} and accountId: ${innerAccountId} and its connected: ${connected}`)
           
-          if(principal && accountId){
-            setPrincipal(principal.toString());
+          if(innerPrincipal && innerAccountId){
+            setPrincipal(innerPrincipal.toString());
             setIsConnected(true);
-            onConnect(principal.toString(), toHexString(accountId));
+            onConnect(innerPrincipal.toString(), toHexString(innerAccountId));
           }
         }
       }
@@ -54,7 +55,7 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
           ? 'https://ic0.app' 
           : 'https://mainnet.ic0.app'
         */
-        whitelist:["umunu-kh777-77774-qaaca-cai"],
+        whitelist:["ulvla-h7777-77774-qaacq-cai"],
         //host:"http://127.0.0.1:4943"
         host: network === 'testnet' 
           ? 'https://ic0.app' 
@@ -65,24 +66,32 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
       console.log(`plug connected via window.ic ${window.ic.plug.isConnected}`)
 
 
+      if(identity && window.ic.plug.isConnected){
+
+        const innerPrincipalId = window.ic.plug.principalId;
+        const innerAccountId = window.ic.plug.accountId;
+    
+          
+        setPrincipal(innerPrincipalId)
+        setAccountId(innerAccountId)
+
+
+        setPrincipal(innerPrincipalId.toString());
+        setIsConnected(true);
+        setIsWalletConnected(true)
+
+        onConnect(innerPrincipalId.toString(), toHexString(innerAccountId));
+
+      }
+
       //const principal = await window.ic.plug.agent.getPrincipal();
       //const principal = await window.ic.plug.agent.getAccountId();
-      //const principal = window.ic.plug.principalId;
-      //const accountId = window.ic.plug.accountId;
 
       //changed it to derive the principal and Id from the requestConnect
       //principal is same as accountId from what I've learnt
-      let principal = identity.principal
-      let accountId = principal
+      //let principal = identity.principal
+      //let accountId = principal
 
-      setPrincipal(principal)
-      setAccountId(accountId)
-
-
-      setPrincipal(principal.toString());
-      setIsConnected(true);
-
-      onConnect(principal.toString(), toHexString(accountId));
     } catch (err) {
       console.error("Plug connection error:", err);
     } finally {
@@ -99,7 +108,7 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
       {isConnected ? (
         <div className="flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full">
           <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-          <span className="font-medium">Connected: {principal?.slice(0, 8)}...{principal?.slice(-4)}</span>
+          <span className="font-medium">{principal?.slice(0, 8)}...{principal?.slice(-4)}</span>
         </div>
       ) : (
         <button

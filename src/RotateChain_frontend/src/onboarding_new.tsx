@@ -47,14 +47,14 @@ interface GlobalChainInfo {
 
 // Supported currencies and cryptos
 const currencies = [
-  'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 
+  'ICP','USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 
   'BTC', 'ETH', 'SOL', 'USDC', 'USDT', 'DAI'
 ];
 
 const mockGroups = [
   { id: 1, name: "Family Savings Group", members: 8, contribution: "100 USD" },
   { id: 2, name: "Tech Professionals", members: 12, contribution: "200 USDC" },
-  { id: 3, name: "Global Crypto Enthusiasts", members: 15, contribution: "0.5 ETH" },
+  { id: 3, name: "Crypto Investors Group", members: 5, contribution: "10000 ICP" },
   { id: 4, name: "Student Support Chain", members: 6, contribution: "50 USD" },
 ];
 
@@ -70,7 +70,7 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
   const [socialChainInfo, setSocialChainInfo] = useState<SocialChainInfo>({
     groupName: '',
     contribution: '',
-    currency: 'USD',
+    currency: 'ICP',
     frequency: 'weekly',
     fine:5,
     loanInterest:5,
@@ -80,7 +80,7 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
   const [globalChainInfo, setGlobalChainInfo] = useState<GlobalChainInfo>({
     groupName: '',
     contribution: '',
-    currency: 'USD',
+    currency: 'ICP',
     fine:5,
     frequency:'monthly',
     customFrequency:2,
@@ -97,6 +97,11 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
   const [joinOption, setJoinOption] = useState<'link' | 'browse' | null>(null);
   const [inviteLinkInput, setInviteLinkInput] = useState<string>('');
   
+
+
+  useEffect(function(){
+    setCurrentChainId("svvjab374b38784b3hbh")
+  },[])
 
   // Generate invite link when chain is created
   useEffect(() => {
@@ -185,7 +190,7 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
       default:
         // Copy to clipboard as fallback
         navigator.clipboard.writeText(inviteLink);
-        alert('Link copied to clipboard!');
+        notification.success('Link copied to clipboard for user-defined sharing');
     }
   };
 
@@ -209,7 +214,8 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
       // In a real app: window.location.href = inviteLinkInput;
       setJoinModalOpen(false);
       setInviteLinkInput('');
-      navigate(`/join/${inviteLinkInput}`)
+      let actualUrl = inviteLinkInput.split("//")[1].split("/")[1]
+      navigate(`/join/${actualUrl}`)
     } else {
       notification.error("Please enter a valid invite link")
     }
@@ -690,7 +696,17 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
               transition={{ duration: 0.5 }}
               className="text-center py-10"
             >
+
               <div className="flex justify-center mb-6">
+                <button 
+                  onClick={() => setStep(1)}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+
                 <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

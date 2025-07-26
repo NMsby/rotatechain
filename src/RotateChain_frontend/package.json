@@ -28,6 +28,7 @@
     "chart.js": "^4.5.0",
     "d3": "^7.9.0",
     "framer-motion": "^12.23.0",
+    "hash.js": "^1.1.7",
     "luxon": "^3.7.1",
     "react": "^19.0.0",
     "react-chartjs-2": "^5.3.0",

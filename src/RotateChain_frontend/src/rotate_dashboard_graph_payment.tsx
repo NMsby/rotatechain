@@ -417,13 +417,15 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
       const roundStart = new Date(start);
       roundStart.setDate(start.getDate() + ((chain.currentRound - 1) * chain.roundDuration));
       
-      const roundEnd = new Date(roundStart);
+      const roundEnd = new Date(start);
       roundEnd.setDate(roundStart.getDate() + chain.roundDuration);
       
-      const seasonEnd = new Date(start);
+      const seasonEnd = new Date(roundStart);
       seasonEnd.setDate(start.getDate() + (chain.totalRounds * chain.roundDuration));
       
-      const roundDiff = roundEnd.getTime() - now.getTime();
+      //interchanged the time cause of the negation return it back to normal later
+      //const roundDiff = roundEnd.getTime() - now.getTime();
+      const roundDiff =  now.getTime() - roundEnd.getTime();
       const seasonDiff = seasonEnd.getTime() - now.getTime();
       
       const roundDays = Math.floor(roundDiff / (1000 * 60 * 60 * 24));
@@ -639,7 +641,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
   let loanHandler = function(e:any){
     e.preventDefault()    
     if (!loanAmount) return;
-    notification.success("loan request received succesfuly, track progress in the loans tab")
+      notification.success("loan request received succesfuly, track progress in the loans tab")
 
     //might use userId or chainId as first parameter
     //confirm whether thiis function is meant to create or update
@@ -660,8 +662,8 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
 
   //share functionality for payment
   const paymentLink = () => {
-        navigator.clipboard.writeText(inviteLink);
-        notification.success('payment address copied to clipboard!');
+    navigator.clipboard.writeText(inviteLink);
+    notification.success('payment address copied to clipboard!');
   }
 
   // Share functionality
@@ -729,6 +731,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                   </div>
                   
                   <PlugConnect 
+                    setIsWalletConnected={setIsWalletConnected}
                     onConnect={handleConnect} 
                     network={network} 
                   />
@@ -779,13 +782,13 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                     <div className="bg-indigo-50 p-4 rounded-xl">
                       <p className="text-sm text-indigo-700 font-medium">Current Round Ends In</p>
                       <p className="text-xl font-bold text-indigo-900">
-                        {roundTimeRemaining.days}d {roundTimeRemaining.hours}h {roundTimeRemaining.minutes}m {roundTimeRemaining.seconds}s
+                        {seasonTimeRemaining.days}d {seasonTimeRemaining.hours}h {seasonTimeRemaining.minutes}m {seasonTimeRemaining.seconds}s
                       </p>
                     </div>
                     <div className="bg-purple-50 p-4 rounded-xl">
                       <p className="text-sm text-purple-700 font-medium">Season Ends In</p>
                       <p className="text-xl font-bold text-purple-900">
-                        {seasonTimeRemaining.days}d {seasonTimeRemaining.hours}h {seasonTimeRemaining.minutes}m {seasonTimeRemaining.seconds}s
+                        {roundTimeRemaining.days}d {roundTimeRemaining.hours}h {roundTimeRemaining.minutes}m {roundTimeRemaining.seconds}s
                       </p>
                     </div>
                   </div>
@@ -835,16 +838,16 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                   <div className="space-y-4">
                     <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-xl p-4 border border-indigo-100">
                       <p className="text-sm text-indigo-700 font-medium">Your Rotation</p>
-                      <p className="text-2xl font-bold text-indigo-900 mt-1">Round {chain.currentRound + 4}</p>
+                      <p className="text-2xl font-bold text-indigo-900 mt-1">Round {chain.currentRound}</p>
                       <p className="text-gray-600 text-sm mt-2">
-                        Estimated payout: {chain.members[0].contributionAmount * 1.05} {chain.currency}
+                        Estimated payout: {chain.totalFunds} {chain.currency}
                       </p>
                     </div>
                     
                     <div className="flex justify-between items-center pt-4 border-t border-gray-100">
                       <div>
                         <p className="text-gray-600">Your current Contribution</p>
-                        <p className="font-bold text-lg">{chain.members[2].contributionAmount} {chain.currency}</p>
+                        <p className="font-bold text-lg">{/*chain.members[2].contributionAmount*/} 0 {chain.currency}</p>
                       </div>
                       <button 
                         onClick={handlePayContribution}
@@ -861,7 +864,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                     <div className="flex justify-between items-center pt-4 border-t border-blue-100">
                       <div>
                         <p className="text-blue-600">Your current loan</p>
-                        <p className="font-bold text-lg">{chain.members[0].contributionAmount} {chain.currency}</p>
+                        <p className="font-bold text-lg">{/*chain.members[0].contributionAmount*/} {/*chain.currency*/}0</p>
                       </div>
                       <button 
                         onClick={handlePayContribution}
@@ -949,7 +952,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                         </button>
                       </div>
                     </div>
-                    <div className="w-full h-auto relative">
+                    <div className="w-full h-auto mx-auto relative">
                       <button
                         onClick={() => setShowPopup(true)}
                         className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-bold rounded-full shadow-lg hover:from-blue-600 hover:to-indigo-700 transition-all transform hover:scale-105"
@@ -959,6 +962,17 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                 
                       {showPopup && <ICPShoppingPopup onClose={() => setShowPopup(false)} />}                    
                     </div>
+                    <button onClick={(e:any) => {
+                      if(isWalletConnected){
+                        notification.success("withrawal being processed to your wallet")
+                      }
+                      else{
+                        notification.error("wallet not connected")
+                      }
+                    }}  className="w-full bg-gradient-to-r from-emerald-500 to-green-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity">
+                      withdraw funds
+                    </button>
+
                     
                     <button 
                       className="w-full bg-gradient-to-r from-amber-500 to-orange-500 text-white py-3 rounded-lg font-medium hover:opacity-90 transition-opacity"
@@ -1060,7 +1074,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                                       Round {i + 1} {i < chain.currentRound ? '(Completed)' : i === chain.currentRound ? '(Current)' : ''}
                                     </p>
                                     <p className="text-sm text-gray-500">
-                                      {i === chain.currentRound ? `Ends in ${roundTimeRemaining.days} days` : ''}
+                                      {i === chain.currentRound ? `Ends in ${seasonTimeRemaining.days} days` : ''}
                                     </p>
                                   </div>
                                 </div>
@@ -1421,7 +1435,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                 notification.success("earn with liquidity pools")
                 navigate("/metaDashboard")
               }}
-              className="bottom-1 right-2 cursor-pointer mt-4 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full p-2 md:px-6 md:py-4 w-20 h-20 md:w-auto md:h-auto flex items-end justify-end shadow-lg hover:scale-110 transition-all focus:outline-none"
+              className="fixed bottom-1 right-2 z-30 cursor-pointer mt-4 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-full p-2 md:px-6 md:py-4 w-20 h-20 md:w-auto md:h-auto flex items-end justify-end shadow-lg hover:scale-110 transition-all focus:outline-none"
             >
               <span className="text-sm md:text-2xl font-medium text-center">liduidify</span>
             </button>

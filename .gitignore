@@ -32,6 +32,13 @@ landingNewest.tsx
 testDisplay.tsx
 mockDashboard.tsx
 App.jsx
+bitcoin_wallet.tsx
+poolAnalyticsCard.tsx
+priceOracle2.ts
+pricesOracle.ts
+bitcoin_app.tsx
+plug_connect.tsx
+bitcoin_canister.tsx
 onboarding_newest.tsx
 bitcoin_two
 ledger-ref

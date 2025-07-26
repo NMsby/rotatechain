@@ -34,7 +34,11 @@ import { AuthClient } from '@dfinity/auth-client';
 import LoginPage from './loginpage';
 import { UserData } from './types';
 import { Actor } from "@dfinity/agent";
+///I'll use the ledger canister for accountId
+import { canisterId as ledgerCanisterId } from "../../declarations/icp_ledger_canister"
 import { canisterId, createActor } from "../../declarations/chain_management";
+import { AccountIdentifier } from "@dfinity/ledger-icp";
+import { Principal } from "@dfinity/principal";
 
 
 
@@ -96,18 +100,18 @@ export default App;*/
 };*/
 
 const roundChain: Chain = {
-      id: 'chain-12345',
+      id: '0xajs273782bsh372837bdh322ba8',
       name: 'Crypto Investors Group',
-      userId: "vajnksklk02784bsjd",
+      userId: "0xvdb253jy352djf564kdbsjy372",
       type: 'social',
-      fineRate:8,
+      fineRate:5,
       userName:"Rogetz",
-      totalRounds: 12,
+      totalRounds: 5,
       currentRound: 3,
       roundDuration: 30,
-      startDate: '2023-10-01',
-      totalFunds: 12000,
-      currentFunds: 8500,
+      startDate: '2025-01-07',
+      totalFunds: 50000,
+      currentFunds: 35000,
       currency: 'ICP',
       interestRate: 5,
       members: [
@@ -125,7 +129,7 @@ const roundChain: Chain = {
           amount: 500, 
           interestRate: 5, 
           status: 'approved',
-          dueDate: '2023-12-15'
+          dueDate: '2025-02-07'
         },
         { 
           id: 'loan-002', 
@@ -134,7 +138,7 @@ const roundChain: Chain = {
           amount: 800, 
           interestRate: 5, 
           status: 'pending',
-          dueDate: '2023-12-20'
+          dueDate: '2025-03-07'
         }
       ]
     };
@@ -177,7 +181,27 @@ function App(){
   const [showSplash, setShowSplash] = useState(true);
   //the chain_management actor
   const [chainActor,setChainActor] = useState<Actor | null>()
+  const [chainId,setChainId] = useState("")
   
+  //get the accounId from the canisterId
+  useEffect(function(){
+    const canisterIdText = ledgerCanisterId
+    const canisterPrincipal = Principal.fromText(ledgerCanisterId)
+
+    const accountId = AccountIdentifier.fromPrincipal({
+      principal: canisterPrincipal
+    }).toHex()
+
+    setChainId(accountId)
+    setChainData((prevState) => {
+      if(prevState){
+        return {...prevState,id:accountId}
+      }
+    })
+
+  },[])
+
+
   //for intializing chainData
   useEffect(function(){
     setChainData(roundChain)
@@ -272,7 +296,21 @@ function App(){
         identity
     }
     });
-    let tempPrincipal = identity.getPrincipal.toString()
+    let tempPrincipal = identity.getPrincipal().toString()
+
+    let principal = identity.getPrincipal()
+    //once he/she adds the plug wallet address can be used only for withdrawal
+    const userAccountId = AccountIdentifier.fromPrincipal({
+      principal: Principal.fromText(principal.toText()),
+      subAccount:undefined
+    }).toHex()
+
+    setChainData((prevState) => {
+      if(prevState){
+        return {...prevState,userId:userAccountId}
+      }
+    })
+
 
     const isAuthenticated = await authClient.isAuthenticated();
     setIsLoggedIn(isAuthenticated)
@@ -284,7 +322,7 @@ function App(){
   };
 
   
-  const handleLogin = async (principal: string) => {
+  const handleLogin = async () => {
 
     if(authClient){
 
@@ -318,7 +356,7 @@ function App(){
           <Route path="/fakeDashboard" element={<DashboardWithLiquidity/>}/>          
           <Route path="/metaDashboard" element={<MetapoolLiquidityDashboard/>}/>
           <Route path="/loginSection" element={<LoginSection authClient={authClient} />}/>
-          <Route path="/login" element={<AppIdentityIntegrated chainActor={chainActor} setChainData={setChainData} />}/>
+          <Route path="/login" element={<AppIdentityIntegrated handleLogin={handleLogin} handleLogout={handleLogout} chainActor={chainActor} setChainData={setChainData} />}/>
           <Route path="/poolAnalytics" element={<LiquidityPoolDashboard/>}/>
           <Route path="/icp-app" element={<ICPApp  />}/>
           <Route path="/loginPage" element={<LoginPage onLogin={handleLogin} authClient={authClient} />}/>

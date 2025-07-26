@@ -29,8 +29,8 @@ const fetchGroupByInviteCode = (inviteCode: string): Promise<Group> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       const mockGroups: Record<string, Group> = {
-        "community-helpers": {
-          id: "1",
+        "Crypto Investors Group": {
+          id: "svvjab374b38784b3hbh",
           name: "Crypto Investors Group",
           description: "A crypto investor group dedicated to helping local communities through volunteer work and donations. We organize weekly events and monthly fundraising activities.",
           members: 245,
@@ -61,7 +61,7 @@ const fetchGroupByInviteCode = (inviteCode: string): Promise<Group> => {
         }
       };
       
-      const group = mockGroups[inviteCode] || mockGroups["community-helpers"];
+      const group = mockGroups[inviteCode] || mockGroups["Crypto Investors Group"];
       resolve(group);
     }, 800);
   });
@@ -253,6 +253,11 @@ const JoinGroupPage = ({setChainData,chainActor,authClient}:{setChainData:Dispat
 
       //add the chain data to be passed
       //take him/her to the dashboard immediately
+      setChainData((prevState) => {
+        if(prevState){
+          return {...prevState,userName:userNameReceived}
+        }
+      })
       notification.success(`welcome ${userNameReceived}`)
       navigate(`/dashboard`);
     }
@@ -412,7 +417,7 @@ const JoinGroupPage = ({setChainData,chainActor,authClient}:{setChainData:Dispat
                 <p className="text-indigo-100">Make a difference in your community</p>
               </div>
             </div>
-            <input type="text" onChange={(e:any) => setUserNameReceived(e.target.value.toLowerCase())} placeholder="enter your userName"   className="w-full bg-white text-indigo-600 font-bold py-4 rounded-xl shadow-lg hover:bg-indigo-50 transition-colors" />
+            <input type="text" onChange={(e:any) => setUserNameReceived(e.target.value.toLowerCase())} placeholder="enter your userName"   className="w-full mb-4 bg-white text-indigo-600 font-bold py-4 rounded-xl shadow-lg hover:bg-indigo-50 transition-colors" />
             <motion.button
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.98 }}

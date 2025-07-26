@@ -10,7 +10,7 @@ import { Actor } from '@dfinity/agent';
 import { SplashScreen } from './sassySplash';
 import { useNavigate } from 'react-router-dom';
 
-function App({chainActor,setChainData}:{chainActor:Actor | undefined | null,setChainData:Dispatch<SetStateAction<Chain | undefined>>}) {
+function App({handleLogin,handleLogout,chainActor,setChainData}:{handleLogin:() => void,handleLogout:() => void,chainActor:Actor | undefined | null,setChainData:Dispatch<SetStateAction<Chain | undefined>>}) {
   const [authClient,setAuthClient] = useState<AuthClient | null>(null);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -43,21 +43,25 @@ function App({chainActor,setChainData}:{chainActor:Actor | undefined | null,setC
     initAuthClient();
   }, []);
   
-  const handleLogin = (principal: string) => {
+  const handleLoginInside = (principal: string) => {
     setUserData({
       principal,
       username: `user_${principal.substring(0, 8)}`,
       lastLogin: new Date().toLocaleString()
     });
     setIsLoggedIn(true);
+
+    handleLogin()
   };
   
-  const handleLogout = async () => {
+  const handleLogoutInside = async () => {
     if (authClient) {
       await authClient.logout();
     }
     setIsLoggedIn(false);
     setUserData(null);
+
+    handleLogout()
   };
 
   if (isLoading) {
@@ -73,10 +77,10 @@ function App({chainActor,setChainData}:{chainActor:Actor | undefined | null,setC
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 to-purple-100">
       {isLoggedIn && userData ? (
         
-        <SmartOnboarding chainActor={chainActor} setChainData={setChainData} authClient={authClient} onLogout={handleLogout}/>
+        <SmartOnboarding chainActor={chainActor} setChainData={setChainData} authClient={authClient} onLogout={handleLogoutInside}/>
         /*<Dashboard userData={userData} onLogout={handleLogout} />*/
       ) : (
-        <LoginPage onLogin={handleLogin} authClient={authClient} />
+        <LoginPage onLogin={handleLoginInside} authClient={authClient} />
       )}
     </div>
   );
