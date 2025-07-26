@@ -240,7 +240,7 @@ type onLogout = () => void
 
 
 
-export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActor:Actor | null | undefined,authClient:AuthClient | null,onLogout:() => Promise<void>,roundChain:Chain}){
+export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActor:Actor | null | undefined,authClient:AuthClient | null,onLogout:() => Promise<void>,roundChain:Chain | undefined}){
   const navigate = useNavigate();  
   const notification = useNotification()
   const [chain, setChain] = useState<Chain | null>(null);
@@ -329,7 +329,10 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
   },[])
 
   useEffect(function(){
-    let myFilteredHistory = roundChain.loans.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+    let myFilteredHistory:Array<any> = []
+    if(roundChain){
+      myFilteredHistory = roundChain.loans.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+    }
     //create the three numbers
     //user loan
     //actor.getMemberLoans(userId,chainId)
@@ -395,16 +398,18 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
   }, []);
 
   useEffect(() => {
-
-    roundChain.loans.forEach(loan => {
-      const borrower = roundChain.members.find(m => m.id === loan.borrowerId);
-      const lender = roundChain.members.find(m => m.id === loan.lenderId);
+    if(roundChain){
+      roundChain.loans.forEach(loan => {
+        const borrower = roundChain.members.find(m => m.id === loan.borrowerId);
+        const lender = roundChain.members.find(m => m.id === loan.lenderId);
+        
+        if (borrower) borrower.loans.push(loan);
+        if (lender && lender.id !== borrower?.id) lender.loans.push(loan);
+      });
       
-      if (borrower) borrower.loans.push(loan);
-      if (lender && lender.id !== borrower?.id) lender.loans.push(loan);
-    });
-    
-    setChain({...roundChain,userId:authClient?.getIdentity().getPrincipal().toString()});
+      setChain({...roundChain,userId:authClient?.getIdentity().getPrincipal().toString()});
+    }
+
   }, []);
 
   useEffect(() => {

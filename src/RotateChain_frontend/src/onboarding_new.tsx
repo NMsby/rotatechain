@@ -112,7 +112,13 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
         const baseUrl = window.location.origin
 
         const chainId = currentChainId
-        return `${baseUrl}/${chainId}`;
+        if(baseUrl.includes("join")){
+          return `${baseUrl}/${chainId}`;
+
+        }
+        else{
+          return `${baseUrl}/join/${chainId}`;
+        }
       };
       
       const link = generateLink(currentChainId);
@@ -206,15 +212,24 @@ const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChain
   };
 
   const handleJoinWithLink = () => {
+    let actualUrl = ""
     if (inviteLinkInput) {
+      if(inviteLink.includes("cai")){
+        actualUrl = inviteLinkInput.split(":")[2].split("/")[2]
+      }
+      else{
+        actualUrl = inviteLinkInput.split("//")[1].split("/")[2]
+
+      }
 
       //first check the chains// if available then if available get the details of a user.
 
       notification.success(`${joinChainType} group welcomes you`)
       // In a real app: window.location.href = inviteLinkInput;
       setJoinModalOpen(false);
+
       setInviteLinkInput('');
-      let actualUrl = inviteLinkInput.split("//")[1].split("/")[1]
+
       navigate(`/join/${actualUrl}`)
     } else {
       notification.error("Please enter a valid invite link")

@@ -104,7 +104,8 @@ function ICPApp() {
                 </button>
               </div>
             </div>
-            <PlugConnect 
+            <PlugConnect
+              setIsWalletConnected={setIsConnected} 
               onConnect={handleConnect} 
               network={network} 
             />
@@ -125,7 +126,8 @@ function ICPApp() {
                   Connect your Plug wallet to manage ICP payments on the Internet Computer blockchain.
                 </p>
                 <div className="mt-6">
-                  <PlugConnect 
+                  <PlugConnect
+                    setIsWalletConnected={setIsConnected} 
                     onConnect={handleConnect} 
                     network={network} 
                   />
