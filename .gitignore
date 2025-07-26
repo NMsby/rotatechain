@@ -33,6 +33,12 @@ landingNewest.tsx
 testDisplay.tsx
 mockDashboard.tsx
 walletContext.ts
+chain_management.mo
+brutalLayout.tsx
+saasyNav.tsx
+test.tsx
+services/walletContext.tsx
+services/authContext.tsx
 onboarding.tsx
 sassyNav.tsx
 onboarding_loan_interest_added.txt
