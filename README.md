@@ -164,7 +164,12 @@ echo $(dfx ledger account-id)
 dfx identity use MyIdentity
 echo $(dfx ledger account-id)
 
-# open the dfx.json file in the root project directory for editing of the candid and wasm fields.
+# Go to the releases overview in ([https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false]) and obtain the latest ICP ledger release version. Then, replace <RELEASE> in the following github URLs with that release version:
+# open the dfx.json file in the root project directory for editing of the candid and wasm fields. point the candid and the wasm fields to the following github urls respectively,replacing the release with the actual release from the github repo
+
+- https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger.did
+- https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger-canister_notify-method.wasm.gz
+
 
 # in the dfx.json file in your project's directory. in the icp_ledger_canister field, replace or edit the existing content with the following, updating the values of MINTER_ACCOUNT_ID and DEVELOPER_ACCOUNT_ID with the values obtained in the previous steps.
 
