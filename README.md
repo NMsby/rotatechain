@@ -164,7 +164,9 @@ echo $(dfx ledger account-id)
 dfx identity use MyIdentity
 echo $(dfx ledger account-id)
 
-# Open the dfx.json file in your project's directory. in the icp_ledger_canister field, replace or edit the existing content with the following, updating the values of MINTER_ACCOUNT_ID and DEVELOPER_ACCOUNT_ID with the values obtained in the previous steps.
+# open the dfx.json file in the root project directory for editing of the candid and wasm fields.
+
+# in the dfx.json file in your project's directory. in the icp_ledger_canister field, replace or edit the existing content with the following, updating the values of MINTER_ACCOUNT_ID and DEVELOPER_ACCOUNT_ID with the values obtained in the previous steps.
 
 # Start local IC replica
 dfx start --clean --background
