@@ -6,14 +6,12 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import InstructionPalette from './instructions/InstructionPallete';
 import { ChainType, Frequency } from './onboarding_new';
 import { FaBars, FaCoins, FaRegWindowClose } from 'react-icons/fa';
 import { useNotification } from './notificationContext';
 import SassyBurgerMenu from "./hamburgerMenu";
 import { SplashScreen } from './sassySplash';
 import ICPShoppingPopup from './instructions/icp_buying-instructions';
-//import clsx from "clsx"
 import PlugConnect from './plug_wallet_icp';
 import PaymentForm from './Icp_payment_form';
 import { getICPBalance, getPaymentCanister } from './services/icp_canister';
