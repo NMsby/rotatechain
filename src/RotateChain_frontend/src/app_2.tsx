@@ -1,28 +1,15 @@
-//import Layout from './components/layout/Layout';
-//import Navbar from './components/navbar/Navbar';
+
 import DeFiDashboard from "./landing"
-//import Swap from './pages/Swap';
-//import { WalletProvider } from './services/walletContext';
-//import Pools from './pages/Pools';
-import PoolAnalyticsCard from "./services/poolanalyticsCard"
 import React,{ useEffect, useState } from 'react';
-import BrutalLayout from './brutalLayout';
-import SassyNav from './saasyNav';
 import { motion } from 'framer-motion';
-import { TestDisplay } from "./testDisplay";
 import "./globals.css"
 import LandingPage from "./landing_new_latest";
 import SmartOnboarding from "./onboarding_new";
 import Dashboard, { Chain, SingleChain } from "./rotate_dashboard_graph_payment";
 import AppIdentityIntegrated from "./internetIdentity"
-import LiquidityPoolDashboard from "./liquidity_pool"
 import { BrowserRouter as Router, Routes,Route,Link} from "react-router-dom";
 import { NotificationProvider } from "./notificationContext";
-import DashboardWithLiquidity from './rotate_dashboard_liquidity_graph'
 import MetapoolLiquidityDashboard from './rotate_metapool_dashboard'
-import ICPApp  from "./icp_app"
-import TujiinueApp from "./tujiinue/landing"
-import LoginSection from "./loginsOnboarding";
 import RotateTheme from "./rotateTheme"
 import SassySplash from "./sassySplash"
 import SassyBurgerMenu from "./hamburgerMenu";
