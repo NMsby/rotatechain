@@ -141,6 +141,10 @@ RotateChain revolutionizes traditional rotational savings (chama/tanda) by combi
 - DFX SDK >= 0.14.0
 - Internet Computer wallet (Internet Identity or Plug)
 
+
+# Releases link
+![Releases](https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false)
+
 ### Installation
 
 ```bash
@@ -164,7 +168,7 @@ echo $(dfx ledger account-id)
 dfx identity use MyIdentity
 echo $(dfx ledger account-id)
 
-# Go to the releases overview in ![releases](https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false) and obtain the latest ICP ledger release version. Then, replace <RELEASE> in the following github URLs with that release version:
+# Go to the releases overview in https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false and obtain the latest ICP ledger release version. Then, replace <RELEASE> in the following github URLs with that release version:
 # open the dfx.json file in the root project directory for editing of the candid and wasm fields. point the candid and the wasm fields to the following github urls respectively,replacing the release with the actual release from the github repo
 
 - https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger.did
