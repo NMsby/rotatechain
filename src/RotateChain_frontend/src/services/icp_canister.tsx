@@ -1,10 +1,11 @@
-import { createActor } from "../../../declarations/icp_backend";
+import { createActor,canisterId, idlFactory } from "../../../declarations/icp_backend";
 import { AuthClient } from "@dfinity/auth-client";
 import { ActorSubclass } from "@dfinity/agent";
 import { _SERVICE }  from "../../../declarations/icp_backend/icp_backend.did"
 //import { _SERVICE } from "../../../../declarations/icp_backend/payment_processor.did";
 
-export const getPaymentCanister = async (): Promise<ActorSubclass<_SERVICE>> => {
+//return type was this /*Promise*/<ActorSubclass<_SERVICE>>
+export const getPaymentCanister = async():Promise<ActorSubclass<_SERVICE>> => {
   const authClient = await AuthClient.create();
   const identity = authClient.getIdentity();
   //here I should be using our id probably i've commented theirs
@@ -12,12 +13,46 @@ export const getPaymentCanister = async (): Promise<ActorSubclass<_SERVICE>> => 
   //even this frontendCid is incorrect, however let it remain since I'll change my code to be using a ledger.
   const frontendCid = window.location.origin.split('//')[1].split('.')[0];
 
-  const canisterId = frontendCid;
+  //const canisterId = frontendCid;
   
-  return createActor(canisterId, {
+  /*return createActor(idlFactory,{
+    canisterId,
+    agentOptions:{
+      identity
+    }
+  })*/
+
+  let finalActor:ActorSubclass<_SERVICE> = createActor(canisterId, {
     agentOptions: { identity },
-  });
+  })
+
+  /*let finalActor:Promise<ActorSubclass<_SERVICE>> = ():Promise<ActorSubclass<_SERVICE>> => {
+    return new Promise(async (resolve,reject) => {
+      resolve(
+        await createActor(canisterId, {
+          agentOptions: { identity },
+          actorOptions: {
+            canisterId
+          }
+        })
+      )
+    })
+
+
+  }*/
+
+
+  return finalActor
+
+  /*return createActor(canisterId, {
+    agentOptions: { identity },
+    actorOptions: {
+      canisterId
+    }
+  });*/
 };
+
+
 
 export const connectPlug = async (network: 'mainnet' | 'testnet'): Promise<{ principal: string; accountId: string }> => {
   if (!window.ic?.plug) {

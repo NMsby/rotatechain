@@ -15,8 +15,13 @@ import ICPShoppingPopup from './instructions/icp_buying-instructions';
 import PlugConnect from './plug_wallet_icp';
 import PaymentForm from './Icp_payment_form';
 import { getICPBalance, getPaymentCanister } from './services/icp_canister';
-import { AuthClient } from '@dfinity/auth-client';
-import { Actor } from '@dfinity/agent';
+import { AuthClient, LocalStorage } from '@dfinity/auth-client';
+import { Actor ,ActorSubclass, Identity} from '@dfinity/agent';
+import {canisterId, chain_management, createActor } from '../../declarations/chain_management'
+import { _SERVICE, CreateChainParams } from '../../declarations/chain_management/chain_management.did';
+import { useAppSelector } from './state/hooks';
+import { useInternetIdentity } from 'ic-use-internet-identity';
+
 
 
 interface Member {
@@ -44,7 +49,7 @@ export interface Chain {
   id: string;
   name: string;
   userId:string | undefined , 
-  userName:string,
+  userName:string | undefined,
   fineRate:number,
   type: 'social' | 'global';
   totalRounds: number;
@@ -228,18 +233,18 @@ const fakeLoans:Loan[] = [
   }
 ]
 
-
-
- 
-
-
-
 type onLogout = () => void 
 
 
-
-export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActor:Actor | null | undefined,authClient:AuthClient | null,onLogout:() => Promise<void>,roundChain:Chain | undefined}){
+export function Dashboard(){
   const navigate = useNavigate();  
+  const {status,identity} = useInternetIdentity()
+  //const [chainActor,setChainActor] = useState<ActorSubclass<_SERVICE> | null>(null)
+  const authClientRedux = useAppSelector(state => state.authReducer)
+  const roundChainRedux = useAppSelector(state => state.roundReducer)
+  const [chainActor,setChainActor] = useState<ActorSubclass<_SERVICE> | null>(null)
+  const [authClient,setAuthClient] = useState<AuthClient | null>(null) 
+  const [roundChain,setRoundChain] = useState<Chain | null>(null)
   const notification = useNotification()
   const [chain, setChain] = useState<Chain | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'loans' | 'members' | 'settings'>('overview');
@@ -257,6 +262,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
   const [inviteLink, setInviteLink] = useState<string>('absjnjn253782bjdj238kde3n2');
   const [myLoanHistory,setMyLoanHistory] = useState<Loan[]>([])
   const [chainGroups,setChainGroups] = useState<SingleChain[]>([])
+  const [isLoggedIn,setIsLoggedIn] = useState<boolean>(false)
   const [showSplash, setShowSplash] = useState(true);
   const [showPopup, setShowPopup] = useState(false);
   const [payStyle,setPayStyle] = useState({})
@@ -287,7 +293,181 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
   const [network, setNetwork] = useState<'mainnet' | 'testnet'>('testnet');
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [actorState,setActorState] = useState<ActorSubclass<_SERVICE>>()
 
+
+  useEffect(function(){
+    if(status == 'success'){
+
+        const actor:ActorSubclass<_SERVICE> = createActor(canisterId,{
+          agentOptions:{
+            identity
+          }
+        })
+
+        setActorState(actor)
+        setIsLoggedIn(true)
+
+      console.log(`identity found from hook: ${identity?.getPrincipal().toString().slice(0,8)}`)
+    }
+  },[status])
+
+  useEffect(function(){
+    if(chainActor){
+      console.log(`all chains result: ${chainActor.getAllChains()}`)
+    }
+    console.log(`all chains directly from the chain-management: ${JSON.stringify(chain_management.getAllChains().then((result) => result))}`)
+    chain_management.getAllChains().then(function(result){
+      console.log(`all chains directly from getAllChains promise are: ${JSON.stringify(result)}`)
+    })
+
+    let userIdentity = async function():Promise<Identity>{
+      const authClient = await AuthClient.create()
+      const identity:Identity = authClient.getIdentity()
+      
+      const authenticated = await authClient.isAuthenticated()
+
+      if(authenticated == true){
+        setIsLoggedIn(true)
+        console.log("user logged in")
+          
+
+        const actor:ActorSubclass<_SERVICE> = createActor(canisterId,{
+          agentOptions:{
+            identity
+          }
+        })
+
+        setActorState(actor)
+
+
+
+        let newChain:CreateChainParams = {
+          chainType:{social:null},
+          creatorContributionAmount:100,
+          creatorIsLender:true,
+          creatorWallet:"svjdbj892nbkjndnjd389n3jbd993nj3bd",
+          currency:"ICP",
+          fineRate:10.00,
+          interestRate:10.00,
+          name:"Elite Group",
+          roundDuration:BigInt(3600),
+          startDate:"22-05-2025",
+          totalRounds:BigInt(1),
+          userId:"bjdnjdn93u93nd83983njbdbhfjn",
+          userName:"Tobina"
+        }
+
+          return identity
+      }
+
+      return identity
+    }
+
+
+    let resolvedIdentity = userIdentity()
+
+    const actor:ActorSubclass<_SERVICE> = createActor(canisterId,{
+      agentOptions:{
+        identity:resolvedIdentity
+      }
+    })
+
+    setActorState(actor)
+
+
+
+    let newChain:CreateChainParams = {
+      chainType:{social:null},
+      creatorContributionAmount:100,
+      creatorIsLender:true,
+      creatorWallet:"svjdbj892nbkjndnjd389n3jbd993nj3bd",
+      currency:"ICP",
+      fineRate:10.00,
+      interestRate:10.00,
+      name:"Elite Group",
+      roundDuration:BigInt(3600),
+      startDate:"22-05-2025",
+      totalRounds:BigInt(1),
+      userId:"bjdnjdn93u93nd83983njbdbhfjn",
+      userName:"Tobina"
+    }
+
+    chain_management.createChain(newChain).then(function(result){
+      console.log(`chain creation result ${result}`)
+    })
+
+  },[chainActor])
+
+  useEffect(function(){
+    if(actorState){
+
+      let newChain:CreateChainParams = {
+        chainType:{social:null},
+        creatorContributionAmount:100,
+        creatorIsLender:true,
+        creatorWallet:"svjdbj892nbkjndnjd389n3jbd993nj3bd",
+        currency:"ICP",
+        fineRate:10.00,
+        interestRate:10.00,
+        name:"Elite Group",
+        roundDuration:BigInt(3600),
+        startDate:"22-05-2025",
+        totalRounds:BigInt(1),
+        userId:"bjdnjdn93u93nd83983njbdbhfjn",
+        userName:"Tobina"
+      }
+
+      if(isLoggedIn){
+        actorState.createChain(newChain).then(function(result){
+          console.log(`create chain result from the signed actor: ${result} `)
+        })
+
+        actorState.getAllChains().then(function(result){
+          console.log(`all chains directly from signed getAllChains promise are: ${JSON.stringify(result)}`)
+        })
+      }
+      else{
+        console.log("user not logged in")
+      }
+
+    }
+
+  },[actorState,isLoggedIn])
+
+  useEffect(function(){
+
+      /*let actorCreator = async function(){
+        //I'm testing out if the AuthClient actually saves the session
+        const client = await AuthClient.create()
+        const identity = client.getIdentity()
+        console.log(`is user logged in already: ${client.isAuthenticated()}`)
+        //const identity:Identity | Promise<Identity> | undefined = await getIdentity();
+        
+        if(identity){
+          const actor:ActorSubclass<_SERVICE> = createActor(canisterId, {
+              
+          agentOptions: {
+            identity,
+
+          }
+          });
+
+          setChainActor(actor)
+        }
+      }
+      actorCreator()*/
+  },[])
+
+  useEffect(function(){
+    setRoundChain(roundChainRedux)
+  },[roundChainRedux])
+
+  useEffect(function(){
+    if(authClientRedux){
+      setAuthClient(authClientRedux)
+    }
+  },[authClientRedux])
   
   useEffect(() => {
     if (isConnected) {
@@ -408,7 +588,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
       setChain({...roundChain,userId:authClient?.getIdentity().getPrincipal().toString()});
     }
 
-  }, []);
+  }, [roundChain]);
 
   useEffect(() => {
     if (!chain) return;
@@ -461,6 +641,16 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
     
     return () => clearInterval(timerInterval);
   }, [chain]);
+
+  const onLogout = async () => {
+    const authClient = authClientRedux
+    if (authClient) {
+      await authClient.logout();
+    }
+    //redirect to the landing page
+    navigate("/")
+  };
+
 
   const handleConnect = (principal: string, accountId: string) => {
     setPrincipal(principal);
@@ -1338,7 +1528,7 @@ export function Dashboard({chainActor,onLogout,roundChain,authClient}:{chainActo
                                 type="text"
                                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                                 value={chain.userName}
-                                onChange={(e) => setChain({ ...chain, userName: e.target.value })}
+                                onChange={(e) => setRoundChain({ ...chain, userName: e.target.value })}
                               />
                             </div>
                                                         

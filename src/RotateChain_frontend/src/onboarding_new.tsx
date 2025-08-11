@@ -59,7 +59,7 @@ const mockGroups = [
 ];
 
 
-const SmartOnboarding = ({chainActor,onLogout,authClient,setChainData}:{setChainData:Dispatch<SetStateAction<Chain | undefined>>,chainActor:Actor | null | undefined,authClient:AuthClient | null,onLogout:() => Promise<void>}) => {
+const SmartOnboarding = () => {
   const [step, setStep] = useState<number>(1);
   const [currentChainId,setCurrentChainId] = useState<string>("")
   const [chainType, setChainType] = useState<ChainType>(null);

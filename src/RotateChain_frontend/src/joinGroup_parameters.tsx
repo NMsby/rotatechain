@@ -9,6 +9,8 @@ import {Principal} from "@dfinity/principal"
 import { DateTime } from 'luxon';
 import { useNotification } from './notificationContext';
 import { SplashScreen } from './sassySplash';
+import { useAppDispatch, useAppSelector } from './state/hooks';
+import { roundUpdate } from './state/slice';
 
 //This is the onboarding that I intend to use as the redirect url whenever someone clicks on the join link incorporate with the email directory files for joining the group before one is finally admitted into the group.
 
@@ -67,7 +69,9 @@ const fetchGroupByInviteCode = (inviteCode: string): Promise<Group> => {
   });
 };
 
-const JoinGroupPage = ({setChainData,chainActor,authClient}:{setChainData:Dispatch<SetStateAction<Chain | undefined>>,authClient:AuthClient | null | undefined,chainActor:Actor | null | undefined}) => {
+const JoinGroupPage = () => {
+  const reduxDispatch = useAppDispatch()
+  const roundChainRedux = useAppSelector(state => state.roundReducer)
   const { inviteCode } = useParams<{ inviteCode: string }>();
   const navigate = useNavigate();
   const notification = useNotification()
@@ -253,13 +257,14 @@ const JoinGroupPage = ({setChainData,chainActor,authClient}:{setChainData:Dispat
 
       //add the chain data to be passed
       //take him/her to the dashboard immediately
-      setChainData((prevState) => {
-        if(prevState){
-          return {...prevState,userName:userNameReceived}
-        }
-      })
-      notification.success(`welcome ${userNameReceived}`)
-      navigate(`/dashboard`);
+      const roundChainData = roundChainRedux
+      if(userNameReceived && roundChainData){
+        let stringifiedUserName:string | undefined = userNameReceived.toString()
+        let newRoundChain = {...roundChainData,userName:stringifiedUserName}
+        //reduxDispatch(roundUpdate(newRoundChain))
+        notification.success(`welcome ${userNameReceived}`)
+        navigate(`/dashboard`);
+      }
     }
   };
 

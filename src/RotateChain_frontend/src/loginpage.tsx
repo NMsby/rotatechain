@@ -1,44 +1,118 @@
 // src/components/LoginPage.tsx
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import InternetIdentityLogin from './internetidentitylogin';
 import { AuthClient } from '@dfinity/auth-client';
 import { LoginPageProps } from './types';
+import { useAppDispatch, useAppSelector } from './state/hooks';
 
-const LoginPage: React.FC<{ onLogin: (principal: string) => void; authClient: AuthClient | null }> = ({ 
-  onLogin, 
-  authClient 
-}) => {
+
+import { update } from './state/slice';
+import { createActor,canisterId} from "../../declarations/chain_management"
+import { CreateChainParams,_SERVICE } from '../../declarations/chain_management/chain_management.did';
+import { AccountIdentifier } from '@dfinity/ledger-icp';
+import { Principal } from '@dfinity/principal';
+import { Actor, ActorSubclass } from '@dfinity/agent';
+import { useNavigate } from 'react-router-dom';
+import { UserData } from './types';
+import {DelegationIdentity,DelegationChain} from "@dfinity/identity"
+import {useInternetIdentity} from "ic-use-internet-identity"
+
+
+
+const identityProvider = 'https://identity.ic0.app'
+
+const LoginPage: React.FC = () => {
+  const authRedux = useAppSelector(state => state.authReducer)
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  //
+  const reducer = useAppDispatch()
+  const [chainActorState,setChainActorState] = useState<ActorSubclass<_SERVICE> | null >(null)
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const navigate = useNavigate()
+  const {login} = useInternetIdentity()
+
+
+
+  useEffect
+  (function(){
+    //the react-reducer initialization
+    console.log(`chainActor state changed: ${chainActorState}`)
+  },[chainActorState])
+
+
+  const updateActor = async () => {
+
+    //const authClient:AuthClient = authRedux;
+      const authClient = await AuthClient.create()
+      const identity = authClient.getIdentity();
+
+      //saving
+
+
+      const actor = createActor(canisterId, {
+          
+      agentOptions: {
+          identity
+      }
+      });
+      let tempPrincipal = identity.getPrincipal().toString()
+  
+      let principal = identity.getPrincipal()
+      //once he/she adds the plug wallet address can be used only for withdrawal
+      /*const userAccountId = AccountIdentifier.fromPrincipal({
+        principal: Principal.fromText(principal.toText()),
+        subAccount:undefined
+      }).toHex()*/
+  
+      /*setChainData((prevState) => {
+        if(prevState){
+          return {...prevState,userId:userAccountId}
+        }
+      })*/
+  
+  
+      const isAuthenticated = await authClient.isAuthenticated();
+      setIsLoggedIn(isAuthenticated)
+      navigate("/join")
+  
+      //setChainActorState(actor)      
+  };  
+
 
   const handleInternetIdentityLogin = async () => {
-    if (!authClient) {
-      setError("Authentication client not initialized");
-      return;
-    }
-    
-    setIsLoading(true);
-    setError(null);
-    
-    try {
-      await new Promise<void>((resolve, reject) => {
-        authClient.login({
-          identityProvider: process.env.REACT_APP_II_URL || "https://identity.ic0.app",
-          onSuccess: () => resolve(),
-          onError: (err) => reject(err),
-          maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000) // 1 week
-        });
-      });
+
+      //const authClient:AuthClient = authRedux
+      const authClient = await AuthClient.create()
+      if (!authClient) {
+        setError("Authentication client not initialized");
+        return;
+      }
       
-      const identity = authClient.getIdentity();
-      const principal = identity.getPrincipal().toString();
-      onLogin(principal);
-    } catch (err) {
-      console.error("Login failed:", err);
-      setError("Login failed. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        await new Promise<void>((resolve, reject) => {
+          authClient.login({
+            identityProvider: process.env.REACT_APP_II_URL || "https://identity.ic0.app",
+            onSuccess: updateActor,
+            onError: (err) => reject(err),
+            maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000) // 1 week
+          });
+        });
+        
+        const identity = authClient.getIdentity();
+        const principal = identity.getPrincipal().toString();
+        //onLogin(principal);
+      } catch (err) {
+        console.error("Login failed:", err);
+        setError("Login failed. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
+
   };
 
   return (

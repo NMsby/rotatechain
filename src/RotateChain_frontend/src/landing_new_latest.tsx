@@ -194,7 +194,7 @@ const RotateChain = () => {
                 repeatType: "reverse"
               }}
             >
-              Revolutionize Your <span className="text-cyan-300">Savings</span> & <span className="text-cyan-300">Trading</span>
+              Revolutionize Your <span className="text-cyan-300">Savings</span> & <span className="text-cyan-300">liquidity</span>
             </motion.h1>
             
             <p className="text-xl text-blue-200 mb-8 max-w-2xl">
@@ -298,7 +298,7 @@ const RotateChain = () => {
           >
             <h2 className="text-3xl md:text-4xl font-bold mb-4">Revolutionary Features</h2>
             <p className="text-xl text-blue-200 max-w-2xl mx-auto">
-              Combining rotational savings with DeFi trading for maximum financial growth
+              Combining rotational savings with DeFi lending for maximum financial growth
             </p>
           </motion.div>
           
@@ -333,7 +333,7 @@ const RotateChain = () => {
           >
             <h2 className="text-3xl md:text-4xl font-bold mb-4">How RotateChain Works</h2>
             <p className="text-xl text-blue-200 max-w-2xl mx-auto">
-              A simple 4-step process to grow your savings and trade risk-free
+              A simple 4-step process to grow your savings and liquidity risk-free
             </p>
           </motion.div>
           
@@ -380,13 +380,13 @@ const RotateChain = () => {
                   className={`py-3 px-6 font-semibold ${activeTab === 'savings' ? 'border-b-2 border-cyan-500' : ''}`}
                   onClick={() => setActiveTab('savings')}
                 >
-                  Savings Mode
+                  Savings mode
                 </button>
                 <button 
                   className={`py-3 px-6 font-semibold ${activeTab === 'trade' ? 'border-b-2 border-cyan-500' : ''}`}
                   onClick={() => setActiveTab('trade')}
                 >
-                  Trade Mode
+                  liquidity mode
                 </button>
               </div>
               
