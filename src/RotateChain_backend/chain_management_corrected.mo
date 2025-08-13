@@ -137,6 +137,31 @@ actor chain_management {
     func generateId(counter: Nat, prefix: Text) : Text {
         return prefix # "-" # Nat.toText(counter);
     };
+
+
+    // get all chains method
+    public shared ({ caller }) func getAllChains() : async Result.Result<[SingleChain], Text> {
+        // Verify caller is authenticated
+        if (Principal.isAnonymous(caller)) {
+            return #err("Anonymous users cannot access this resource");
+        };
+        
+        // Convert all chains to SingleChain format
+        let allChains = Iter.toArray(chains.vals());
+        let result = Array.map<Chain, SingleChain>(
+            allChains,
+            func(chain) {
+                {
+                    id = chain.id;
+                    name = chain.name;
+                }
+            }
+        );
+        
+        #ok(result)
+    };
+
+
     
     // Chain management functions
     public shared ({caller}) func createChain(params: CreateChainParams) : async Result.Result<Text, Text> {

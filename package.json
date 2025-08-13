@@ -1,7 +1,7 @@
 {
   "name": "rotatechain",
   "version": "1.0.0",
-  "description": "Decentralized rotational savings & crypto lending platform combining traditional chama savings with DeFi yield generation on Internet Computer",
+  "description": "Decentralized rotational savings & crypto lending platform. Integrating rotational savings with DeFi yield generation on Internet Computer Protocol",
   "keywords": [
     "rotational-savings",
     "defi",
@@ -10,8 +10,6 @@
     "motoko",
     "blockchain",
     "fintech",
-    "chama",
-    "tanda",
     "financial-inclusion",
     "wchl2025"
   ],
@@ -27,7 +25,7 @@
       "github": "NMsby"
     },
     {
-      "name": "Ronny Ogeta", 
+      "name": "Ronny Ogeta",
       "email": "ronnyogetaz@gmail.com",
       "github": "Rogetz"
     }
@@ -37,9 +35,13 @@
     "src/RotateChain_frontend"
   ],
   "dependencies": {
+    "@dfinity/agent": "^3.1.0",
     "@heroicons/react": "^2.2.0",
+    "@reduxjs/toolkit": "^2.8.2",
     "@types/node": "^24.0.12",
-    "framer-motion": "^12.23.0"
+    "framer-motion": "^12.23.0",
+    "react-redux": "^9.2.0",
+    "simple-cbor": "^0.4.1"
   },
   "engines": {
     "node": ">=16.0.0",

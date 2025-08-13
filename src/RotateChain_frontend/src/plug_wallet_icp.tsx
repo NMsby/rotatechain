@@ -1,5 +1,6 @@
 import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
-
+import { canisterId as icpCanisterId } from '../../declarations/icp_backend';
+import { canisterId as ledgerCanisterId } from '../../declarations/icp_ledger_canister';
 
 interface PlugConnectProps {
   onConnect: (principal: string, accountId: string) => void;
@@ -15,17 +16,19 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
 
   useEffect(() => {
     const checkConnection = async () => {
-      if (window.ic?.plug) {
-        const connected = window.ic.plug.isConnected();
+      //if (window.ic?.plug) {
+      if (isConnected) {
+        //const connected = window.ic.plug.isConnected();
         
-        if (connected) {
+        if (isConnected) {
           const innerPrincipal = window.ic.plug.principalId;
           const innerAccountId = window.ic.plug.accountId;
-          setIsWalletConnected(true)
+          //alert(`account id and principal : ${innerPrincipal} accountId: ${innerAccountId}`)
+          //setIsWalletConnected(true)
           
           if(innerPrincipal && innerAccountId){
             setPrincipal(innerPrincipal.toString());
-            setIsConnected(true);
+            //setIsConnected(true);
             onConnect(innerPrincipal.toString(), toHexString(innerAccountId));
           }
         }
@@ -33,7 +36,7 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
     };
 
     checkConnection();
-  }, [onConnect]);
+  }, [isConnected]);
 
   const handleConnect = async () => {
     try {
@@ -43,11 +46,11 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
         return;
       }
 
+      window.ic.plug.createAgent({ host:'http://127.0.0.1:4943' })
+      alert(`the ledgerCanisterId : ${ledgerCanisterId.toString()}`)
       let identity = await window.ic.plug.requestConnect({
-        whitelist: [import.meta.env.VITE_REACT_APP_PAYMENT_CANISTER_ID],
-        host: network === 'testnet' 
-          ? 'https://ic0.app' 
-          : 'https://mainnet.ic0.app'
+        whitelist: [icpCanisterId.toString(),ledgerCanisterId.toString()],
+        host: 'http://127.0.0.1:4943' 
         
         /*whitelist:["ulvla-h7777-77774-qaacq-cai"],
         host: network === 'testnet' 
