@@ -1,6 +1,6 @@
 import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
-import { canisterId as icpCanisterId } from '../../declarations/icp_backend';
-import { canisterId as ledgerCanisterId } from '../../declarations/icp_ledger_canister';
+import { canisterId as icpCanisterId } from '../../../declarations/icp_backend';
+import { canisterId as ledgerCanisterId } from '../../../declarations/icp_ledger_canister';
 
 interface PlugConnectProps {
   onConnect: (principal: string, accountId: string) => void;

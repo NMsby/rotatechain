@@ -2,22 +2,22 @@
 import React,{ useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import "./globals.css"
-import LandingPage from "./landing_new_latest";
-import SmartOnboarding from "./onboarding_new";
-import Dashboard, { Chain, SingleChain } from "./rotate_dashboard_graph_payment";
-import AppIdentityIntegrated from "./internetIdentity"
+import LandingPage from "./components/landing_new_latest";
+import SmartOnboarding from "./components/onboarding_new";
+import Dashboard, { Chain, SingleChain } from "./components/rotate_dashboard_graph_payment";
+import AppIdentityIntegrated from "./components/internetIdentity"
 import { BrowserRouter as Router, Routes,Route,Link} from "react-router-dom";
-import { NotificationProvider } from "./notificationContext";
-import MetapoolLiquidityDashboard from './rotate_metapool_dashboard'
-import RotateTheme from "./rotateTheme"
-import SassySplash from "./sassySplash"
-import SassyBurgerMenu from "./hamburgerMenu";
-import JoinGroupPage from "./joinGroup_parameters";
+import { NotificationProvider } from "./components/notificationContext";
+import MetapoolLiquidityDashboard from './components/rotate_metapool_dashboard'
+import RotateTheme from "./components/rotateTheme"
+import SassySplash from "./components/sassySplash"
+import SassyBurgerMenu from "./components/hamburgerMenu";
+import JoinGroupPage from "./components/joinGroup_parameters";
 
 import { CreateChainParams,_SERVICE } from '../../declarations/chain_management/chain_management.did';
 
 import { AuthClient, LocalStorage } from '@dfinity/auth-client';
-import LoginPage from './loginpage';
+import LoginPage from './components/loginpage';
 import { UserData } from './types';
 import { Actor,ActorSubclass } from "@dfinity/agent";
 import { canisterId as ledgerCanisterId } from "../../declarations/icp_ledger_canister"

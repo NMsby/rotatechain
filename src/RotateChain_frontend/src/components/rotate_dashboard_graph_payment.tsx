@@ -11,15 +11,15 @@ import { FaBars, FaCoins, FaRegWindowClose } from 'react-icons/fa';
 import { useNotification } from './notificationContext';
 import SassyBurgerMenu from "./hamburgerMenu";
 import { SplashScreen } from './sassySplash';
-import ICPShoppingPopup from './instructions/icp_buying-instructions';
+import ICPShoppingPopup from './../instructions/icp_buying-instructions';
 import PlugConnect from './plug_wallet_icp';
 import PaymentForm from './Icp_payment_form';
-import { getICPBalance, getPaymentCanister } from './services/icp_canister';
+import { getICPBalance, getPaymentCanister } from './../services/icp_canister';
 import { AuthClient, LocalStorage } from '@dfinity/auth-client';
 import { Actor ,ActorSubclass, Identity} from '@dfinity/agent';
-import {canisterId, chain_management, createActor } from '../../declarations/chain_management'
-import { _SERVICE, CreateChainParams } from '../../declarations/chain_management/chain_management.did';
-import { useAppSelector } from './state/hooks';
+import {canisterId, chain_management, createActor } from '../../../declarations/chain_management'
+import { _SERVICE, CreateChainParams } from '../../../declarations/chain_management/chain_management.did';
+import { useAppSelector } from './../state/hooks';
 import { useInternetIdentity } from 'ic-use-internet-identity';
 
 

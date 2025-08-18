@@ -9,8 +9,8 @@ import {Principal} from "@dfinity/principal"
 import { DateTime } from 'luxon';
 import { useNotification } from './notificationContext';
 import { SplashScreen } from './sassySplash';
-import { useAppDispatch, useAppSelector } from './state/hooks';
-import { roundUpdate } from './state/slice';
+import { useAppDispatch, useAppSelector } from './../state/hooks';
+import { roundUpdate } from './../state/slice';
 
 //This is the onboarding that I intend to use as the redirect url whenever someone clicks on the join link incorporate with the email directory files for joining the group before one is finally admitted into the group.
 
