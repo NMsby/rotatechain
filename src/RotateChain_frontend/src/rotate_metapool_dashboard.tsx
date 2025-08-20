@@ -19,9 +19,11 @@ import {
   Legend,
   Filler
 } from 'chart.js';
+import { useNavigate } from 'react-router-dom';
 
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate()
   const notification = useNotification();
   const [activeTab, setActiveTab] = useState<'overview' | 'analytics'>('overview');
 
@@ -50,6 +52,13 @@ const DashboardPage: React.FC = () => {
           </div>
           
           <div className="flex space-x-2">
+            <button 
+              onClick={() => navigate("/dashboard")}
+              className={`px-4 py-2 rounded-lg transition ${activeTab === 'analytics' ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300'}`}
+            >
+              Back
+            </button>
+
             <button 
               onClick={() => setActiveTab('overview')}
               className={`px-4 py-2 rounded-lg transition ${activeTab === 'overview' ? 'bg-indigo-600 text-white' : 'bg-gray-700 text-gray-300'}`}

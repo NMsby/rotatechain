@@ -1,16 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate } from 'react-router-dom';
 import { useNotification } from './notificationContext';
+import { AuthClient } from '@dfinity/auth-client';
+import { Actor } from '@dfinity/agent';
+import { Chain } from './rotate_dashboard_graph_payment';
 
 // Define types for our state objects
-type Frequency = 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly';
+export type Frequency = 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly';
 type Duration = '3 months' | '6 months' | '9 months' | '1 year';
-type ChainType = 'social' | 'global' | null;
+export type ChainType = 'social' | 'global' | null;
 type JoinStatus = 'not_started' | 'pending' | 'approved' | 'rejected';
 
 interface Member {
-  name: string;
+  userName: string;
   email: string;
   phone: string;
 }
@@ -21,34 +24,44 @@ interface SocialChainInfo {
   currency: string;
   frequency: Frequency;
   members: Member[];
+  // interest rate
+  loanInterest: number;
+  // fine rate
+  fine:number;
   inviteLink?: string;
 }
 
 interface GlobalChainInfo {
   groupName: string;
   contribution: string;
+  customFrequency?:number;
   currency: string;
-  duration: Duration;
-  membersCount: number;
+  frequency: Frequency;
+  members: Member[];
+  // interest rate
+  loanInterest: number;
+  // fine rate
+  fine:number;
   inviteLink?: string;
 }
 
 // Supported currencies and cryptos
 const currencies = [
-  'USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 
+  'ICP','USD', 'EUR', 'GBP', 'JPY', 'CAD', 'AUD', 
   'BTC', 'ETH', 'SOL', 'USDC', 'USDT', 'DAI'
 ];
 
 const mockGroups = [
   { id: 1, name: "Family Savings Group", members: 8, contribution: "100 USD" },
   { id: 2, name: "Tech Professionals", members: 12, contribution: "200 USDC" },
-  { id: 3, name: "Global Crypto Enthusiasts", members: 15, contribution: "0.5 ETH" },
+  { id: 3, name: "Crypto Investors Group", members: 5, contribution: "10000 ICP" },
   { id: 4, name: "Student Support Chain", members: 6, contribution: "50 USD" },
 ];
 
 
 const SmartOnboarding = () => {
   const [step, setStep] = useState<number>(1);
+  const [currentChainId,setCurrentChainId] = useState<string>("")
   const [chainType, setChainType] = useState<ChainType>(null);
   //notification
   const notification = useNotification()
@@ -57,17 +70,22 @@ const SmartOnboarding = () => {
   const [socialChainInfo, setSocialChainInfo] = useState<SocialChainInfo>({
     groupName: '',
     contribution: '',
-    currency: 'USD',
+    currency: 'ICP',
     frequency: 'weekly',
-    members: [{ name: '', email: '', phone: '' }]
+    fine:5,
+    loanInterest:5,
+    members: [{userName: '', email: '', phone: '' }]
   });
   
   const [globalChainInfo, setGlobalChainInfo] = useState<GlobalChainInfo>({
     groupName: '',
     contribution: '',
-    currency: 'USD',
-    duration: '3 months',
-    membersCount: 6
+    currency: 'ICP',
+    fine:5,
+    frequency:'monthly',
+    customFrequency:2,
+    loanInterest:5,
+    members: []
   });
 
   const [inviteLink, setInviteLink] = useState<string>('');
@@ -80,16 +98,30 @@ const SmartOnboarding = () => {
   const [inviteLinkInput, setInviteLinkInput] = useState<string>('');
   
 
+
+  useEffect(function(){
+    setCurrentChainId("svvjab374b38784b3hbh")
+  },[])
+
   // Generate invite link when chain is created
   useEffect(() => {
     if (step === 3 && chainType) {
-      const generateLink = () => {
-        const baseUrl = 'https://chainapp.com/join';
-        const chainId = Math.random().toString(36).substring(2, 10);
-        return `${baseUrl}/${chainType}/${chainId}`;
+      const generateLink = (currentChainId:string) => {
+        //get the chain id that will be used to generate the link
+
+        const baseUrl = window.location.origin
+
+        const chainId = currentChainId
+        if(baseUrl.includes("join")){
+          return `${baseUrl}/${chainId}`;
+
+        }
+        else{
+          return `${baseUrl}/join/${chainId}`;
+        }
       };
       
-      const link = generateLink();
+      const link = generateLink(currentChainId);
       setInviteLink(link);
       
       // For social chains, set invite link immediately
@@ -115,9 +147,12 @@ const SmartOnboarding = () => {
   };
 
   const addMember = () => {
+    //isLender is a boolean
+    //contribution to be in float64 format
+    //chainActor.addMember(userId,userName,walletAddress,contribution,isLender)
     setSocialChainInfo({
       ...socialChainInfo,
-      members: [...socialChainInfo.members, { name: '', email: '', phone: '' }]
+      members: [...socialChainInfo.members, { userName: '', email: '', phone: '' }]
     });
   };
 
@@ -135,6 +170,8 @@ const SmartOnboarding = () => {
   };
 
   const handleSubmit = () => {
+    //create the chain onchain
+
     setStep(3);
     setIsVettingComplete(false);
   };
@@ -159,7 +196,7 @@ const SmartOnboarding = () => {
       default:
         // Copy to clipboard as fallback
         navigator.clipboard.writeText(inviteLink);
-        alert('Link copied to clipboard!');
+        notification.success('Link copied to clipboard for user-defined sharing');
     }
   };
 
@@ -175,18 +212,56 @@ const SmartOnboarding = () => {
   };
 
   const handleJoinWithLink = () => {
+    let actualUrl = ""
     if (inviteLinkInput) {
+      if(inviteLink.includes("cai")){
+        actualUrl = inviteLinkInput.split(":")[2].split("/")[2]
+      }
+      else{
+        actualUrl = inviteLinkInput.split("//")[1].split("/")[2]
+
+      }
+
+      //first check the chains// if available then if available get the details of a user.
+
       notification.success(`${joinChainType} group welcomes you`)
       // In a real app: window.location.href = inviteLinkInput;
       setJoinModalOpen(false);
+
       setInviteLinkInput('');
-      navigate("/dashboard")
+
+      navigate(`/join/${actualUrl}`)
     } else {
       notification.error("Please enter a valid invite link")
     }
   };
 
-  const handleJoinGroup = (groupId: number) => {
+  const handleJoinGroup = async (groupId: number) => {
+    //first check the chains// if available then if available get the details of a user.
+    //let chains = await chainActor.getChain()
+    
+    /*let newChain:Chain = {
+      currency:,
+      currentFunds:,
+      currentRound:,
+      fineRate:,
+      id:,
+      interestRate:,
+      loans:,
+      members:,
+      name:,
+      roundDuration:,
+      startDate:,
+      totalFunds:,
+      totalRounds:,
+      type:,
+      userId:,
+      userName:
+    }*/
+    
+    //set chain data 
+    //setChainData()
+
     notification.success(`${mockGroups.find(g => g.id === groupId)?.name} welcomes you`)
     // In a real app: redirect to group page or show join confirmation
     setJoinModalOpen(false);
@@ -397,8 +472,31 @@ const SmartOnboarding = () => {
                         </div>
                       </div>
                     </div>
+                    
                   </div>
-                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">loan-interest %</label>
+                      <input
+                        type="number"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g. 10"
+                        value={socialChainInfo.loanInterest}
+                        onChange={(e) => setSocialChainInfo({...socialChainInfo, loanInterest: Number(e.target.value)})}
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">loan-fine %</label>
+                      <input
+                        type="number"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        placeholder="e.g. 5"
+                        value={socialChainInfo.fine}
+                        onChange={(e) => setSocialChainInfo({...socialChainInfo, fine: Number(e.target.value)})}
+                      />
+                    </div>
+                  </div>
+
                   <div>
                     <label className="block text-gray-700 font-medium mb-2">Contribution Frequency</label>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -418,7 +516,7 @@ const SmartOnboarding = () => {
                     </div>
                   </div>
                   
-                  <div>
+                  {/*<div>
                     <div className="flex justify-between items-center mb-2">
                       <label className="block text-gray-700 font-medium">Group Members</label>
                       <button 
@@ -469,7 +567,7 @@ const SmartOnboarding = () => {
                         </div>
                       ))}
                     </div>
-                  </div>
+                  </div>*/}
                   
                   <div className="pt-4">
                     <button 
@@ -520,50 +618,58 @@ const SmartOnboarding = () => {
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">   
                     <div>
-                      <label className="block text-gray-700 font-medium mb-2">Chain Duration</label>
-                      <div className="grid grid-cols-2 gap-3">
-                        {(['3 months', '6 months', '9 months', '1 year'] as Duration[]).map((duration) => (
-                          <button
-                            key={duration}
-                            className={`py-3 px-4 rounded-lg border transition-colors ${
-                              globalChainInfo.duration === duration
-                                ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
-                                : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                            }`}
-                            onClick={() => setGlobalChainInfo({...globalChainInfo, duration})}
-                          >
-                            {duration}
-                          </button>
-                        ))}
-                      </div>
+                      <label className="block text-gray-700 font-medium mb-2">loan-interest %</label>
+                      <input
+                        type="10"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="e.g. 10"
+                        value={globalChainInfo.loanInterest}
+                        onChange={(e) => setGlobalChainInfo({...globalChainInfo, loanInterest: Number(e.target.value)})}
+                      />
                     </div>
-                    
                     <div>
-                      <label className="block text-gray-700 font-medium mb-2">Number of Members</label>
-                      <div className="flex items-center">
-                        <button 
-                          className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
-                          onClick={() => setGlobalChainInfo({...globalChainInfo, membersCount: Math.max(3, globalChainInfo.membersCount - 1)})}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                          </svg>
-                        </button>
-                        <div className="mx-4 text-xl font-medium">{globalChainInfo.membersCount}</div>
-                        <button 
-                          className="p-2 rounded-full bg-gray-100 hover:bg-gray-200"
-                          onClick={() => setGlobalChainInfo({...globalChainInfo, membersCount: globalChainInfo.membersCount + 1})}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                          </svg>
-                        </button>
-                      </div>
-                      <p className="text-sm text-gray-500 mt-2">Minimum 3 members, maximum 12 members</p>
+                      <label className="block text-gray-700 font-medium mb-2">fine %</label>
+                      <input
+                        type="10"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="e.g. 13"
+                        value={globalChainInfo.fine}
+                        onChange={(e) => setGlobalChainInfo({...globalChainInfo, fine: Number(e.target.value)})}
+                      />
                     </div>
                   </div>
+                  <div>
+                    <label className="block text-gray-700 font-medium mb-2">Contribution Frequency</label>
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                      {(['weekly', 'bi-weekly', 'monthly', 'quarterly'] as Frequency[]).map((freq) => (
+                        <button
+                          key={freq}
+                          className={`py-3 px-4 rounded-lg border transition-colors ${
+                            socialChainInfo.frequency === freq
+                              ? 'border-indigo-500 bg-indigo-50 text-indigo-600 font-medium'
+                              : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                          }`}
+                          onClick={() => setSocialChainInfo({...socialChainInfo, frequency: freq})}
+                        >
+                          {freq.charAt(0).toUpperCase() + freq.slice(1)}
+                        </button>
+                      ))}
+                    </div>
+                    <div>
+                      <label className="block text-gray-700 font-medium mb-2">custom frequency(d)</label>
+                      <input
+                        type="number"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                        placeholder="e.g. 1 day"
+                        value={globalChainInfo.customFrequency}
+                        onChange={(e) => setGlobalChainInfo({...globalChainInfo, customFrequency: Number(e.target.value)})}
+                      />
+                    </div>
+
+                  </div>
+
                   
                   <div className="bg-indigo-50 border-l-4 border-indigo-500 p-4 rounded-lg">
                     <div className="flex">
@@ -605,7 +711,17 @@ const SmartOnboarding = () => {
               transition={{ duration: 0.5 }}
               className="text-center py-10"
             >
+
               <div className="flex justify-center mb-6">
+                <button 
+                  onClick={() => setStep(1)}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+
                 <div className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center">
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
@@ -665,7 +781,7 @@ const SmartOnboarding = () => {
               ) : (
                 <div>
                   <p className="text-gray-600 max-w-md mx-auto mb-8">
-                    Your GlobalChain <span className="font-semibold text-indigo-600">{globalChainInfo.groupName}</span> has been created for {globalChainInfo.membersCount} members.
+                    Your GlobalChain <span className="font-semibold text-indigo-600">{globalChainInfo.groupName}</span> has been created for {globalChainInfo.members.length} members.
                   </p>
                   
                   <div className="bg-indigo-50 p-6 rounded-xl max-w-md mx-auto mb-8">

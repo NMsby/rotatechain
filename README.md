@@ -1,59 +1,269 @@
-# `RotateChain`
+# RotateChain - Decentralized Rotational Savings & Crypto Lending Platform
 
-Welcome to your new `RotateChain` project and to the Internet Computer development community. By default, creating a new project adds this README and some template files to your project directory. You can edit these template files to customize your project and to include your own code to speed up the development cycle.
+![RotateChain](https://img.shields.io/badge/Built%20on-Internet%20Computer-blue)
+![WCHL 2025](https://img.shields.io/badge/WCHL%202025-Bitcoin%20DeFi%20Track-orange)
+![Team](https://img.shields.io/badge/Team-ICP%20Kenya-green)
 
-To get started, you might want to explore the project directory structure and the default configuration file. Working with this project in your development environment will not affect any production deployment or identity tokens.
+**🏆 WCHL 2025 Submission - Bitcoin DeFi Track**  
+**Team:** Nelson Masbayi ([@NMsby](https://github.com/NMsby)) & Ronny Ogeta ([@Rogetz](https://github.com/Rogetz))  
+**Hub:** ICP Kenya Hub  
+**Repository:** https://github.com/Rogetz/rotatechain_improvized
 
-To learn more before you start working with `RotateChain`, see the following documentation available online:
+## 🌟 Executive Summary
 
-- [Quick Start](https://internetcomputer.org/docs/current/developer-docs/setup/deploy-locally)
-- [SDK Developer Tools](https://internetcomputer.org/docs/current/developer-docs/setup/install)
-- [Motoko Programming Language Guide](https://internetcomputer.org/docs/current/motoko/main/motoko)
-- [Motoko Language Quick Reference](https://internetcomputer.org/docs/current/motoko/main/language-manual)
+RotateChain revolutionizes traditional rotational savings (chama/tanda) by combining it with DeFi liquidity pools on the Internet Computer. Our platform enables groups to pool crypto assets, rotate payouts automatically via smart contracts, while earning yield through IC Lighthouse integration.
 
-If you want to start working on your project right away, you might want to try the following commands:
+**Problem:** 2.5B people lack access to formal financial services, relying on informal savings groups that lack transparency, automation, and yield generation.
 
-```bash
-cd RotateChain/
-dfx help
-dfx canister --help
+**Solution:** Trustless, automated rotational savings with built-in DeFi yield farming and liquid token generation for risk-free trading.
+
+## 🎯 Value Proposition
+
+- **Financial Inclusion:** Democratize access to structured savings for the unbanked
+- **Transparency:** All transactions recorded on-chain with group voting mechanisms  
+- **Yield Generation:** Funds earn interest through IC Lighthouse liquidity pools
+- **Liquid Assets:** Receive tradeable tokens during non-payout rounds
+- **Global Access:** Participate from anywhere with crypto wallet
+
+## 🏗️ Architecture Overview
+
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Frontend UI    │    │  Core Backend   │    │  IC Lighthouse  │
+│  (React/TS)     │───▶│  (Motoko)       │───▶│  Integration    │
+│                 │    │                 │    │                 │
+│  - Group Mgmt   │    │  - Groups       │    │  - Yield Farms  │
+│  - Rotation UI  │    │  - Rotations    │    │  - LP Tokens    │
+│  - Dashboard    │    │  - Scheduling   │    │  - Swaps        │
+│  - Wallet Mgmt  │    │  - Payments     │    │  - Liquidity    │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+        │                       │                       │
+        │                       │                       │
+        ▼                       ▼                       ▼
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│  Authentication │    │  Event System   │    │  Bitcoin Layer  │
+│  (Internet ID)  │    │  (Notifications)│    │  (Future)       │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## Running the project locally
+## 🔧 Key Features
 
-If you want to test your project locally, you can use the following commands:
+### 1. **User & Group Management**
+- **Smart Group Creation:** Customizable group parameters (size, contribution, frequency)
+- **Automated Vetting:** System validates member ability to contribute
+- **Flexible Membership:** Join existing groups or create private ones
+- **Role Management:** Group admin, member, and observer permissions
+
+### 2. **Rotation Engine**
+- **Smart Scheduling:** Automated round progression with configurable intervals
+- **Fair Distribution:** Randomized or sequential payout ordering
+- **Emergency Exits:** Early withdrawal with calculated penalties
+- **Dispute Resolution:** On-chain voting for conflict resolution
+
+### 3. **Liquidity Integration**
+- **Auto-Deposit:** Incoming funds automatically enter yield-generating pools
+- **Dynamic Rebalancing:** Smart allocation across multiple IC Lighthouse pools
+- **Compound Interest:** Reinvest yields to maximize returns
+- **Trade Mode:** Option to keep funds in pools during your payout round
+
+### 4. **Liquid Token System**
+- **rToken Generation:** Receive liquid tokens equivalent to your contribution
+- **Risk-Free Trading:** Trade without affecting your rotation position
+- **Yield Bearing:** Liquid tokens also generate returns
+- **Redemption Rights:** Convert back to underlying assets anytime
+
+### 5. **Transparency Layer**
+- **Transaction Logs:** Complete audit trail of all group activities
+- **Real-time Analytics:** Group performance, yield tracking, member statistics
+- **Governance Dashboard:** Vote on group changes, dispute resolution
+- **Notification System:** Real-time updates on rotations, yields, events
+
+## 🛠️ Technical Stack
+
+**Frontend:**
+- React 19 + TypeScript
+- Tailwind CSS for styling
+- Framer Motion for animations
+- React Router for navigation
+- Chart.js & Recharts for analytics visualization
+
+**Backend:**
+- Motoko smart contracts on Internet Computer
+- ICP Ledger integration for payments
+- IC Lighthouse for liquidity pools
+- Event-driven architecture for notifications
+
+**Authentication:**
+- Internet Identity for seamless Web3 login
+- Plug Wallet integration
+- Principal-based access control
+
+**Infrastructure:**
+- Internet Computer Protocol (ICP)
+- Asset canister for frontend hosting
+- Multiple canister architecture for scalability
+
+## 📊 Business Model
+
+**Revenue Streams:**
+1. **Transaction Fees:** 0.25% on all group contributions and payouts
+2. **Yield Sharing:** 15% of DeFi yields generated through liquidity pools  
+3. **Premium Features:** Advanced analytics, larger groups, custom scheduling
+4. **Liquid Token Trading:** Small spread on rToken conversions
+5. **API Access:** Third-party integrations and white-label solutions
+
+**Market Opportunity:**
+- $2.4T informal savings market globally
+- 100M+ DeFi users seeking yield opportunities
+- Growing crypto adoption in developing markets
+
+## 🎮 How It Works
+
+### For Savers:
+1. **Create/Join Group:** Set contribution amount and frequency
+2. **Regular Contributions:** Automated deposits from your wallet
+3. **Earn Yields:** Funds generate returns in liquidity pools
+4. **Receive Payouts:** Get your turn with accumulated interest
+5. **Trade Liquid Tokens:** Access liquidity without breaking savings
+
+### For Groups:
+1. **Group Formation:** 3-12 members with shared savings goals
+2. **Smart Contracts:** Automated rotation management
+3. **Collective Yields:** Shared returns from DeFi pools
+4. **Transparent Operations:** All activities recorded on-chain
+5. **Governance:** Vote on changes and resolve disputes
+
+## 🚀 Getting Started
+
+### Prerequisites
+- Node.js >= 16.0.0
+- npm >= 7.0.0
+- DFX SDK >= 0.14.0
+- Internet Computer wallet (Internet Identity or Plug)
+
+
+# Releases link
+![Releases](https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false)
+
+### Installation
 
 ```bash
-# Starts the replica, running in the background
-dfx start --background
+# Clone the repository
+git clone https://github.com/Rogetz/rotatechain_improvized.git
+cd rotatechain_improvized
 
-# Deploys your canisters to the replica and generates your candid interface
+# Install dependencies
+npm install
+
+
+
+# generate a new identity that will act as the minting account
+
+dfx identity new minter
+dfx identity use minter
+echo $(dfx ledger account-id)
+
+# switch back to your primary developer identity and record its ledger accountId for use as the developer identity\
+
+dfx identity use MyIdentity
+echo $(dfx ledger account-id)
+
+# Go to the releases overview in the releases link on top or simply paste this url:- https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false and obtain the latest ICP ledger release version. Then, replace <RELEASE> in the following github URLs with that release version:
+# open the dfx.json file in the root project directory for editing of the candid and wasm fields. point the candid and the wasm fields to the following github urls respectively,replacing the release with the actual release from the github repo
+
+- https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger.did
+- https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger-canister_notify-method.wasm.gz
+
+
+# in the dfx.json file in your project's directory. in the icp_ledger_canister field, replace or edit the existing content with the following, updating the values of MINTER_ACCOUNT_ID and DEVELOPER_ACCOUNT_ID with the values obtained in the previous steps.
+
+# Start local IC replica
+dfx start --clean --background
+
+# Deploy canisters locally
 dfx deploy
+
+# Start frontend development server
+npm run start
 ```
 
-Once the job completes, your application will be available at `http://localhost:4943?canisterId={asset_canister_id}`.
+### dfx.json configuration to replace
+- replace the MINTER_ACCOUNT_ID with your minter identity you generated
+- replace the DEVELOPER_ACCOUNT_ID with your default identity you're using
 
-If you have made changes to your backend canister, you can generate a new candid interface with
+### Environment Setup
 
 ```bash
-npm run generate
+# The project includes environment configuration
+# For local development, the .env is pre-configured
+# Edit the VITE_REACT_APP_PAYMENT_CANISTER_ID environment variable to match the ledger canister as your whitelisted canister for the plug wallet.
+
 ```
 
-at any time. This is recommended before starting the frontend development server, and will be run automatically any time you run `dfx deploy`.
+### Project Structure
 
-If you are making frontend changes, you can start a development server with
-
-```bash
-npm start
+```
+rotatechain_improvized/
+├── src/
+│   ├── RotateChain_backend/
+│   │   ├── main.mo                 # Main smart contract
+│   │   ├── icp_integration.mo      # ICP payment processing
+│   │   └── bitcoin_integration.mo  # Bitcoin functionality (planned)
+│   └── RotateChain_frontend/
+│       ├── src/
+│       │   ├── components/         # React components
+│       │   ├── services/          # API integrations
+│       │   ├── pages/             # Main application pages
+│       │   └── assets/            # Static assets
+├── docs/                          # Documentation
+├── dfx.json                       # IC canister configuration
+└── package.json                   # Project dependencies
 ```
 
-Which will start a server at `http://localhost:8080`, proxying API requests to the replica at port 4943.
+## 🎥 Demo & Presentation
 
-### Note on frontend environment variables
+**Repository:** [https://github.com/Rogetz/rotatechain_improvized](https://github.com/Rogetz/rotatechain_improvized)
+**Demo Video:** [To be added after recording]
+**Live Demo:** [Coming post-hackathon deployment]
 
-If you are hosting frontend code somewhere without using DFX, you may need to make one of the following adjustments to ensure your project does not fetch the root key in production:
+## 🤝 Team
 
-- set`DFX_NETWORK` to `ic` if you are using Webpack
-- use your own preferred method to replace `process.env.DFX_NETWORK` in the autogenerated declarations
-  - Setting `canisters -> {asset_canister_id} -> declarations -> env_override to a string` in `dfx.json` will replace `process.env.DFX_NETWORK` with the string in the autogenerated declarations
-- Write your own `createActor` constructor
+**Nelson Masbayi** - Co-Developer
+- Email: nmsby.dev@gmail.com
+- GitHub: [@NMsby](https://github.com/NMsby)
+
+**Ronny Ogeta** - Co-Developer
+- Email: ronnyogetaz@gmail.com
+- GitHub: [@Rogetz](https://github.com/Rogetz)
+
+## 🏆 WCHL 2025 Submission Details
+
+**Track:** Bitcoin DeFi - Financial Innovation
+**Innovation Focus:** Combining traditional African finance patterns with modern DeFi
+
+## 📚 Documentation
+
+- [Technical Architecture](./docs/architecture.md)
+- [Smart Contract Documentation](./docs/smart-contracts.md)
+- [API Reference](./docs/api.md)
+- [User Guide](./docs/user-guide.md)
+- [Contributing Guidelines](./CONTRIBUTING.md)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 📞 Contact & Support
+
+**Primary Contact:** Nelson Masbayi (nmsby.dev@gmail.com)
+**Secondary Contact:** Ronny Ogeta (ronnyogetaz@gmail.com)
+**Project Repository:** https://github.com/Rogetz/rotatechain_improvized
+**Issues & Discussion:** [GitHub Issues](https://github.com/Rogetz/rotatechain_improvized/issues)
+
+---
+
+*WCHL 2025 - Kenya Hub - Bitcoin DeFi Track*

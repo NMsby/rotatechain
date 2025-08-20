@@ -1,31 +1,42 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
+import { canisterId as icpCanisterId } from '../../declarations/icp_backend';
+import { canisterId as ledgerCanisterId } from '../../declarations/icp_ledger_canister';
 
 interface PlugConnectProps {
   onConnect: (principal: string, accountId: string) => void;
   network: 'mainnet' | 'testnet';
+  setIsWalletConnected:Dispatch<SetStateAction<boolean>> ;
 }
 
-const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
+const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnect, network }) => {
   const [isConnected, setIsConnected] = useState(false);
-  const [principal, setPrincipal] = useState<string | null>(null);
+  const [principal, setPrincipal] = useState<string | undefined>();
+  const [accountId, setAccountId] = useState<string | undefined>();
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const checkConnection = async () => {
-      if (window.ic?.plug) {
-        const connected = await window.ic.plug.isConnected();
-        if (connected) {
-          const principal = await window.ic.plug.agent.getPrincipal();
-          const accountId = await window.ic.plug.agent.getAccountId();
-          setPrincipal(principal.toString());
-          setIsConnected(true);
-          onConnect(principal.toString(), toHexString(accountId));
+      //if (window.ic?.plug) {
+      if (isConnected) {
+        //const connected = window.ic.plug.isConnected();
+        
+        if (isConnected) {
+          const innerPrincipal = window.ic.plug.principalId;
+          const innerAccountId = window.ic.plug.accountId;
+          //alert(`account id and principal : ${innerPrincipal} accountId: ${innerAccountId}`)
+          //setIsWalletConnected(true)
+          
+          if(innerPrincipal && innerAccountId){
+            setPrincipal(innerPrincipal.toString());
+            //setIsConnected(true);
+            onConnect(innerPrincipal.toString(), toHexString(innerAccountId));
+          }
         }
       }
     };
 
     checkConnection();
-  }, [onConnect]);
+  }, [isConnected]);
 
   const handleConnect = async () => {
     try {
@@ -35,18 +46,37 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
         return;
       }
 
-      await window.ic.plug.requestConnect({
-        whitelist: [process.env.REACT_APP_PAYMENT_CANISTER_ID!],
+      window.ic.plug.createAgent({ host:'http://127.0.0.1:4943' })
+      alert(`the ledgerCanisterId : ${ledgerCanisterId.toString()}`)
+      let identity = await window.ic.plug.requestConnect({
+        whitelist: [icpCanisterId.toString(),ledgerCanisterId.toString()],
+        host: 'http://127.0.0.1:4943' 
+        
+        /*whitelist:["ulvla-h7777-77774-qaacq-cai"],
         host: network === 'testnet' 
           ? 'https://ic0.app' 
-          : 'https://mainnet.ic0.app'
-      });
+          : 'https://mainnet.ic0.app'*/
+      })
 
-      const principal = await window.ic.plug.agent.getPrincipal();
-      const accountId = await window.ic.plug.agent.getAccountId();
-      setPrincipal(principal.toString());
-      setIsConnected(true);
-      onConnect(principal.toString(), toHexString(accountId));
+      if(identity && window.ic.plug.isConnected){
+
+        const innerPrincipalId = window.ic.plug.principalId;
+        const innerAccountId = window.ic.plug.accountId;
+    
+          
+        setPrincipal(innerPrincipalId)
+        setAccountId(innerAccountId)
+
+
+        setPrincipal(innerPrincipalId.toString());
+        setIsConnected(true);
+        setIsWalletConnected(true)
+
+        onConnect(innerPrincipalId.toString(), toHexString(innerAccountId));
+
+      }
+
+
     } catch (err) {
       console.error("Plug connection error:", err);
     } finally {
@@ -63,7 +93,7 @@ const PlugConnect: React.FC<PlugConnectProps> = ({ onConnect, network }) => {
       {isConnected ? (
         <div className="flex items-center bg-green-100 text-green-800 px-4 py-2 rounded-full">
           <div className="w-3 h-3 rounded-full bg-green-500 mr-2"></div>
-          <span className="font-medium">Connected: {principal?.slice(0, 8)}...{principal?.slice(-4)}</span>
+          <span className="font-medium">{principal?.slice(0, 8)}...{principal?.slice(-4)}</span>
         </div>
       ) : (
         <button

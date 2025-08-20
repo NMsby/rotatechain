@@ -104,7 +104,7 @@ const RotateChain = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900 text-white">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-100 to-blue-200 text-gray-900">
       {/* Navigation */}
       <nav className="container mx-auto px-4 py-6 flex justify-between items-center">
         <motion.div 
@@ -115,7 +115,7 @@ const RotateChain = () => {
           <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center">
             <span className="text-xl"><FaVolleyballBall className='text-inherit text-2xl'/></span>
           </div>
-          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-300 to-cyan-300">
+          <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-cyan-600">
             RotateChain
           </h1>
         </motion.div>
@@ -126,7 +126,7 @@ const RotateChain = () => {
             <motion.a
               key={item}
               href={`#${item.toLowerCase().replace(' ','-')}`}
-              className="text-blue-200 hover:text-white transition-colors"
+              className="text-blue-700 hover:text-blue-900 transition-colors"
               whileHover={{ scale: 1.05 }}
             >
               {item}
@@ -144,7 +144,7 @@ const RotateChain = () => {
         
         {/* Mobile Menu Button */}
         <button 
-          className="md:hidden text-2xl"
+          className="md:hidden text-2xl text-blue-800"
           onClick={() => setIsMenuOpen(!isMenuOpen)}
         >
           ☰
@@ -154,7 +154,7 @@ const RotateChain = () => {
       {/* Mobile Menu */}
       {isMenuOpen && (
         <motion.div 
-          className="md:hidden bg-blue-800 bg-opacity-90 p-4 absolute top-20 left-0 right-0 z-50"
+          className="md:hidden bg-blue-100 bg-opacity-90 p-4 absolute top-20 left-0 right-0 z-50 shadow-lg"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -162,13 +162,13 @@ const RotateChain = () => {
             <a
               key={item}
               href={`#${item.toLowerCase().split(' ').join('-')}`}
-              className="block py-3 text-center text-lg border-b border-blue-700"
+              className="block py-3 text-center text-lg border-b border-blue-200 text-blue-800"
               onClick={() => setIsMenuOpen(false)}
             >
               {item}
             </a>
           ))}
-          {/*<button className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full font-semibold">
+          {/*<button className="w-full mt-4 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full font-semibold text-white">
             Launch App
           </button>*/}
         </motion.div>
@@ -194,28 +194,28 @@ const RotateChain = () => {
                 repeatType: "reverse"
               }}
             >
-              Revolutionize Your <span className="text-cyan-300">Savings</span> & <span className="text-cyan-300">liquidity</span>
+              Revolutionize Your <span className="text-blue-600">Savings</span> & <span className="text-blue-600">Trading</span>
             </motion.h1>
             
-            <p className="text-xl text-blue-200 mb-8 max-w-2xl">
+            <p className="text-xl text-blue-800 mb-8 max-w-2xl">
               Join rotational savings groups, earn interest through liquidity pools, and trade with zero risk using liquid tokens.
             </p>
             
             <div className="flex flex-col sm:flex-row gap-4">
               <motion.button
-                className="py-3 px-8 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full text-white font-bold shadow-lg"
+                className="py-3 px-8 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full text-white font-bold shadow-lg"
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={(e) => {}}
               >
-                <Link to="/login"  className='w-full h-full text-inherit no-underline'>
+                <Link to="/onboarding"  className='w-full h-full text-inherit no-underline'>
                   Start Rotating
                 </Link>
               </motion.button>
               
               <motion.button
-                className="py-3 px-8 bg-transparent border-2 border-cyan-500 rounded-full text-cyan-300 font-bold"
-                whileHover={{ backgroundColor: "rgba(6, 182, 212, 0.1)" }}
+                className="py-3 px-8 bg-transparent border-2 border-blue-600 rounded-full text-blue-700 font-bold"
+                whileHover={{ backgroundColor: "rgba(37, 99, 235, 0.1)" }}
               >
                 <a href='#how-it-works'>
                   How It Works
@@ -233,7 +233,7 @@ const RotateChain = () => {
             <div className="relative">
               {/* Rotational Wheel */}
               <motion.div 
-                className="w-64 h-64 md:w-80 md:h-80 rounded-full border-4 border-cyan-500 relative overflow-hidden"
+                className="w-64 h-64 md:w-80 md:h-80 rounded-full border-4 border-blue-500 relative overflow-hidden"
                 animate={{ rotate: 360 }}
                 transition={{ 
                   duration: 20, 
@@ -250,25 +250,25 @@ const RotateChain = () => {
                       clipPath: "polygon(50% 50%, 100% 0, 100% 100%)"
                     }}
                   >
-                    <div className={`w-full h-full ${i === currentRound - 1 ? 'bg-cyan-600' : 'bg-blue-700'} transform origin-top-left`}>
-                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-90 text-sm font-semibold">
+                    <div className={`w-full h-full ${i === currentRound - 1 ? 'bg-blue-500' : 'bg-blue-300'} transform origin-top-left`}>
+                      <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 rotate-90 text-sm font-semibold text-white">
                         Round {i+1}
                       </div>
                     </div>
                   </div>
                 ))}
                 
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-blue-900 rounded-full flex items-center justify-center border-4 border-cyan-500">
+                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-blue-700 rounded-full flex items-center justify-center border-4 border-blue-500">
                   <div className="text-center">
-                    <div className="text-xs text-cyan-300">current</div>
-                    <div className="font-bold text-cyan-300">Round {currentRound}</div>
+                    <div className="text-xs text-blue-100">current</div>
+                    <div className="font-bold text-blue-100">Round {currentRound}</div>
                   </div>
                 </div>
               </motion.div>
               
               {/* Floating elements */}
               <motion.div 
-                className="absolute -top-4 -left-4 w-16 h-16 bg-blue-700 rounded-full flex items-center justify-center border-2 border-cyan-400 shadow-lg"
+                className="absolute -top-4 -left-4 w-16 h-16 bg-blue-400 rounded-full flex items-center justify-center border-2 border-blue-500 shadow-lg"
                 animate={{ y: [0, -15, 0] }}
                 transition={{ duration: 3, repeat: Infinity }}
               >
@@ -276,7 +276,7 @@ const RotateChain = () => {
               </motion.div>
               
               <motion.div 
-                className="absolute -bottom-4 -right-4 w-16 h-16 bg-blue-700 rounded-full flex items-center justify-center border-2 border-cyan-400 shadow-lg"
+                className="absolute -bottom-4 -right-4 w-16 h-16 bg-blue-400 rounded-full flex items-center justify-center border-2 border-blue-500 shadow-lg"
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 4, repeat: Infinity, delay: 0.5 }}
               >
@@ -288,7 +288,7 @@ const RotateChain = () => {
       </section>
       
       {/* Features Section */}
-      <section id="features" className="py-16 bg-blue-800 bg-opacity-30">
+      <section id="features" className="py-16 bg-blue-100 bg-opacity-50">
         <div className="container mx-auto px-4">
           <motion.div 
             className="text-center mb-16"
@@ -296,9 +296,9 @@ const RotateChain = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Revolutionary Features</h2>
-            <p className="text-xl text-blue-200 max-w-2xl mx-auto">
-              Combining rotational savings with DeFi lending for maximum financial growth
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-blue-900">Revolutionary Features</h2>
+            <p className="text-xl text-blue-700 max-w-2xl mx-auto">
+              Combining rotational savings with DeFi trading for maximum financial growth
             </p>
           </motion.div>
           
@@ -306,7 +306,7 @@ const RotateChain = () => {
             {features.map((feature, index) => (
               <motion.div
                 key={index}
-                className="bg-blue-800 bg-opacity-50 backdrop-blur-sm rounded-xl p-6 border border-blue-700 hover:border-cyan-500 transition-all"
+                className="bg-white bg-opacity-80 backdrop-blur-sm rounded-xl p-6 border border-blue-200 hover:border-blue-400 transition-all shadow-sm"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -314,8 +314,8 @@ const RotateChain = () => {
                 whileHover={{ y: -10 }}
               >
                 <div className="text-4xl mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                <p className="text-blue-200">{feature.description}</p>
+                <h3 className="text-xl font-bold mb-2 text-blue-800">{feature.title}</h3>
+                <p className="text-blue-700">{feature.description}</p>
               </motion.div>
             ))}
           </div>
@@ -331,9 +331,9 @@ const RotateChain = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">How RotateChain Works</h2>
-            <p className="text-xl text-blue-200 max-w-2xl mx-auto">
-              A simple 4-step process to grow your savings and liquidity risk-free
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-blue-900">How RotateChain Works</h2>
+            <p className="text-xl text-blue-700 max-w-2xl mx-auto">
+              A simple 4-step process to grow your savings and trade risk-free
             </p>
           </motion.div>
           
@@ -348,17 +348,17 @@ const RotateChain = () => {
                   viewport={{ once: true }}
                   transition={{ delay: index * 0.2 }}
                 >
-                  <div className="w-12 h-12 rounded-full bg-cyan-500 flex items-center justify-center font-bold text-xl flex-shrink-0">
+                  <div className="w-12 h-12 rounded-full bg-blue-600 flex items-center justify-center font-bold text-xl flex-shrink-0 text-white">
                     {step}
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold mb-2">
+                    <h3 className="text-xl font-bold mb-2 text-blue-800">
                       {index === 0 && "Join/Create a Savings Group"}
                       {index === 1 && "Contribute Funds Regularly"}
                       {index === 2 && "Earn Interest in Liquidity Pools"}
                       {index === 3 && "Receive & Decide in Your Round"}
                     </h3>
-                    <p className="text-blue-200">
+                    <p className="text-blue-700">
                       {index === 0 && "Form a group with friends or join an existing one. Set contribution amounts and rotation frequency."}
                       {index === 1 && "Add crypto or stablecoins to the group pool each rotation period. Funds are pooled together."}
                       {index === 2 && "The pooled funds are staked in DeFi liquidity pools, earning interest for all group members."}
@@ -370,42 +370,42 @@ const RotateChain = () => {
             </div>
             
             <motion.div 
-              className="w-full md:w-1/2 bg-blue-800 bg-opacity-50 p-6 rounded-xl border border-blue-700"
+              className="w-full md:w-1/2 bg-white bg-opacity-80 p-6 rounded-xl border border-blue-200 shadow-sm"
               initial={{ opacity: 0, scale: 0.9 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
             >
-              <div className="flex border-b border-blue-700 mb-6">
+              <div className="flex border-b border-blue-200 mb-6">
                 <button 
-                  className={`py-3 px-6 font-semibold ${activeTab === 'savings' ? 'border-b-2 border-cyan-500' : ''}`}
+                  className={`py-3 px-6 font-semibold ${activeTab === 'savings' ? 'border-b-2 border-blue-600 text-blue-800' : 'text-blue-600'}`}
                   onClick={() => setActiveTab('savings')}
                 >
-                  Savings mode
+                  Savings Mode
                 </button>
                 <button 
-                  className={`py-3 px-6 font-semibold ${activeTab === 'trade' ? 'border-b-2 border-cyan-500' : ''}`}
+                  className={`py-3 px-6 font-semibold ${activeTab === 'trade' ? 'border-b-2 border-blue-600 text-blue-800' : 'text-blue-600'}`}
                   onClick={() => setActiveTab('trade')}
                 >
-                  liquidity mode
+                  Trade Mode
                 </button>
               </div>
               
               {activeTab === 'savings' ? (
                 <div>
-                  <h3 className="text-xl font-bold mb-4">During Your Round</h3>
-                  <p className="text-blue-200 mb-4">
+                  <h3 className="text-xl font-bold mb-4 text-blue-800">During Your Round</h3>
+                  <p className="text-blue-700 mb-4">
                     When it's your turn to receive the pooled funds, you have two options:
                   </p>
                   <ul className="space-y-4">
                     <li className="flex items-start gap-2">
-                      <span className="text-cyan-500">✓</span>
-                      <div>
+                      <span className="text-blue-600">✓</span>
+                      <div className="text-blue-700">
                         <span className="font-bold">Withdraw:</span> Take the entire amount out of the system for personal use
                       </div>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-cyan-500">✓</span>
-                      <div>
+                      <span className="text-blue-600">✓</span>
+                      <div className="text-blue-700">
                         <span className="font-bold">Trade Mode:</span> Keep funds in liquidity pools to earn more interest and receive liquid tokens
                       </div>
                     </li>
@@ -413,26 +413,26 @@ const RotateChain = () => {
                 </div>
               ) : (
                 <div>
-                  <h3 className="text-xl font-bold mb-4">Trade Mode Benefits</h3>
-                  <p className="text-blue-200 mb-4">
+                  <h3 className="text-xl font-bold mb-4 text-blue-800">Trade Mode Benefits</h3>
+                  <p className="text-blue-700 mb-4">
                   When you choose Trade Mode during your round:
                   </p>
                   <ul className="space-y-4">
                     <li className="flex items-start gap-2">
-                      <span className="text-cyan-500">✓</span>
-                      <div>
+                      <span className="text-blue-600">✓</span>
+                      <div className="text-blue-700">
                         <span className="font-bold">Continued Earnings:</span> Funds remain in liquidity pools earning interest
                       </div>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-cyan-500">✓</span>
-                      <div>
+                      <span className="text-blue-600">✓</span>
+                      <div className="text-blue-700">
                         <span className="font-bold">Liquid Tokens:</span> Receive tokens equivalent to your contribution value
                       </div>
                     </li>
                     <li className="flex items-start gap-2">
-                      <span className="text-cyan-500">✓</span>
-                      <div>
+                      <span className="text-blue-600">✓</span>
+                      <div className="text-blue-700">
                         <span className="font-bold">Risk-Free Trading:</span> Trade with tokens without risking your crypto assets
                       </div>
                     </li>
@@ -445,7 +445,7 @@ const RotateChain = () => {
       </section>
       
       {/* Liquidity Pools Section */}
-      <section id="pools" className="py-16 bg-blue-800 bg-opacity-30">
+      <section id="pools" className="py-16 bg-blue-100 bg-opacity-50">
         <div className="container mx-auto px-4">
           <motion.div 
             className="text-center mb-16"
@@ -453,8 +453,8 @@ const RotateChain = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Liquidity Pools</h2>
-            <p className="text-xl text-blue-200 max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-blue-900">Liquidity Pools</h2>
+            <p className="text-xl text-blue-700 max-w-2xl mx-auto">
               Your savings grow while waiting for your rotation through our staking pools
             </p>
           </motion.div>
@@ -463,50 +463,50 @@ const RotateChain = () => {
             {liquidityPools.map((pool, index) => (
               <motion.div
                 key={index}
-                className="bg-gradient-to-br from-blue-800 to-indigo-800 rounded-xl p-6 border border-blue-700"
+                className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-xl p-6 border border-blue-200 shadow-sm"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: index * 0.2 }}
               >
                 <div className="flex justify-between items-start mb-6">
-                  <h3 className="text-xl font-bold">{pool.name}</h3>
-                  <div className="px-4 py-1 bg-cyan-900 bg-opacity-50 rounded-full text-cyan-300 font-bold">
+                  <h3 className="text-xl font-bold text-blue-800">{pool.name}</h3>
+                  <div className="px-4 py-1 bg-blue-200 bg-opacity-50 rounded-full text-blue-800 font-bold">
                     {pool.apy}% APY
                   </div>
                 </div>
                 
                 <div className="flex justify-between mb-4">
                   <div>
-                    <div className="text-blue-300">Total Value</div>
-                    <div className="text-xl font-bold">${pool.value.toLocaleString()}</div>
+                    <div className="text-blue-600">Total Value</div>
+                    <div className="text-xl font-bold text-blue-900">${pool.value.toLocaleString()}</div>
                   </div>
                   <div>
-                    <div className="text-blue-300">Currency</div>
-                    <div className="text-xl font-bold">{pool.currency}</div>
+                    <div className="text-blue-600">Currency</div>
+                    <div className="text-xl font-bold text-blue-900">{pool.currency}</div>
                   </div>
                 </div>
                 
                 <div className="mb-6">
                   <div className="flex justify-between mb-1">
-                    <span className="text-blue-300">Estimated Daily Earnings</span>
-                    <span className="font-bold">${(pool.value * (pool.apy / 100) / 365).toFixed(2)}</span>
+                    <span className="text-blue-600">Estimated Daily Earnings</span>
+                    <span className="font-bold text-blue-900">${(pool.value * (pool.apy / 100) / 365).toFixed(2)}</span>
                   </div>
-                  <div className="w-full bg-blue-700 rounded-full h-2">
+                  <div className="w-full bg-blue-200 rounded-full h-2">
                     <div 
-                      className="bg-cyan-500 h-2 rounded-full" 
+                      className="bg-blue-500 h-2 rounded-full" 
                       style={{ width: `${pool.apy > 10 ? 100 : pool.apy * 10}%` }}
                     ></div>
                   </div>
                 </div>
                 
                 <div className="mb-6">
-                  <h4 className="font-bold mb-2">Current Group Members</h4>
+                  <h4 className="font-bold mb-2 text-blue-800">Current Group Members</h4>
                   <div className="flex flex-wrap gap-2">
                     {groupMembers.map((member, idx) => (
                       <div 
                         key={idx}
-                        className={`px-3 py-1 rounded-full text-sm ${currentRound === idx + 1 ? 'bg-cyan-500 text-white' : 'bg-blue-700'}`}
+                        className={`px-3 py-1 rounded-full text-sm ${currentRound === idx + 1 ? 'bg-blue-600 text-white' : 'bg-blue-200 text-blue-800'}`}
                       >
                         {member.name}
                         {currentRound === idx + 1 && " (Current)"}
@@ -515,7 +515,7 @@ const RotateChain = () => {
                   </div>
                 </div>
                 
-                <button className="w-full py-3 bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full font-bold">
+                <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-cyan-600 rounded-full font-bold text-white shadow-md">
                   Join Pool
                 </button>
               </motion.div>
@@ -533,8 +533,8 @@ const RotateChain = () => {
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
           >
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">Frequently Asked Questions</h2>
-            <p className="text-xl text-blue-200 max-w-2xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4 text-blue-900">Frequently Asked Questions</h2>
+            <p className="text-xl text-blue-700 max-w-2xl mx-auto">
               Everything you need to know about RotateChain
             </p>
           </motion.div>
@@ -550,23 +550,23 @@ const RotateChain = () => {
                 transition={{ delay: index * 0.1 }}
               >
                 <div 
-                  className="bg-blue-800 bg-opacity-50 backdrop-blur-sm rounded-xl p-6 cursor-pointer flex justify-between items-center"
+                  className="bg-white bg-opacity-80 backdrop-blur-sm rounded-xl p-6 cursor-pointer flex justify-between items-center shadow-sm"
                   onClick={() => setActiveFaq(activeFaq === index ? null : index)}
                 >
-                  <h3 className="text-lg md:text-xl font-semibold">{faq.question}</h3>
-                  <span className="text-cyan-500 text-xl">
+                  <h3 className="text-lg md:text-xl font-semibold text-blue-800">{faq.question}</h3>
+                  <span className="text-blue-600 text-xl">
                     {activeFaq === index ? '−' : '+'}
                   </span>
                 </div>
                 
                 {activeFaq === index && (
                   <motion.div 
-                    className="bg-blue-800 bg-opacity-30 backdrop-blur-sm rounded-b-xl p-6"
+                    className="bg-blue-50 bg-opacity-50 backdrop-blur-sm rounded-b-xl p-6"
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     transition={{ duration: 0.3 }}
                   >
-                    <p className="text-blue-200">{faq.answer}</p>
+                    <p className="text-blue-700">{faq.answer}</p>
                   </motion.div>
                 )}
               </motion.div>
@@ -576,10 +576,10 @@ const RotateChain = () => {
       </section>
       
       {/* CTA Section */}
-      <section className="py-16 bg-gradient-to-r from-blue-700 to-cyan-700">
+      <section className="py-16 bg-gradient-to-r from-blue-600 to-cyan-600">
         <div className="container mx-auto px-4 text-center">
           <motion.h2 
-            className="text-3xl md:text-4xl font-bold mb-6"
+            className="text-3xl md:text-4xl font-bold mb-6 text-white"
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
@@ -614,7 +614,7 @@ const RotateChain = () => {
       </section>
       
       {/* Footer */}
-      <footer className="bg-blue-900 py-12">
+      <footer className="bg-blue-800 py-12">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
             <div>
@@ -644,7 +644,7 @@ const RotateChain = () => {
             </div>
             
             <div>
-              <h4 className="text-lg font-bold mb-4">Platform</h4>
+              <h4 className="text-lg font-bold mb-4 text-white">Platform</h4>
               <ul className="space-y-2">
                 {['Create Group', 'Join Group', 'Liquidity Pools', 'Trading Dashboard', 'Rotation History'].map((item) => (
                   <li key={item}>
@@ -655,7 +655,7 @@ const RotateChain = () => {
             </div>
             
             <div>
-              <h4 className="text-lg font-bold mb-4">Resources</h4>
+              <h4 className="text-lg font-bold mb-4 text-white">Resources</h4>
               <ul className="space-y-2">
                 {['Documentation', 'Tutorials', 'Blog', 'Community', 'Security'].map((item) => (
                   <li key={item}>
@@ -666,7 +666,7 @@ const RotateChain = () => {
             </div>
             
             <div>
-              <h4 className="text-lg font-bold mb-4">Subscribe</h4>
+              <h4 className="text-lg font-bold mb-4 text-white">Subscribe</h4>
               <p className="text-blue-200 mb-4">
                 Get updates on new features and platform enhancements
               </p>
@@ -674,7 +674,7 @@ const RotateChain = () => {
                 <input 
                   type="email" 
                   placeholder="Your email" 
-                  className="px-4 py-2 bg-blue-800 border border-blue-700 rounded-l-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 w-full"
+                  className="px-4 py-2 bg-blue-700 border border-blue-600 rounded-l-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500 w-full placeholder-blue-300"
                 />
                 <button type='submit' className="bg-cyan-500 hover:bg-cyan-600 text-white px-4 py-2 rounded-r-lg transition-colors">
                   Join
@@ -683,7 +683,7 @@ const RotateChain = () => {
             </div>
           </div>
           
-          <div className="border-t border-blue-800 pt-6 text-center text-blue-400">
+          <div className="border-t border-blue-700 pt-6 text-center text-blue-400">
             <p>© 2025 RotateChain. All rights reserved. | <a href="#" className="hover:text-cyan-400">Terms</a> | <a href="#" className="hover:text-cyan-400">Privacy</a> | <a href="#" className="hover:text-cyan-400">Security</a></p>
           </div>
         </div>
