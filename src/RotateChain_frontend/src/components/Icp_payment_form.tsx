@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { sendICP, getICPBalance } from './../services/icp_canister';
-import { getPaymentCanister } from './../services/icp_canister';
+import { sendICP, getICPBalance } from '../services/icp_canister';
+import { getPaymentCanister } from '../services/icp_canister';
 
 interface PaymentFormProps {
   principal: string;

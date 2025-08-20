@@ -1,6 +1,6 @@
 // src/components/InternetIdentityLogin.tsx
 import React from 'react';
-import { InternetIdentityLoginProps } from './../types';
+import { InternetIdentityLoginProps } from '../types';
 import {useInternetIdentity} from "ic-use-internet-identity"
 import { useNavigate } from 'react-router-dom';
 

@@ -1,14 +1,14 @@
 import React, { useState, useEffect, Dispatch, SetStateAction, useReducer } from 'react';
 import { AuthClient} from '@dfinity/auth-client';
 import LoginPage from './loginpage';
-import { UserData } from './../types';
+import { UserData } from '../types';
 import SmartOnboarding from './onboarding_new';
 import { Chain } from './rotate_dashboard_graph_payment';
 import { Actor, ActorSubclass } from '@dfinity/agent';
 import { SplashScreen } from './sassySplash';
 import { useNavigate } from 'react-router-dom';
-import { useAppDispatch } from './../state/hooks';
-import { update } from './../state/slice';
+import { useAppDispatch } from '../state/hooks';
+import { update } from '../state/slice';
 import { createActor,canisterId} from "../../../declarations/chain_management"
 import { CreateChainParams,_SERVICE } from '../../../declarations/chain_management/chain_management.did';
 import { AccountIdentifier } from '@dfinity/ledger-icp';

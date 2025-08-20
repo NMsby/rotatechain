@@ -4,7 +4,7 @@
       "main": "src/RotateChain_backend/main.mo",
       "type": "motoko"
     },
-    "chain_management" : {
+    "chain_management": {
       "main": "src/RotateChain_backend/chain_management_corrected.mo",
       "type": "motoko"
     },
@@ -27,9 +27,9 @@
           "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
         }
       },
-      "init_arg" : "(variant { Init = record { minting_account = \"9e4e9642c7c6260f1fd93396fd3b5ee7585d0e16a03621228139d823a39540b2\"; initial_values = vec { record {\"3a701f682617e222368b81b998b994110cb735f25a95bff4117fea7dfbe0ecb6\"; record { e8s = 10_000_000_000 : nat64; }; }; }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64; }; burn_fee = opt record { e8s = 0 : nat64; }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP\"; } })"
+      "init_arg": "(variant { Init = record { minting_account = \"9e4e9642c7c6260f1fd93396fd3b5ee7585d0e16a03621228139d823a39540b2\"; initial_values = vec { record {\"3a701f682617e222368b81b998b994110cb735f25a95bff4117fea7dfbe0ecb6\"; record { e8s = 10_000_000_000 : nat64; }; }; }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64; }; burn_fee = opt record { e8s = 0 : nat64; }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP\"; } })"
     },
-    "icp_backend":{
+    "icp_backend": {
       "main": "src/RotateChain_backend/icp_integration.mo",
       "type": "motoko"
     },
@@ -46,7 +46,7 @@
     }
   },
   "networks": {
-    "local" :{
+    "local": {
       "type": "ephemeral",
       "bind": "127.0.0.1:4943"
     }
@@ -54,7 +54,7 @@
   "defaults": {
     "build": {
       "args": "",
-      "packtool": ""
+      "packtool": "mops sources"
     }
   },
   "output_env_file": ".env",

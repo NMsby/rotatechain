@@ -11,7 +11,7 @@ export const getPaymentCanister = async():Promise<ActorSubclass<_SERVICE>> => {
   //here I should be using our id probably i've commented theirs
   //const canisterId = process.env.PAYMENT_CANISTER_ID!;
   //even this frontendCid is incorrect, however let it remain since I'll change my code to be using a ledger.
-  const frontendCid = window.location.origin.split('//')[1].split('.')[0];
+  //const frontendCid = window.location.origin.split('//')[1].split('.')[0];
 
   //const canisterId = frontendCid;
   

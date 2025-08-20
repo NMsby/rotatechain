@@ -2,13 +2,18 @@
 import HashMap "mo:base/HashMap";
 import Text "mo:base/Text";
 import Nat "mo:base/Nat";
-//import Array "mo:base/Array";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 import Time "mo:base/Time";
 import Option "mo:base/Option";
-import Result "mo:base/Result";
 import Array "mo:base/Array";
+import Blob "mo:base/Blob";
+import Nat8 "mo:base/Nat8";
+import Nat32 "mo:base/Nat32";
+import ICRC1 "canister:icp_ledger_canister";
+import Error "mo:base/Error";
+import Result "mo:base/Result";
+import Prim "mo:prim";
 
 actor chain_management {
     // Type definitions matching frontend interfaces
@@ -62,21 +67,30 @@ actor chain_management {
         userName: Text;
         fineRate: Float;
         chainType: ChainType;
+        chainAccountIdentifier:?Blob;
         totalRounds: Nat;
         currentRound: Nat;
-        roundDuration: Nat; // in days
+        roundDuration: Nat; // in seconds
         startDate: Text; // ISO string
         totalFunds: Float;
         currentFunds: Float;
+        contributionAmount: Nat;
         currency: Text;
         members: [Member];
         loans: [Loan];
         interestRate: Float;
     };
+
+    // Type alias for 32-byte subaccounts
+    public type Subaccount = Blob;
     
     public type SingleChain = {
         id: ChainId;
         name: Text;
+        currency:Text;
+        members:[Member];
+        contributionAmount:Nat;
+        frequency: Nat;
     };
     
     public type CreateChainParams = {
@@ -87,6 +101,7 @@ actor chain_management {
         chainType: ChainType;
         totalRounds: Nat;
         roundDuration: Nat;
+        contributionAmount:Nat;
         startDate: Text;
         currency: Text;
         interestRate: Float;
@@ -115,7 +130,48 @@ actor chain_management {
     // In-memory storage
     var chains = HashMap.HashMap<ChainId, Chain>(0, Text.equal, Text.hash);
     var userChains = HashMap.HashMap<Text, [ChainId]>(0, Text.equal, Text.hash);
-    
+
+
+    /*let self : Principal = Principal.fromActor(chain_management);
+
+    // Public function to return this canister's principal for depositing
+    public query func getDepositAddress() : async ICRC1.Account {
+        {
+            owner = self;
+            subaccount = null;
+        }
+    };
+
+    // Public function to check this canister's LICP balance
+    public query func getBalance() : async ICRC1.Tokens {
+        await ICRC1.icrc1_balance_of({
+            owner = self;
+            subaccount = null;
+        })
+    };
+
+    // Public function to SEND LICP out from this canister
+    // This is how the canister uses its tokens
+    public shared func sendTokens(to : ICRC1.Account, amount : Nat) : async Result.Result<ICRC1.BlockIndex, Text> {
+
+        let transferArgs : ICRC1.TransferArgs = {
+            memo = null;
+            amount = amount;
+            fee = null; // Use the default fee
+            from_subaccount = null;
+            to = to;
+            created_at_time = null;
+        };
+
+        try {
+            let result = await ICRC1.icrc1_transfer(transferArgs);
+            #ok(result);
+        } catch (e) {
+            #err(Error.message(e));
+        };
+    };*/
+
+
     // System methods for canister upgrades
     system func preupgrade() {
         chainsEntries := Iter.toArray(chains.entries());
@@ -138,7 +194,6 @@ actor chain_management {
         return prefix # "-" # Nat.toText(counter);
     };
 
-
     // get all chains method
     public shared ({ caller }) func getAllChains() : async Result.Result<[SingleChain], Text> {
         // Verify caller is authenticated
@@ -154,6 +209,10 @@ actor chain_management {
                 {
                     id = chain.id;
                     name = chain.name;
+                    currency = chain.currency;
+                    members= chain.members;
+                    contributionAmount = chain.contributionAmount;
+                    frequency = chain.roundDuration;
                 }
             }
         );
@@ -161,14 +220,12 @@ actor chain_management {
         #ok(result)
     };
 
-
-    
     // Chain management functions
     public shared ({caller}) func createChain(params: CreateChainParams) : async Result.Result<Text, Text> {
         if (Principal.isAnonymous(caller)) {
             return #err("Anonymous users cannot create chains");
         };
-        
+
         let chainId = generateId(nextChainId, "chain");
         nextChainId += 1;
         
@@ -176,13 +233,51 @@ actor chain_management {
         nextMemberId += 1;
         
         let creatorMember : Member = {
-            id = memberId;
+            id = params.userId;
             name = params.userName;
             walletAddress = params.creatorWallet;
             contributed = true;
             contributionAmount = params.creatorContributionAmount;
             isLender = params.creatorIsLender;
         };
+
+        //The subaccounts generation methods
+        // Creates a subaccount from various input types
+        func createSubaccount(inputText : Text) : Blob {
+            // Convert text to UTF-8 encoded bytes
+            let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
+            
+            // Create a 32-byte array, padding with zeros or truncating as needed
+            let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
+                if (i < utf8Bytes.size()) {
+                utf8Bytes[i]  // Use the UTF-8 byte if available
+                } else {
+                0 // Pad with zero if beyond the UTF-8 byte length
+                }
+            });
+            
+            // Return as a Blob (32-byte subaccount)
+            Blob.fromArray(subaccountBytes)
+        };
+
+
+        //the usage criteria
+        // Get current canister's principal
+        let myPrincipal = Principal.fromActor(chain_management); 
+        // Create subaccount from text,let the text be a combination of the name and the id. Which is basically the chainid
+        // store the chainid here
+        let userId = params.userId;
+        // store the chain name here
+        let chainName = params.name;
+        let subgenTextArr = [chainId,userId,chainName];
+        //let finSubText = Text.join("",subgenTextArr); 
+        //used the chainId and the chainName combination to get the subaccount
+        let sub1 = createSubaccount(chainId # userId # chainName);  
+        let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
+        // Generate account identifier
+        let chainAccountId = await ICRC1.account_identifier({owner=myPrincipal;subaccount=?sub1;}); // => \8C\5C\20\C6\15\3F\7F\51\E2\0D\0F\0F\B5\08\51\5B\47\65\63\A9\62\B4\A9\91\5F\4F\02\70\8A\ED\4F\82
+        let nat8ReadyAccountId = Blob.toArray(chainAccountId);
+        let transferResult = await ICRC1.icrc1_transfer({to = {owner=myPrincipal;subaccount=?sub1;};fee=null;amount=1000000;memo=null;from_subaccount = null;created_at_time = null;});
         
         let newChain : Chain = {
             id = chainId;
@@ -192,12 +287,14 @@ actor chain_management {
             fineRate = params.fineRate;
             chainType = params.chainType;
             totalRounds = params.totalRounds;
+            contributionAmount = params.contributionAmount;
             currentRound = 1;
             roundDuration = params.roundDuration;
             startDate = params.startDate;
             totalFunds = params.creatorContributionAmount;
             currentFunds = params.creatorContributionAmount;
             currency = params.currency;
+            chainAccountIdentifier = storageSubAccount;
             members = [creatorMember];
             loans = [];
             interestRate = params.interestRate;
@@ -252,7 +349,14 @@ actor chain_management {
                         switch (chains.get(chainId)) {
                             case null { null };
                             case (?chain) {
-                                ?{ id = chainId; name = chain.name }
+                                ?{ 
+                                    id = chainId; 
+                                    name = chain.name;
+                                    frequency = chain.roundDuration;
+                                    contributionAmount = chain.contributionAmount;
+                                    currency = chain.currency;
+                                    members = chain.members;
+                                    }
                             }
                         }
                     }

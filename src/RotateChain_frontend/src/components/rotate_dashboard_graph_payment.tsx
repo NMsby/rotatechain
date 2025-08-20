@@ -11,17 +11,16 @@ import { FaBars, FaCoins, FaRegWindowClose } from 'react-icons/fa';
 import { useNotification } from './notificationContext';
 import SassyBurgerMenu from "./hamburgerMenu";
 import { SplashScreen } from './sassySplash';
-import ICPShoppingPopup from './../instructions/icp_buying-instructions';
+import ICPShoppingPopup from '../instructions/icp_buying-instructions';
 import PlugConnect from './plug_wallet_icp';
 import PaymentForm from './Icp_payment_form';
-import { getICPBalance, getPaymentCanister } from './../services/icp_canister';
+import { getICPBalance, getPaymentCanister } from '../services/icp_canister';
 import { AuthClient, LocalStorage } from '@dfinity/auth-client';
 import { Actor ,ActorSubclass, Identity} from '@dfinity/agent';
 import {canisterId, chain_management, createActor } from '../../../declarations/chain_management'
 import { _SERVICE, CreateChainParams } from '../../../declarations/chain_management/chain_management.did';
-import { useAppSelector } from './../state/hooks';
+import { useAppSelector } from '../state/hooks';
 import { useInternetIdentity } from 'ic-use-internet-identity';
-
 
 
 interface Member {
@@ -312,7 +311,7 @@ export function Dashboard(){
     }
   },[status])
 
-  useEffect(function(){
+  /*useEffect(function(){
     if(chainActor){
       console.log(`all chains result: ${chainActor.getAllChains()}`)
     }
@@ -397,10 +396,15 @@ export function Dashboard(){
       console.log(`chain creation result ${result}`)
     })
 
-  },[chainActor])
+  },[chainActor])*/
 
   useEffect(function(){
     if(actorState){
+      //fetch the chain from the db.
+      //actorState.getChain({})
+
+      //get the chainData
+      //here get the groupId from redux since it's set there as its been set
 
       let newChain:CreateChainParams = {
         chainType:{social:null},
@@ -419,16 +423,35 @@ export function Dashboard(){
       }
 
       if(isLoggedIn){
-        actorState.createChain(newChain).then(function(result){
-          console.log(`create chain result from the signed actor: ${result} `)
+        actorState.getChain(reduxId).then(function(result:any){
+          if(result.ok){
+            let newChain:Chain = {
+              currency:result.ok.currency,
+              currentFunds:result.ok.currency,
+              currentRound:result.ok.currentRound,
+              fineRate:result.ok.fineRate,
+              id:result.ok.id,
+              interestRate:result.ok.interestRate,
+              loans:result.ok.loans,
+              members:result.ok.members,
+              name:result.ok.name,
+              roundDuration:result.ok.roundDuration,
+              startDate:result.ok.startDate,
+              totalFunds:result.ok.totalFunds,
+              totalRounds:result.ok.totalRounds,
+              type:result.ok.type,
+              userId:result.ok.userId,
+              userName:result.ok.userName,
+            }
+          }else{
+            notification.error("error fetching chaindata")
+          }
         })
 
-        actorState.getAllChains().then(function(result){
-          console.log(`all chains directly from signed getAllChains promise are: ${JSON.stringify(result)}`)
-        })
       }
       else{
-        console.log("user not logged in")
+        navigate("/login")
+        notification.error("user not logged in")
       }
 
     }
@@ -483,6 +506,7 @@ export function Dashboard(){
   useEffect(function(){
     //set the chain groups of the userId from the actor
     
+
     let mockChains:SingleChain[] = [
       {
         id:"abjsbjhb73947nbdjb37384b4373",
@@ -498,24 +522,91 @@ export function Dashboard(){
       }
     ]
 
+    if(actorState){
+      //fetch the chain from the db.
+      //actorState.getChain({})
+
+      //get the chainData
+      //here get the groupId from redux since it's set there as its been se
+
+      if(isLoggedIn){
+        actorState.getAllChains().then(function(result:any){
+          if(result.ok){
+
+            let filteredChains:SingleChain[] = result.ok.filter((function(group,index){
+              //search for details of the member from the list of members in chains
+              // then return the chains themselves after maping them
+              return group.members.indexOf() == 
+            })).map(function(group,index){
+              //map the group to ChainGroup type, so slice it in a way
+              let newChainGroup:SingleChain = {
+                id:group.id,
+                name:group.name,
+              }
+              return newChainGroup
+            })
+
+            setChainGroups(filteredChains)
+
+          }else{
+            notification.error("error fetching chaindata")
+          }
+        })
+
+      }
+      else{
+        navigate("/login")
+        notification.error("user not logged in")
+      }
+
+    }
+
+
     //use the chain actor to get the chain groups data.
     //confirm whether it takes the userId or the chainId
     //chainActor.getChain(userId)
 
     setChainGroups(mockChains)
 
-  },[])
+  },[actorState,isLoggedIn])
 
   useEffect(function(){
     let myFilteredHistory:Array<any> = []
     if(roundChain){
-      myFilteredHistory = roundChain.loans.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+
+      if(actorState){
+        //fetch the chain from the db.
+        //actorState.getChain({})
+
+        //get the chainData
+        //here get the groupId from redux since it's set there as its been se
+
+        if(isLoggedIn){
+          actorState.getMemberLoans().then(function(result:any){
+            if(result.ok){
+          
+              myFilteredHistory = result.ok.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+
+            }else{
+              notification.error("error fetching loans")
+            }
+          })
+
+        }
+        else{
+          navigate("/login")
+          notification.error("user not logged in")
+        }
+
+      }
+      
+      //myFilteredHistory = roundChain.loans.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
     }
     //create the three numbers
     //user loan
     //actor.getMemberLoans(userId,chainId)
     setMyLoanHistory(myFilteredHistory)
-  },[chain])
+  },[chain,actorState,isLoggedIn])
 
   useEffect(function(){
     if(walletBalance > eligibleBalance){

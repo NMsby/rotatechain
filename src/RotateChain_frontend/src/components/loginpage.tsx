@@ -2,18 +2,18 @@
 import React, { useEffect, useState } from 'react';
 import InternetIdentityLogin from './internetidentitylogin';
 import { AuthClient } from '@dfinity/auth-client';
-import { LoginPageProps } from './../types';
-import { useAppDispatch, useAppSelector } from './../state/hooks';
+import { LoginPageProps } from '../types';
+import { useAppDispatch, useAppSelector } from '../state/hooks';
 
 
-import { update } from './../state/slice';
+import { update } from '../state/slice';
 import { createActor,canisterId} from "../../../declarations/chain_management"
 import { CreateChainParams,_SERVICE } from '../../../declarations/chain_management/chain_management.did';
 import { AccountIdentifier } from '@dfinity/ledger-icp';
 import { Principal } from '@dfinity/principal';
 import { Actor, ActorSubclass } from '@dfinity/agent';
 import { useNavigate } from 'react-router-dom';
-import { UserData } from './../types';
+import { UserData } from '../types';
 import {DelegationIdentity,DelegationChain} from "@dfinity/identity"
 import {useInternetIdentity} from "ic-use-internet-identity"
 
