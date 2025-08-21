@@ -1,16 +1,12 @@
 {
   "canisters": {
-    "RotateChain_backend": {
+    "rotatechain_backend": {
       "main": "src/RotateChain_backend/main.mo",
       "type": "motoko"
     },
-    "chain_management" : {
-      "main": "src/RotateChain_backend/chain_management_corrected.mo",
-      "type": "motoko"
-    },
-    "RotateChain_frontend": {
+    "rotatechain_frontend": {
       "dependencies": [
-        "RotateChain_backend"
+        "rotatechain_backend"
       ],
       "source": [
         "src/RotateChain_frontend/dist"
@@ -23,10 +19,6 @@
       "candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-07-04/ledger.did",
       "wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-07-04/ledger-canister_notify-method.wasm.gz",
       "init_arg" : "(variant { Init = record { minting_account = \"c571e55d926f0a9dda0b3820338649a980fbdee36915476add1a7944f53f6b1d\"; initial_values = vec { record {\"b2f6fd9f822ff1ca2ae79b04f24f8d184495d906f0b1e3e4990017830f2fd6c9\"; record { e8s = 10_000_000_000 : nat64; }; }; }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64; }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP\"; } })"
-    },
-    "icp_backend":{
-      "main": "src/RotateChain_backend/icp_integration.mo",
-      "type": "motoko"
     },
     "internet_identity": {
       "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
@@ -44,6 +36,10 @@
     "local" :{
       "type": "ephemeral",
       "bind": "127.0.0.1:4943"
+    },
+    "ic": {
+      "type": "persistent",
+      "providers": ["https://ic0.app"]
     }
   },
   "defaults": {
