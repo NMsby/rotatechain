@@ -1,5 +1,5 @@
 import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
-import { canisterId as icpCanisterId } from '../../../declarations/icp_backend';
+import { canisterId as icpCanisterId } from '../../../declarations/chain_management';
 import { canisterId as ledgerCanisterId } from '../../../declarations/icp_ledger_canister';
 
 interface PlugConnectProps {
@@ -47,15 +47,11 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
       }
 
       window.ic.plug.createAgent({ host:'http://127.0.0.1:4943' })
-      alert(`the ledgerCanisterId : ${ledgerCanisterId.toString()}`)
       let identity = await window.ic.plug.requestConnect({
-        whitelist: [icpCanisterId.toString(),ledgerCanisterId.toString()],
-        host: 'http://127.0.0.1:4943' 
-        
-        /*whitelist:["ulvla-h7777-77774-qaacq-cai"],
+        whitelist: [icpCanisterId.toString(),ledgerCanisterId.toString()],        
         host: network === 'testnet' 
-          ? 'https://ic0.app' 
-          : 'https://mainnet.ic0.app'*/
+          ? 'http://127.0.0.1:4943' 
+          : 'https://ic0.app'
       })
 
       if(identity && window.ic.plug.isConnected){

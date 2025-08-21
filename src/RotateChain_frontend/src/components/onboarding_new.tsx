@@ -2,14 +2,16 @@ import React, { useState, useEffect, Dispatch, SetStateAction } from 'react';
 import { motion } from 'framer-motion';
 import { Link, useNavigate, useRouteLoaderData } from 'react-router-dom';
 import { useNotification } from './notificationContext';
-import { Actor ,ActorSubclass, Identity} from '@dfinity/agent';
+import { Actor ,ActorSubclass } from '@dfinity/agent';
 import {canisterId, chain_management, createActor } from '../../../declarations/chain_management'
-import { _SERVICE, CreateChainParams } from '../../../declarations/chain_management/chain_management.did';
+import { _SERVICE, CreateChainParams,Chain as DbChain } from '../../../declarations/chain_management/chain_management.did';
 import { AuthClient } from '@dfinity/auth-client';
 import { Chain } from './rotate_dashboard_graph_payment';
 import { Variant } from '@dfinity/candid/lib/esm/idl';
 import { useInternetIdentity } from 'ic-use-internet-identity';
 import { DateTime } from 'luxon';
+import NoDataPalette from "../utilities/nodata"
+import { useAppDispatch } from '../state/hooks';
 
 // Define types for our state objects
 export type Frequency = 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly';
@@ -125,10 +127,9 @@ const frequencyTypes:Array<FrequencyType> = [
   name:"annualy",
   seconds:3.154e+7
 },
-].map((group,index) =>  {
-      let newGroup:FrequencyType = group
-      return newGroup
-    })
+].filter((group,index) =>  {
+    return group != undefined
+})
 
 
 // Supported currencies and cryptos
@@ -165,7 +166,8 @@ const SmartOnboarding = () => {
   const notification = useNotification()
   //navigation
   const navigate = useNavigate()
-  const [groupsState,setGroupsState] = useState<Array<GroupType> | undefined>(mockGroups)
+  const reduxDispatch = useAppDispatch()
+  const [groupsState,setGroupsState] = useState<Array<GroupType> | undefined>()
   const [socialChainInfo, setSocialChainInfo] = useState<SocialChainInfo>({
     groupName: '',
     contribution: '',
@@ -197,7 +199,17 @@ const SmartOnboarding = () => {
   const [inviteLinkInput, setInviteLinkInput] = useState<string>('');
   const [isLoggedIn,setIsLoggedIn] = useState<boolean>(false)
   const [actorState,setActorState] = useState<ActorSubclass<_SERVICE>>()
+  const [dbJoinGroupsState,setDbJoinGroupsState] = useState<Array<GroupType>>([])
   const [userChainGroups,setUserChainGroups] = useState<Array<ChainGroupAbbreviation>>([])
+
+  useEffect(function(){
+    //for initializing the dbJoinGroupsState
+    setDbJoinGroupsState(mockGroups)
+  },[])
+
+  useEffect(function(){
+    setGroupsState(dbJoinGroupsState)
+  },[])
 
   //for setting the actual no of chains the user is in and determining visibility of dashboard
   useEffect(function(){
@@ -210,18 +222,20 @@ const SmartOnboarding = () => {
           if(result.ok){
             //result.ok
             //set the groups state
-            let newMap = result.ok.map(function(group:any,index:number){
-              let newGroup:GroupType = {
-                contribution:group.contributionAmount,
-                frequency:frequencyTypes != undefined ? frequencyTypes.find((type,index) => {return Number(type.seconds) == Number(group.frequency)}).name : "day",
-                id:group.id,
-                members:group.members,
-                name:group.name, 
-              }
-              return newGroup
-            })
-            setGroupsState(newMap) 
-            //notification.success("chain  successfully")
+            if(result.ok.length > 0){
+              let newMap = result.ok.map(function(group:any,index:number){
+                let newGroup:GroupType = {
+                  contribution:group.contributionAmount,
+                  frequency:frequencyTypes != undefined ? frequencyTypes[frequencyTypes.findIndex((type,index) => {return Number(type.seconds) == Number(group.frequency)})].name : "day",
+                  id:group.id,
+                  members:group.members.length,
+                  name:group.name, 
+                }
+                return newGroup
+              })
+              setGroupsState(newMap) 
+              //notification.success("chain  successfully")
+            }
           } 
           else{
             notification.error("error loading chains")
@@ -235,23 +249,8 @@ const SmartOnboarding = () => {
       }
     }
 
+  },[actorState,isLoggedIn])
 
-    /*let mockGroups:Array<GroupType> = [
-      { id: "1", name: "Family Savings Group", members: 8, contribution: "100 USD",frequency:"day" },
-      { id: "2", name: "Tech Professionals", members: 12, contribution: "200 USDC",frequency:"week" },
-      { id: "3", name: "Crypto Investors Group", members: 5, contribution: "10000 ICP",frequency:"second" },
-      { id: "4", name: "Student Support Chain", members: 6, contribution: "50 USD",frequency:"hour" },
-      { id: "3", name: "ICP hunters", members: 50, contribution: "4000 ICP",frequency:"bi-week" },
-      { id: "4", name: "Developers support", members: 60, contribution: "50 USD",frequency:"month" }
-    ].map((group,index) =>  {let newGroup:GroupType = group
-      return newGroup
-    });*/
-
-    //setting the chaingroups if there are any
-    //fetch from db if thereis before setting it in default
-    //setGroupsState(mockGroups)
-    //setUserChainGroups([{id:"absjnjd237387bj",name:"watendakazi"},{id:"tbsjfgffggnb387bsj",name:"elites"},{id:"rbsgthe237387bj",name:"money-hunters"}])
-  },[actorState])
 
   useEffect(function(){
     if(status == 'success'){
@@ -347,6 +346,9 @@ const SmartOnboarding = () => {
           actorState.createChain(newChain).then(function(result:any){
             if(result.ok){
               notification.success("chain created successfully")
+              setStep(3);
+              setIsVettingComplete(false);
+
             }
             else{
               notification.error("error creating your chain")
@@ -376,13 +378,16 @@ const SmartOnboarding = () => {
           //during initialization
           totalRounds:BigInt(1),
           userId:identity ? identity.getPrincipal().toString() : "",
-          userName:""
+          userName:"user1"
         }
 
         if(isLoggedIn){
           actorState.createChain(newChain).then(function(result:any){
             if(result.ok){
               notification.success("chain created successfully")
+              setStep(3);
+              setIsVettingComplete(false);
+
             }
             else{
               notification.error("error creating your chain")
@@ -395,12 +400,8 @@ const SmartOnboarding = () => {
           navigate("/login")
         }
       }
-
-
     }
 
-    setStep(3);
-    setIsVettingComplete(false);
   };
 
   // Share functionality
@@ -439,27 +440,29 @@ const SmartOnboarding = () => {
   };
 
   const handleJoinWithLink = () => {
-    let actualUrl = ""
-    if (inviteLinkInput) {
-      if(inviteLink.includes("cai")){
-        actualUrl = inviteLinkInput.split(":")[2].split("/")[2]
+    if(inviteLinkInput.length > 7){
+      let actualUrl = ""
+      if (inviteLinkInput) {
+        if(inviteLinkInput.includes("cai")){
+          actualUrl = inviteLinkInput.split(":")[2].split("/")[2]
+        }
+        else{
+          actualUrl = inviteLinkInput.split("//")[1].split("/")[2]
+        }
+
+        //first check the chains// if available then if available get the details of a user.
+
+        notification.success(`${joinChainType} group welcomes you`)
+        // In a real app: window.location.href = inviteLinkInput;
+        setJoinModalOpen(false);
+
+        setInviteLinkInput('');
+
+        navigate(`/join/${actualUrl}`)
+      } else {
+        notification.error("Please enter a valid invite link")
       }
-      else{
-        actualUrl = inviteLinkInput.split("//")[1].split("/")[2]
 
-      }
-
-      //first check the chains// if available then if available get the details of a user.
-
-      notification.success(`${joinChainType} group welcomes you`)
-      // In a real app: window.location.href = inviteLinkInput;
-      setJoinModalOpen(false);
-
-      setInviteLinkInput('');
-
-      navigate(`/join/${actualUrl}`)
-    } else {
-      notification.error("Please enter a valid invite link")
     }
   };
 
@@ -471,13 +474,60 @@ const SmartOnboarding = () => {
       //fetch the chain from the db.
       //actorState.getChain({})
       if(isLoggedIn){
-        actorState.getChain(groupId).then(function(result:any){
+        actorState.getChain(groupId).then((result:any) => {
           if(result.ok){
-            notification.success("joined chaingroup successfully")
+            //set the redux dispatch here for the roundchain
+            //reduxDispatch(updateChain({chain:result}))
+            let chainObject = result.ok
+            let newChain:Chain = {
+              currency:chainObject.currency,
+              currentFunds:chainObject.currentFunds,
+              currentRound:Number(chainObject.currentRound),
+              fineRate:chainObject.fineRate,
+              id:chainObject.id,
+              interestRate:chainObject.interestRate,
+              loans:chainObject.loans.map((loan,index)=>{
+                return {
+                  id:loan.id,
+                  amount:loan.amount,
+                  borrowerId:loan.borrowerId,
+                  dueDate:loan.dueDate,
+                  interestRate:loan.interestRate,
+                  lenderId:loan.lenderId,
+                  status:loan.status,
+                  repaymentDate:loan.repaymentDate
+                }
+              }),
+              members:chainObject.members.map(member => ({
+                id: member.id,
+                name: member.name,
+                walletAddress: member.walletAddress,
+                contributed: member.contributed,
+                contributionAmount: member.contributionAmount,
+                isLender: member.isLender,
+                loans: result.loans.filter(loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
+              })),
+              name:chainObject.name,
+              roundDuration:Number(chainObject.roundDuration),
+              startDate:chainObject.startDate,
+              totalFunds:chainObject.totalFunds,
+              totalRounds:Number(chainObject.totalRounds),
+              type:chainObject.chainType,
+              userId: chainObject.userId,
+              userName: chainObject.userName
+            }
+            reduxDispatch(roundUpdate({chain:result}))
+            notification.success(`Rotatechain welcomes you `)
+            // In a real app: redirect to group page or show join confirmation
+            setJoinModalOpen(false);
+            //use a general dashboard for the time being
+            navigate(`/join/${groupId}`)
           } 
           else{
             notification.error("error joining your chain")
           }
+        }).catch(function(err){
+          notification.error("error joining your chain")
         })
 
       }
@@ -485,39 +535,7 @@ const SmartOnboarding = () => {
         notification.error("you're not logged in kindly login")
         navigate("/login")
       }
-
-
     }
-
-    
-
-    /*let newChain:Chain = {
-      currency:,
-      currentFunds:,
-      currentRound:,
-      fineRate:,
-      id:,
-      interestRate:,
-      loans:,
-      members:,
-      name:,
-      roundDuration:,
-      startDate:,
-      totalFunds:,
-      totalRounds:,
-      type:,
-      userId:,
-      userName:
-    }*/
-    
-    //set chain data 
-    //setChainData()
-
-    notification.success(`${ groupsState?.find(g => g.id === groupId)?.name} welcomes you `)
-    // In a real app: redirect to group page or show join confirmation
-    setJoinModalOpen(false);
-    //use a general dashboard for the time being
-    navigate("/dashboard")
   };
 
   return (
@@ -1050,7 +1068,7 @@ const SmartOnboarding = () => {
             >
               <div className="p-6">
                 <div className="flex justify-between items-center mb-4">
-                  <h3 className="text-xl font-bold text-gray-800">
+                  <h3 classNaaaame="text-xl font-bold text-gray-800">
                     {joinChainType === 'social' ? 'Join SocialChain' : 'Join GlobalChain'}
                   </h3>
                   <button 
@@ -1189,13 +1207,13 @@ const SmartOnboarding = () => {
                             type="text" 
                             onChange={function(e){
 
-                              if(groupsState != undefined && e.target.value.length > 0){
-                                let newGroups:Array<GroupType> = groupsState.map(function(group,index){
+                              if(dbJoinGroupsState != undefined && e.target.value.length > 0){
+                                let newGroups:Array<GroupType> = dbJoinGroupsState.map(function(group,index){
                                   let newGroup:GroupType = group
                                   return newGroup
                                 }).filter(function(group,index){
                                   if(group && group.name){
-                                    return group.name.toLowerCase() == e.target.value.toLowerCase() 
+                                    return group.name.toLowerCase().indexOf(e.target.value.toLowerCase()) != -1  
                                   }else{
                                     return false
                                   }
@@ -1203,8 +1221,14 @@ const SmartOnboarding = () => {
                                 if(newGroups != undefined && newGroups.length > 0){
                                   setGroupsState(newGroups)
                                 }
-                                
+                                else{
+                                  setGroupsState([])
+                                }
                               } 
+                              else{
+                                setGroupsState(dbJoinGroupsState) 
+                              }
+
                             }                             
                           }
                             placeholder="Search groups..." 
@@ -1220,7 +1244,7 @@ const SmartOnboarding = () => {
 
                         
                         <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-                          {groupsState != undefined ? groupsState.map(group => (
+                          {groupsState != undefined && groupsState.length > 0 ? groupsState.map(group => (
                             <div key={group.id} className="border border-gray-200 rounded-xl p-4 hover:border-indigo-300 transition-colors">
                               <div className="flex justify-between items-start">
                                 <div>
@@ -1253,7 +1277,7 @@ const SmartOnboarding = () => {
                               </button>
                             </div>
                             
-                          )) : <></>}
+                          )) : <NoDataPalette size="small" message="no global chain available yet"/>}
                         </div>
                       </div>
                     )}
@@ -1437,7 +1461,7 @@ const ChainGroupsOnboarding = () => {
             let prevUserData = userData
             let groupsCount = result.ok.reduce(function(previousValue:any,currentValue:any){
               currentValue.map()
-              let available = currentValue.members.find(function(member:any,index){
+              let available = currentValue.members.findIndexOf(function(member:any,index){
                 return member.id == identity.getPrincipal().toString()
               }).length > 0
 
@@ -1449,6 +1473,18 @@ const ChainGroupsOnboarding = () => {
               }
 
             },0)
+            let paidRounds = result.ok.reduce(function(prev,current){
+              
+              let memberIndex = current.members.findIndexOf(function(member,index){
+                member.id == identity.getPrincipal().toString()
+              })
+              let memberPaidStatus = current.members[memberIndex].paid
+              if(memberPaidStatus == true){
+                return prev + 1
+              }else{
+                return prev
+              }
+            },[0])
             let userPrincipal = identity.getPrincipal().toString() 
             let newUserData = {...prevUserData,internetIdentity:userPrincipal,groupsCount,paidRounds:0,pendingRounds:1}
 

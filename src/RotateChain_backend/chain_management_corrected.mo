@@ -41,9 +41,9 @@ actor chain_management {
     };
     
     public type Member = {
-        id: MemberId;
+        id: Text;
         name: Text;
-        walletAddress: Text;
+        walletAddress: ?Blob;
         contributed: Bool;
         contributionAmount: Float;
         isLender: Bool;
@@ -131,47 +131,6 @@ actor chain_management {
     var chains = HashMap.HashMap<ChainId, Chain>(0, Text.equal, Text.hash);
     var userChains = HashMap.HashMap<Text, [ChainId]>(0, Text.equal, Text.hash);
 
-
-    /*let self : Principal = Principal.fromActor(chain_management);
-
-    // Public function to return this canister's principal for depositing
-    public query func getDepositAddress() : async ICRC1.Account {
-        {
-            owner = self;
-            subaccount = null;
-        }
-    };
-
-    // Public function to check this canister's LICP balance
-    public query func getBalance() : async ICRC1.Tokens {
-        await ICRC1.icrc1_balance_of({
-            owner = self;
-            subaccount = null;
-        })
-    };
-
-    // Public function to SEND LICP out from this canister
-    // This is how the canister uses its tokens
-    public shared func sendTokens(to : ICRC1.Account, amount : Nat) : async Result.Result<ICRC1.BlockIndex, Text> {
-
-        let transferArgs : ICRC1.TransferArgs = {
-            memo = null;
-            amount = amount;
-            fee = null; // Use the default fee
-            from_subaccount = null;
-            to = to;
-            created_at_time = null;
-        };
-
-        try {
-            let result = await ICRC1.icrc1_transfer(transferArgs);
-            #ok(result);
-        } catch (e) {
-            #err(Error.message(e));
-        };
-    };*/
-
-
     // System methods for canister upgrades
     system func preupgrade() {
         chainsEntries := Iter.toArray(chains.entries());
@@ -193,6 +152,9 @@ actor chain_management {
     func generateId(counter: Nat, prefix: Text) : Text {
         return prefix # "-" # Nat.toText(counter);
     };
+
+    //add the walletAddress from subAccount for the lender address
+
 
     // get all chains method
     public shared ({ caller }) func getAllChains() : async Result.Result<[SingleChain], Text> {
@@ -226,22 +188,14 @@ actor chain_management {
             return #err("Anonymous users cannot create chains");
         };
 
+
         let chainId = generateId(nextChainId, "chain");
         nextChainId += 1;
         
         let memberId = generateId(nextMemberId, "member");
         nextMemberId += 1;
-        
-        let creatorMember : Member = {
-            id = params.userId;
-            name = params.userName;
-            walletAddress = params.creatorWallet;
-            contributed = true;
-            contributionAmount = params.creatorContributionAmount;
-            isLender = params.creatorIsLender;
-        };
 
-        //The subaccounts generation methods
+                //The subaccounts generation methods
         // Creates a subaccount from various input types
         func createSubaccount(inputText : Text) : Blob {
             // Convert text to UTF-8 encoded bytes
@@ -267,17 +221,29 @@ actor chain_management {
         // Create subaccount from text,let the text be a combination of the name and the id. Which is basically the chainid
         // store the chainid here
         let userId = params.userId;
+        let userPrincipal = Principal.fromText(userId);
         // store the chain name here
         let chainName = params.name;
-        let subgenTextArr = [chainId,userId,chainName];
-        //let finSubText = Text.join("",subgenTextArr); 
         //used the chainId and the chainName combination to get the subaccount
         let sub1 = createSubaccount(chainId # userId # chainName);  
+        let userSub = createSubaccount(userId);
+        //subaccounts
+        let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
         let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
-        // Generate account identifier
-        let chainAccountId = await ICRC1.account_identifier({owner=myPrincipal;subaccount=?sub1;}); // => \8C\5C\20\C6\15\3F\7F\51\E2\0D\0F\0F\B5\08\51\5B\47\65\63\A9\62\B4\A9\91\5F\4F\02\70\8A\ED\4F\82
+        // Generate account identifier for the chain
+        let chainAccountId = await ICRC1.account_identifier({owner=myPrincipal;subaccount=storageSubAccount;}); // => \8C\5C\20\C6\15\3F\7F\51\E2\0D\0F\0F\B5\08\51\5B\47\65\63\A9\62\B4\A9\91\5F\4F\02\70\8A\ED\4F\82
         let nat8ReadyAccountId = Blob.toArray(chainAccountId);
-        let transferResult = await ICRC1.icrc1_transfer({to = {owner=myPrincipal;subaccount=?sub1;};fee=null;amount=1000000;memo=null;from_subaccount = null;created_at_time = null;});
+
+        
+        let creatorMember : Member = {
+            id = params.userId;
+            name = params.userName;
+            walletAddress = userSubAccount;
+            contributed = true;
+            contributionAmount = params.creatorContributionAmount;
+            isLender = params.creatorIsLender;
+        };
+
         
         let newChain : Chain = {
             id = chainId;
@@ -368,8 +334,8 @@ actor chain_management {
     // Member management functions
     public shared func addMember(
         chainId: Text,
+        userPrincipal:Text,
         name: Text,
-        walletAddress: Text,
         contributionAmount: Float,
         isLender: Bool
     ) : async Result.Result<Member, Text> {
@@ -378,11 +344,42 @@ actor chain_management {
             case (?chain) {
                 let memberId = generateId(nextMemberId, "member");
                 nextMemberId += 1;
+
+                // Creates a subaccount from various input types
+                func createSubaccount(inputText : Text) : Blob {
+                    // Convert text to UTF-8 encoded bytes
+                    let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
+                    
+                    // Create a 32-byte array, padding with zeros or truncating as needed
+                    let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
+                        if (i < utf8Bytes.size()) {
+                        utf8Bytes[i]  // Use the UTF-8 byte if available
+                        } else {
+                        0 // Pad with zero if beyond the UTF-8 byte length
+                        }
+                    });
+                    
+                    // Return as a Blob (32-byte subaccount)
+                    Blob.fromArray(subaccountBytes)
+                };
+
+
+                //the usage criteria
+                // Get current canister's principal
+                let myPrincipal = Principal.fromText(userPrincipal); 
+                // Create subaccount from text,let the text be a combination of the name and the id. Which is basically the chainid
+                let sub1 = createSubaccount(userPrincipal);  
+                let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
+                // Generate account identifier for the user
+                let chainAccountId = await ICRC1.account_identifier({owner=myPrincipal;subaccount=storageSubAccount;}); // => \8C\5C\20\C6\15\3F\7F\51\E2\0D\0F\0F\B5\08\51\5B\47\65\63\A9\62\B4\A9\91\5F\4F\02\70\8A\ED\4F\82
+                let nat8ReadyAccountId = Blob.toArray(chainAccountId);
+
+                // generate the wallet address with user sub account principal
                 
                 let newMember : Member = {
-                    id = memberId;
+                    id = userPrincipal;
                     name;
-                    walletAddress;
+                    walletAddress=storageSubAccount;
                     contributed = false;
                     contributionAmount;
                     isLender;
@@ -450,7 +447,7 @@ actor chain_management {
     public shared func updateMember(
         chainId: Text,
         memberId: Text,
-        walletAddress: ?Text,
+        walletAddress: ?Blob,
         contributionAmount: ?Float,
         isLender: ?Bool
     ) : async Result.Result<(), Text> {
@@ -470,10 +467,10 @@ actor chain_management {
                             oldContribution := m.contributionAmount;
                             
                             let newContribution = Option.get(contributionAmount, m.contributionAmount);
-                            let newWallet = Option.get(walletAddress, m.walletAddress);
+                            let newWallet = walletAddress;
                             let newLenderStatus = Option.get(isLender, m.isLender);
                             
-                            { 
+                            {
                                 m with 
                                 walletAddress = newWallet;
                                 contributionAmount = newContribution;

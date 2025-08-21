@@ -122,7 +122,7 @@ const RotateChain = () => {
         
         {/* Desktop Navigation */}
         <div className="hidden md:flex space-x-8">
-          {['Features', 'How It Works', 'Pools', 'FAQ'].map((item) => (
+          {['Features','Pools', 'FAQ'].map((item) => (
             <motion.a
               key={item}
               href={`#${item.toLowerCase().replace(' ','-')}`}

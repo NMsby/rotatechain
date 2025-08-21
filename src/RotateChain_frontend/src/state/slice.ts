@@ -1,5 +1,3 @@
-
-
 // src/features/counter/counterSlice.ts
 import { Actor, ActorSubclass } from '@dfinity/agent';
 import { CreateChainParams,_SERVICE } from '../../../declarations/chain_management/chain_management.did';
@@ -9,7 +7,8 @@ import { Chain } from '../rotate_dashboard_graph_payment';
 
 type UserState = {
   authClient: AuthClient | null,
-  roundChain:Chain | null      
+  roundChain:Chain | null,
+  currentChainId: string   
 }
 
 /*The initial state */

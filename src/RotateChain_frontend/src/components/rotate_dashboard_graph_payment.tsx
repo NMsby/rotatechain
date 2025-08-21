@@ -6,6 +6,8 @@ import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, 
   Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
+import  {DateTime} from "luxon"; 
+
 import { ChainType, Frequency } from './onboarding_new';
 import { FaBars, FaCoins, FaRegWindowClose } from 'react-icons/fa';
 import { useNotification } from './notificationContext';
@@ -19,6 +21,8 @@ import { AuthClient, LocalStorage } from '@dfinity/auth-client';
 import { Actor ,ActorSubclass, Identity} from '@dfinity/agent';
 import {canisterId, chain_management, createActor } from '../../../declarations/chain_management'
 import { _SERVICE, CreateChainParams } from '../../../declarations/chain_management/chain_management.did';
+import {_SERVICE as _LEDGER_SERVICE} from "../../../declarations/icp_ledger_canister.did"
+import {canisterId as ledgerCanisterId,createActorLedger } from "../../../declarations/icp_ledger_canister";
 import { useAppSelector } from '../state/hooks';
 import { useInternetIdentity } from 'ic-use-internet-identity';
 
@@ -293,9 +297,11 @@ export function Dashboard(){
   const [payments, setPayments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [actorState,setActorState] = useState<ActorSubclass<_SERVICE>>()
+  const [ledgerActorState,setLedgerActorState] = useState<ActorSubClass<_LEDGER_SERVICE>>()
 
 
   useEffect(function(){
+
     if(status == 'success'){
 
         const actor:ActorSubclass<_SERVICE> = createActor(canisterId,{
@@ -304,6 +310,15 @@ export function Dashboard(){
           }
         })
 
+        const ledgerActor:ActorSubclass<_SERVICE> = createLedgerActor(ledgerCanisterId,{
+          agentOptions:{
+            identity
+          }
+        })
+
+
+        setLedgerActorState(ledgerActor)
+
         setActorState(actor)
         setIsLoggedIn(true)
 
@@ -311,95 +326,8 @@ export function Dashboard(){
     }
   },[status])
 
-  /*useEffect(function(){
-    if(chainActor){
-      console.log(`all chains result: ${chainActor.getAllChains()}`)
-    }
-    console.log(`all chains directly from the chain-management: ${JSON.stringify(chain_management.getAllChains().then((result) => result))}`)
-    chain_management.getAllChains().then(function(result){
-      console.log(`all chains directly from getAllChains promise are: ${JSON.stringify(result)}`)
-    })
-
-    let userIdentity = async function():Promise<Identity>{
-      const authClient = await AuthClient.create()
-      const identity:Identity = authClient.getIdentity()
-      
-      const authenticated = await authClient.isAuthenticated()
-
-      if(authenticated == true){
-        setIsLoggedIn(true)
-        console.log("user logged in")
-          
-
-        const actor:ActorSubclass<_SERVICE> = createActor(canisterId,{
-          agentOptions:{
-            identity
-          }
-        })
-
-        setActorState(actor)
-
-
-
-        let newChain:CreateChainParams = {
-          chainType:{social:null},
-          creatorContributionAmount:100,
-          creatorIsLender:true,
-          creatorWallet:"svjdbj892nbkjndnjd389n3jbd993nj3bd",
-          currency:"ICP",
-          fineRate:10.00,
-          interestRate:10.00,
-          name:"Elite Group",
-          roundDuration:BigInt(3600),
-          startDate:"22-05-2025",
-          totalRounds:BigInt(1),
-          userId:"bjdnjdn93u93nd83983njbdbhfjn",
-          userName:"Tobina"
-        }
-
-          return identity
-      }
-
-      return identity
-    }
-
-
-    let resolvedIdentity = userIdentity()
-
-    const actor:ActorSubclass<_SERVICE> = createActor(canisterId,{
-      agentOptions:{
-        identity:resolvedIdentity
-      }
-    })
-
-    setActorState(actor)
-
-
-
-    let newChain:CreateChainParams = {
-      chainType:{social:null},
-      creatorContributionAmount:100,
-      creatorIsLender:true,
-      creatorWallet:"svjdbj892nbkjndnjd389n3jbd993nj3bd",
-      currency:"ICP",
-      fineRate:10.00,
-      interestRate:10.00,
-      name:"Elite Group",
-      roundDuration:BigInt(3600),
-      startDate:"22-05-2025",
-      totalRounds:BigInt(1),
-      userId:"bjdnjdn93u93nd83983njbdbhfjn",
-      userName:"Tobina"
-    }
-
-    chain_management.createChain(newChain).then(function(result){
-      console.log(`chain creation result ${result}`)
-    })
-
-  },[chainActor])*/
-
   useEffect(function(){
-    if(actorState){
+    /*if(actorState){
       //fetch the chain from the db.
       //actorState.getChain({})
 
@@ -423,7 +351,10 @@ export function Dashboard(){
       }
 
       if(isLoggedIn){
-        actorState.getChain(reduxId).then(function(result:any){
+        //get the reduxId from the reduxChain
+
+        let chainId = roundChainRedux.id
+        actorState.getChain(chainId).then(function(result:any){
           if(result.ok){
             let newChain:Chain = {
               currency:result.ok.currency,
@@ -454,33 +385,9 @@ export function Dashboard(){
         notification.error("user not logged in")
       }
 
-    }
+    }*/
 
-  },[actorState,isLoggedIn])
-
-  useEffect(function(){
-
-      /*let actorCreator = async function(){
-        //I'm testing out if the AuthClient actually saves the session
-        const client = await AuthClient.create()
-        const identity = client.getIdentity()
-        console.log(`is user logged in already: ${client.isAuthenticated()}`)
-        //const identity:Identity | Promise<Identity> | undefined = await getIdentity();
-        
-        if(identity){
-          const actor:ActorSubclass<_SERVICE> = createActor(canisterId, {
-              
-          agentOptions: {
-            identity,
-
-          }
-          });
-
-          setChainActor(actor)
-        }
-      }
-      actorCreator()*/
-  },[])
+  },[actorState,isLoggedIn,roundChainRedux])
 
   useEffect(function(){
     setRoundChain(roundChainRedux)
@@ -493,14 +400,11 @@ export function Dashboard(){
   },[authClientRedux])
   
   useEffect(() => {
-    if (isConnected) {
+    /*if (isConnected) {
       fetchBalance();
       fetchPayments();
-    }
+    }*/
   }, [isConnected, network]);
-
-
-
 
   //for gettingthe other user's chain groups
   useEffect(function(){
@@ -536,7 +440,10 @@ export function Dashboard(){
             let filteredChains:SingleChain[] = result.ok.filter((function(group,index){
               //search for details of the member from the list of members in chains
               // then return the chains themselves after maping them
-              return group.members.indexOf() == 
+              let userPrincipal = identity?.getPrincipal().toString()
+              return group.members.indexOf(group.members.find((function(member,index){
+                member.id == userPrincipal
+              }))) != -1  
             })).map(function(group,index){
               //map the group to ChainGroup type, so slice it in a way
               let newChainGroup:SingleChain = {
@@ -560,55 +467,37 @@ export function Dashboard(){
       }
 
     }
-
-
-    //use the chain actor to get the chain groups data.
-    //confirm whether it takes the userId or the chainId
-    //chainActor.getChain(userId)
-
-    setChainGroups(mockChains)
-
   },[actorState,isLoggedIn])
 
   useEffect(function(){
     let myFilteredHistory:Array<any> = []
     if(roundChain){
-
       if(actorState){
-        //fetch the chain from the db.
-        //actorState.getChain({})
-
-        //get the chainData
-        //here get the groupId from redux since it's set there as its been se
-
         if(isLoggedIn){
-          actorState.getMemberLoans().then(function(result:any){
-            if(result.ok){
-          
-              myFilteredHistory = result.ok.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+          if (identity != undefined){
+            actorState.getMemberLoans(identity.getPrincipal().toString(),roundChain.id).then(function(result:any){
+              if(result.ok){
+                //no filter needed, brings only the user's data
+                //myFilteredHistory = result.ok.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
 
-            }else{
-              notification.error("error fetching loans")
-            }
-          })
-
+                setMyLoanHistory(result.ok)
+              }else{
+                notification.error("error fetching loans")
+              }
+            })
+            
+          }
         }
         else{
           navigate("/login")
           notification.error("user not logged in")
         }
-
-      }
-      
-      //myFilteredHistory = roundChain.loans.filter((loan,index) => loan.borrowerId == roundChain.userId || loan.lenderId == roundChain.userId )
+      }      
     }
-    //create the three numbers
-    //user loan
-    //actor.getMemberLoans(userId,chainId)
-    setMyLoanHistory(myFilteredHistory)
   },[chain,actorState,isLoggedIn])
 
   useEffect(function(){
+    //check balance from the ledger
     if(walletBalance > eligibleBalance){
       setIsBalanceEligible(true)
     }
@@ -667,7 +556,7 @@ export function Dashboard(){
   }, []);
 
   useEffect(() => {
-    if(roundChain){
+    if(roundChain && identity != undefined){
       roundChain.loans.forEach(loan => {
         const borrower = roundChain.members.find(m => m.id === loan.borrowerId);
         const lender = roundChain.members.find(m => m.id === loan.lenderId);
@@ -676,7 +565,7 @@ export function Dashboard(){
         if (lender && lender.id !== borrower?.id) lender.loans.push(loan);
       });
       
-      setChain({...roundChain,userId:authClient?.getIdentity().getPrincipal().toString()});
+      setChain({...roundChain,userId:identity.getPrincipal().toString()});
     }
 
   }, [roundChain]);
@@ -685,21 +574,34 @@ export function Dashboard(){
     if (!chain) return;
     
     const updateTimeRemaining = (): void => {
+      const luxonStart = DateTime.fromISO(chain.startDate)
+      const luxonNow = DateTime.now()
       const start = new Date(chain.startDate);
       const now = new Date();
-      
+
+      /*(chain.currentRound - 1) * chain.roundDuration
+      let luxonRoundStart = DateTime*/
       const roundStart = new Date(start);
       roundStart.setDate(start.getDate() + ((chain.currentRound - 1) * chain.roundDuration));
       
       const roundEnd = new Date(start);
       roundEnd.setDate(roundStart.getDate() + chain.roundDuration);
+
+      let totalDuration = (Number(chain.roundDuration) * Number(chain.members.length))
+      let luxonEnd = luxonStart.plus({seconds:totalDuration})
+      const seasonEnd = new Date(luxonStart.plus({seconds:totalDuration}).toJSDate());
+
+      /*let nowDifferenceToEnd = luxonEnd.diff(luxonNow, 'seconds').seconds;
+      let calcDiv = nowDifferenceToEnd / Number(chain.roundDuration)*/
+      //how to find roundDate end
+      //luxonEnd  = remove the Date object of javascript and use luxonStart directly.
+      // luxonEnd subtract the luxonStart and get the value in seconds.
+      //divide the difference with the roundDuration and get the remainder value.
+      //use that remainder to subtract now from the remainderDuration date
       
-      const seasonEnd = new Date(roundStart);
       seasonEnd.setDate(start.getDate() + (chain.totalRounds * chain.roundDuration));
       
-      //interchanged the time cause of the negation return it back to normal later
-      //const roundDiff = roundEnd.getTime() - now.getTime();
-      const roundDiff =  now.getTime() - roundEnd.getTime();
+      const roundDiff = roundEnd.getTime() - now.getTime();
       const seasonDiff = seasonEnd.getTime() - now.getTime();
       
       const roundDays = Math.floor(roundDiff / (1000 * 60 * 60 * 24));
@@ -742,8 +644,15 @@ export function Dashboard(){
     navigate("/")
   };
 
+  let withrawFunds = function(chainPrincipal:Principal,userPrincipal:Principal){
+
+  }
+
 
   const handleConnect = (principal: string, accountId: string) => {
+    // plug wallet interactions
+
+    //update the user balance in the frontend.
     setPrincipal(principal);
     setAccountId(accountId);
     setIsConnected(true);
@@ -1056,9 +965,9 @@ export function Dashboard(){
                   </div>
                   
                   <div className="bg-blue-100 p-4 rounded-xl">
-                    <p className="text-sm text-indigo-700 font-medium">payment address</p>
+                    <p className="text-sm text-indigo-700 font-medium">iiquidity wallet balance</p>
                     <p className="text-xl font-bold text-indigo-900">
-                      {chain.id}
+                      {liquidityBalance}
                     </p>
                   </div>
 
@@ -1066,13 +975,13 @@ export function Dashboard(){
                     <div className="bg-indigo-50 p-4 rounded-xl">
                       <p className="text-sm text-indigo-700 font-medium">Current Round Ends In</p>
                       <p className="text-xl font-bold text-indigo-900">
-                        {seasonTimeRemaining.days}d {seasonTimeRemaining.hours}h {seasonTimeRemaining.minutes}m {seasonTimeRemaining.seconds}s
+                        {roundTimeRemaining.days}d {roundTimeRemaining.hours}h {roundTimeRemaining.minutes}m {roundTimeRemaining.seconds}s
                       </p>
                     </div>
                     <div className="bg-purple-50 p-4 rounded-xl">
                       <p className="text-sm text-purple-700 font-medium">Season Ends In</p>
                       <p className="text-xl font-bold text-purple-900">
-                        {roundTimeRemaining.days}d {roundTimeRemaining.hours}h {roundTimeRemaining.minutes}m {roundTimeRemaining.seconds}s
+                        {seasonTimeRemaining.days}d {seasonTimeRemaining.hours}h {seasonTimeRemaining.minutes}m {seasonTimeRemaining.seconds}s
                       </p>
                     </div>
                   </div>
