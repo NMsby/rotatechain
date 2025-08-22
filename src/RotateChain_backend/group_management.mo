@@ -39,6 +39,7 @@ module GroupManagement {
                     admin = admin;
                     members = [admin];
                     maxMembers = maxMembers;
+                    minMembers = Types.MIN_GROUP_SIZE;
                     contributionAmount = contributionAmount;
                     rotationIntervalDays = rotationIntervalDays;
                     startDate = now;
