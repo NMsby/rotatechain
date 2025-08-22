@@ -195,25 +195,11 @@ actor RotateChain {
                 if (hasContributed(groupId, msg.caller, group.currentRound)) {
                     return #err("Already contributed for round " # Nat.toText(group.currentRound));
                 };
-
-                // Process payment through payment handler
-                let contributionAmount = Nat64.fromNat(group.contributionAmount);
-                switch (await PaymentHandler.processContribution(
-                    Nat64.fromNat(groupId),
-                    msg.caller,
-                    contributionAmount,
-                    contributionAmount
-                )) {
-                    case (#ok(transactionId)) {
-                        recordContributionInternal(groupId, msg.caller, group.currentRound);
-                        Debug.print("Payment processed: TxID " # Nat64.toText(transactionId));
-                        Debug.print("Contribution recorded: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId) # ", Round " # Nat.toText(group.currentRound));
-                        #ok(true)
-                    };
-                    case (#err(error)) {
-                        #err(Utils.errorToText(error))
-                    };
-                }
+            
+                recordContributionInternal(groupId, msg.caller, group.currentRound);
+            
+                Debug.print("Contribution recorded: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId) # ", Round " # Nat.toText(group.currentRound));
+                #ok(true)
             };
             case null { #err("Group not found") };
         }
