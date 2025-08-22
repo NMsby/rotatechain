@@ -6,6 +6,7 @@ import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import Time "mo:base/Time";
+import Nat64 "mo:base/Nat64";
 
 // Import our new modules for validation and utilities
 import Types "./types";

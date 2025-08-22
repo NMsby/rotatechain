@@ -7,6 +7,7 @@ import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Float "mo:base/Float";
 import Int "mo:base/Int";
+import Int64 "mo:base/Int64";
 import Types "./types";
 
 module Utils {
@@ -435,9 +436,9 @@ module Utils {
    
     // ==================== CONSTANTS ====================
    
-    public let SECONDS_PER_DAY : Int = 24 * 60 * 60;
+    public let SECONDS_PER_DAY : Int = 86400;
     public let NANOS_PER_SECOND : Int = 1_000_000_000;
-    public let NANOS_PER_DAY : Int = SECONDS_PER_DAY * NANOS_PER_SECOND;
+    public let NANOS_PER_DAY : Int = 86400000000000;
     public let BASIS_POINTS_SCALE : Nat = 10_000;
     public let PERCENTAGE_SCALE : Nat = 100;
    
