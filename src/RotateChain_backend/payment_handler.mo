@@ -1,14 +1,18 @@
 // payment_handler.mo - Complete ICP payment integration
 import Types "./types";
 import Utils "./utils";
+import ICPPaymentService "./icp_payment_service";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
-import Ledger "canister:icp_ledger_canister";
+import Blob "mo:base/Blob";
 
 module PaymentHandler {
+
+    // Pool account for holding group funds (in production, this would be the canister's account)
+    private let POOL_PRINCIPAL = Principal.fromText("2vxsx-fae"); // Replace with actual pool account
     
-    // Process group contribution payment
+    // Process real group contribution with ICP transfer
     public func processContribution(
         groupId: Types.GroupId,
         contributor: Principal,
@@ -16,46 +20,59 @@ module PaymentHandler {
         groupContributionAmount: Types.Amount
     ) : async Result.Result<Types.TransactionId, Types.Error> {
         
-        // Validate contribution amount
+        // Validate contribution amount matches requirement
         if (amount != groupContributionAmount) {
             return #err(#InvalidAmount);
         };
         
-        // Validate amount bounds
+        // Validate amount is within bounds
         if (not Utils.validateAmount(amount)) {
             return #err(#InvalidAmount);
         };
+
+        // Check contributor has sufficient balance
+        let contributorBalance = await ICPPaymentService.getAccountBalance(contributor);
+        let requiredAmount = amount + 10_000; // Amount + transfer fee
         
-        // Calculate platform fee
-        let platformFee = Utils.calculatePlatformFee(amount);
-        let netAmount = amount - platformFee;
-        
-        // Create transaction record
-        let transactionId = await generateTransactionId();
-        let transaction: Types.Transaction = {
-            id = transactionId;
-            groupId = groupId;
-            from = contributor;
-            to = null; // Pool contribution
-            amount = amount;
-            timestamp = Time.now();
-            transactionType = #contribution;
-            memo = ?("Group contribution: " # Nat.toText(groupId));
-            blockHeight = null; // Will be set after ICP transfer
+        if (contributorBalance < requiredAmount) {
+            return #err(#InsufficientBalance);
         };
-        
-        // Here you would integrate with actual ICP ledger
-        // For now, we'll simulate successful payment
-        
-        #ok(transactionId)
+
+        // Process real ICP transfer
+        switch (await ICPPaymentService.processGroupContribution(
+            contributor,
+            groupId,
+            amount,
+            POOL_PRINCIPAL
+        )) {
+            case (#ok(transactionId)) {
+                // Create transaction record
+                let transaction: Types.Transaction = {
+                    id = transactionId;
+                    groupId = groupId;
+                    from = contributor;
+                    to = null; // Pool contribution
+                    amount = amount;
+                    timestamp = Time.now();
+                    transactionType = #contribution;
+                    memo = ?Utils.createTransactionMemo(#contribution, groupId, null);
+                    blockHeight = ?transactionId; // Using transaction ID as block reference
+                };
+                
+                #ok(transactionId)
+            };
+            case (#err(error)) {
+                #err(error)
+            };
+        }
     };
     
-    // Process rotation payout
+    // Process real rotation payout with ICP transfer
     public func processRotationPayout(
         groupId: Types.GroupId,
         recipient: Principal,
         amount: Types.Amount,
-        memo: Text
+        roundNumber: Nat
     ) : async Result.Result<Types.TransactionId, Types.Error> {
         
         // Validate recipient
@@ -67,47 +84,64 @@ module PaymentHandler {
         if (not Utils.validateAmount(amount)) {
             return #err(#InvalidAmount);
         };
+
+        // Check pool has sufficient balance
+        let poolBalance = await ICPPaymentService.getAccountBalance(POOL_PRINCIPAL);
+        let requiredAmount = amount + 10_000; // Amount + transfer fee
         
-        // Create payout transaction
-        let transactionId = await generateTransactionId();
-        let transaction: Types.Transaction = {
-            id = transactionId;
-            groupId = groupId;
-            from = Principal.fromText("2vxsx-fae"); // System/Pool
-            to = ?recipient;
-            amount = amount;
-            timestamp = Time.now();
-            transactionType = #payout;
-            memo = ?memo;
-            blockHeight = null;
+        if (poolBalance < requiredAmount) {
+            return #err(#InsufficientBalance);
         };
-        
-        // Here you would integrate with actual ICP ledger transfer
-        // For now, we'll simulate successful payout
-        
-        #ok(transactionId)
+
+        // Process real ICP payout transfer
+        switch (await ICPPaymentService.processRotationPayout(
+            POOL_PRINCIPAL,
+            recipient,
+            amount,
+            groupId,
+            roundNumber
+        )) {
+            case (#ok(transactionId)) {
+                // Create payout transaction record
+                let transaction: Types.Transaction = {
+                    id = transactionId;
+                    groupId = groupId;
+                    from = POOL_PRINCIPAL;
+                    to = ?recipient;
+                    amount = amount;
+                    timestamp = Time.now();
+                    transactionType = #payout;
+                    memo = ?Utils.createTransactionMemo(#payout, groupId, ?"Round " # Nat.toText(roundNumber));
+                    blockHeight = ?transactionId;
+                };
+                
+                #ok(transactionId)
+            };
+            case (#err(error)) {
+                #err(error)
+            };
+        }
     };
     
-    // Get account balance from ICP ledger
+    // Get real account balance from ICP ledger
     public func getAccountBalance(principal: Principal) : async Types.Amount {
-        // Integrate with actual ICP ledger
-        // For now, return mock balance
-        1_000_000_000 // 10 ICP in e8s
+        await ICPPaymentService.getAccountBalance(principal)
     };
     
-    // Verify payment was received
+    // Verify real payment was processed
     public func verifyPayment(
         transactionId: Types.TransactionId,
-        expectedAmount: Types.Amount
+        expectedAmount: Types.Amount,
+        expectedRecipient: Principal
     ) : async Bool {
-        // Integrate with ICP ledger to verify transaction
-        // For now, return true (mock verification)
-        true
+        await ICPPaymentService.verifyTransaction(transactionId, expectedAmount, expectedRecipient)
     };
-    
-    // Private helper to generate transaction IDs
-    private func generateTransactionId() : async Types.TransactionId {
-        // In production, this would use proper ID generation
-        Nat64.fromNat(Int.abs(Time.now()) % 1000000)
+
+    // Get pool account info
+    public func getPoolAccountInfo() : {principal: Principal; accountId: Blob} {
+        {
+            principal = POOL_PRINCIPAL;
+            accountId = ICPPaymentService.getCanisterAccountId();
+        }
     };
 }

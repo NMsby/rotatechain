@@ -178,7 +178,7 @@ actor RotateChain {
         }
     };
 
-    // Record contribution
+    // Record contribution with real ICP payment processing
     public shared(msg) func recordContribution(groupId: Nat) : async Result.Result<Bool, Text> {
         switch (findGroup(groupId)) {
             case (?group) {
@@ -196,7 +196,7 @@ actor RotateChain {
                     return #err("Already contributed for round " # Nat.toText(group.currentRound));
                 };
 
-                // Process payment through payment handler
+                // Process REAL ICP payment through payment handler
                 let contributionAmount = Nat64.fromNat(group.contributionAmount);
                 switch (await PaymentHandler.processContribution(
                     Nat64.fromNat(groupId),
@@ -206,12 +206,18 @@ actor RotateChain {
                 )) {
                     case (#ok(transactionId)) {
                         recordContributionInternal(groupId, msg.caller, group.currentRound);
-                        Debug.print("Payment processed: TxID " # Nat64.toText(transactionId));
-                        Debug.print("Contribution recorded: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId) # ", Round " # Nat.toText(group.currentRound));
+                        
+                        Debug.print("✅ Real ICP payment processed successfully!");
+                        Debug.print("Transaction ID: " # Nat64.toText(transactionId));
+                        Debug.print("Contributor: " # Principal.toText(msg.caller));
+                        Debug.print("Amount: " # Nat64.toText(contributionAmount) # " e8s");
+                        
                         #ok(true)
                     };
                     case (#err(error)) {
-                        #err(Utils.errorToText(error))
+                        let errorText = Utils.errorToText(error);
+                        Debug.print("❌ Payment failed: " # errorText);
+                        #err("Payment failed: " # errorText)
                     };
                 }
             };
@@ -238,42 +244,84 @@ actor RotateChain {
                 if (not allContributed) {
                     return #err("Not all members have contributed to round " # Nat.toText(group.currentRound));
                 };
-            
-                // Advance round
-                let newRound = group.currentRound + 1;
-                let isCompleted = newRound > group.totalRounds;
-            
-                // Safe recipient index calculation
-                let nextRecipient = if (not isCompleted and group.members.size() > 0) {
-                    let memberCount = group.members.size();
-                    if (memberCount > 0) {
-                        let recipientIndex = (newRound - 1) % memberCount;
-                        ?group.members[recipientIndex]
-                    } else {
-                        null
-                    }
-                } else null;
-            
-                let updatedGroup = { group with 
-                currentRound = newRound;
-                nextRecipient = nextRecipient;
-                isActive = not isCompleted;
-                completedAt = if (isCompleted) ?Time.now() else null;
-                };
-                updateGroup(updatedGroup);
-            
-                if (isCompleted) {
-                    Debug.print("🎉 Group " # Nat.toText(groupId) # " COMPLETED! All rounds finished.");
-                } else {
-                    Debug.print("Group " # Nat.toText(groupId) # " advanced to round " # Nat.toText(newRound));
-                };
-                #ok(true)
+
+                // Calculate payment  amount (contributions + yield - fees)
+                let baseAmount = Nat64.fromNat(group.contributionAmount * group.members.size());
+                let yieldAmount = Utils.calculateYield(baseAmount, Types.DEFAULT_YIELD_RATE, 30);
+                let platformFee = Utils.calculatePlatformFee(yieldAmount);
+                let totalPayout = baseAmount + yieldAmount - platformFee;
+
+                // Process real payout to current recipient
+                switch (group.nextRecipient) {
+                    case (?recipient) {
+                        switch (await PaymentHandler.processRotationPayout(
+                            Nat64.fromNat(groupId),
+                            recipient,
+                            totalPayout,
+                            group.currentRound
+                        )) {
+                            case (#ok(payoutTxId)) {             
+                                // Advance round after successful payout
+                                let newRound = group.currentRound + 1;
+                                let isCompleted = newRound > group.totalRounds;
+                        
+                                // Safe recipient index calculation
+                                let nextRecipient = if (not isCompleted and group.members.size() > 0) {
+                                    let memberCount = group.members.size();
+                                    if (memberCount > 0) {
+                                        let recipientIndex = (newRound - 1) % memberCount;
+                                        ?group.members[recipientIndex]
+                                    } else {
+                                        null
+                                    }
+                                } else null;
+                        
+                                let updatedGroup = { group with 
+                                    currentRound = newRound;
+                                    nextRecipient = nextRecipient;
+                                    isActive = not isCompleted;
+                                    completedAt = if (isCompleted) ?Time.now() else null;
+                                };
+                                updateGroup(updatedGroup);
+
+                                Debug.print("💰 Real ICP payout processed successfully!");
+                                Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
+                                Debug.print("Recipient: " # Principal.toText(recipient));
+                                Debug.print("Amount: " # Nat64.toText(totalPayout) # " e8s");
+                        
+                                if (isCompleted) {
+                                    Debug.print("🎉 Group " # Nat.toText(groupId) # " COMPLETED! All rounds finished.");
+                                } else {
+                                    Debug.print("➡️ Group " # Nat.toText(groupId) # " advanced to round " # Nat.toText(newRound));
+                                };
+
+                                #ok(true)
+                            };
+                            case (#err(error)) {
+                                let errorText = Utils.errorToText(error);
+                                Debug.print("❌ Payout failed: " # errorText);
+                                #err("Payout failed: " # errorText)
+                            };
+                        }
+                    };
+                    case null {
+                        #err("No recipient assigned for this round")
+                    };
+                }
             };
             case null { #err("Group not found") };
         }
     };
 
-    // Query functions
+    // Check account balance
+    public shared(msg) func getMyBalance() : async Nat64 {
+        await PaymentHandler.getAccountBalance(msg.caller)
+    };
+
+    // Get pool information
+    public query func getPoolInfo() : async {principal: Principal; accountId: Blob} {
+        PaymentHandler.getPoolAccountInfo()
+    };
 
     // Get user's groups
     public query(msg) func getMyGroups() : async [GroupSummary] {
