@@ -320,84 +320,103 @@ const SmartOnboarding = () => {
     if(actorState){
       //fetch the chain from the db.
       //actorState.getChain({})
+      let icpUnits = 1000000000
 
       if(socialChainInfo){
-        //stored in iso format, you should note that.
-        let now = DateTime.now().toString()
-        let newChain:CreateChainParams = {
-          chainType:{social:null},
-          creatorContributionAmount:0,
-          creatorIsLender:true,
-          creatorWallet:"",
-          currency:socialChainInfo.currency,
-          fineRate:0,
-          interestRate:socialChainInfo.loanInterest,
-          name:socialChainInfo.groupName,
-          contributionAmount:BigInt(socialChainInfo.contribution),
-          roundDuration:BigInt(socialChainInfo.frequency),
-          startDate:now,
-          //during initialization
-          totalRounds:BigInt(1),
-          userId:identity ? identity.getPrincipal().toString() : "",
-          userName:""
-        }
 
-        if(isLoggedIn){
-          actorState.createChain(newChain).then(function(result:any){
-            if(result.ok){
-              notification.success("chain created successfully")
-              setStep(3);
-              setIsVettingComplete(false);
+        let actualContributionAmount = BigInt(socialChainInfo.contribution) * icpUnits   
 
-            }
-            else{
-              notification.error("error creating your chain")
-            }
-          })
+        if(actualContributionAmount > icpUnits){
+          //stored in iso format, you should note that.
+          let now = DateTime.now().toString()
+          let newChain:CreateChainParams = {
+            chainType:{social:null},
+            creatorContributionAmount:0,
+            creatorIsLender:true,
+            creatorWallet:"",
+            currency:socialChainInfo.currency,
+            fineRate:0,
+            interestRate:socialChainInfo.loanInterest,
+            name:socialChainInfo.groupName,
+            contributionAmount:BigInt(actualContributionAmount),
+            roundDuration:BigInt(socialChainInfo.frequency),
+            startDate:now,
+            //during initialization
+            totalRounds:BigInt(1),
+            userId:identity ? identity.getPrincipal().toString() : "",
+            userName:""
+          }
 
+          if(isLoggedIn){
+            actorState.createChain(newChain).then(function(result:any){
+              if(result.ok){
+                notification.success("chain created successfully")
+                setStep(3);
+                setIsVettingComplete(false);
+
+              }
+              else{
+                notification.error("error creating your chain")
+              }
+            })
+
+          }
+          else{
+            notification.error("you're not logged in kindly login")
+            navigate("/login")
+          }
         }
         else{
-          notification.error("you're not logged in kindly login")
-          navigate("/login")
+          notification.error("key in a valid crypto unit")
         }
       }
       if(globalChainInfo){
-        let now = DateTime.now().toString()
-        let newChain:CreateChainParams = {
-          chainType:{global:null},
-          creatorContributionAmount:0,
-          creatorIsLender:true,
-          creatorWallet:"",
-          currency:globalChainInfo.currency,
-          fineRate:0,
-          interestRate:globalChainInfo.loanInterest,
-          name:globalChainInfo.groupName,
-          contributionAmount:BigInt(globalChainInfo.contribution),
-          roundDuration:BigInt(globalChainInfo.frequency),
-          startDate:now,
-          //during initialization
-          totalRounds:BigInt(1),
-          userId:identity ? identity.getPrincipal().toString() : "",
-          userName:"user1"
-        }
 
-        if(isLoggedIn){
-          actorState.createChain(newChain).then(function(result:any){
-            if(result.ok){
-              notification.success("chain created successfully")
-              setStep(3);
-              setIsVettingComplete(false);
 
-            }
-            else{
-              notification.error("error creating your chain")
-            }
-          })
+        let actualContributionAmount = BigInt(globalChainInfo.contribution) * icpUnits   
 
+        if(actualContributionAmount > icpUnits){
+          let now = DateTime.now().toString()
+          
+          let newChain:CreateChainParams = {
+            chainType:{global:null},
+            creatorContributionAmount:0,
+            creatorIsLender:true,
+            creatorWallet:"",
+            currency:globalChainInfo.currency,
+            fineRate:0,
+            interestRate:globalChainInfo.loanInterest,
+            name:globalChainInfo.groupName,
+            contributionAmount:BigInt(actualContributionAmount),
+            roundDuration:BigInt(globalChainInfo.frequency),
+            startDate:now,
+            //during initialization
+            totalRounds:BigInt(1),
+            userId:identity ? identity.getPrincipal().toString() : "",
+            userName:"user1"
+          }
+
+          if(isLoggedIn){
+            actorState.createChain(newChain).then(function(result:any){
+              if(result.ok){
+                notification.success("chain created successfully")
+                setStep(3);
+                setIsVettingComplete(false);
+
+              }
+              else{
+                notification.error("error creating your chain")
+              }
+            })
+
+          }
+          else{
+            notification.error("you're not logged in kindly login")
+            navigate("/login")
+          }
         }
         else{
-          notification.error("you're not logged in kindly login")
-          navigate("/login")
+          notification.error("key in a valid crypto unit")
         }
       }
     }
@@ -513,8 +532,8 @@ const SmartOnboarding = () => {
               totalFunds:chainObject.totalFunds,
               totalRounds:Number(chainObject.totalRounds),
               type:chainObject.chainType,
-              userId: chainObject.userId,
-              userName: chainObject.userName
+              userId: result.userId,
+              userName: result.userName
             }
             reduxDispatch(roundUpdate({chain:result}))
             notification.success(`Rotatechain welcomes you `)

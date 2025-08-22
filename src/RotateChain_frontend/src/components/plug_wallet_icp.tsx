@@ -46,9 +46,13 @@ const PlugConnect: React.FC<PlugConnectProps> = ({setIsWalletConnected, onConnec
         return;
       }
 
-      window.ic.plug.createAgent({ host:'http://127.0.0.1:4943' })
+      let actualLedgerCanisterId = network == 'testnet' ? ledgerCanisterId.toString() : "ryjl3-tyaaa-aaaaa-aaaba-cai"   
+
+      //the plug agent for signing transactions
+      //window.ic.plug.createAgent({ host:'http://127.0.0.1:4943' })
+      
       let identity = await window.ic.plug.requestConnect({
-        whitelist: [icpCanisterId.toString(),ledgerCanisterId.toString()],        
+        whitelist: [chainCanisterId.toString(),actualLedgerCanisterId.toString()],        
         host: network === 'testnet' 
           ? 'http://127.0.0.1:4943' 
           : 'https://ic0.app'

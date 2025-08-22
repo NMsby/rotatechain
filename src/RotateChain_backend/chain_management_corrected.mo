@@ -304,6 +304,7 @@ actor chain_management {
             }
         }
     };
+
     
     public query func getUserChains(userId: Text) : async [SingleChain] {
         switch (userChains.get(userId)) {
@@ -444,6 +445,17 @@ actor chain_management {
         }
     };
     
+    public query func getChainMember(chaindId:Text,userId:Text):async ?Member {
+        let ?chain = chains.get(chainId);
+        if(chain){
+            let member = Array.find<Member>(chain.members,func(member){
+                member.id == chainId;
+            })
+            member
+        };
+    };
+
+
     public shared func updateMember(
         chainId: Text,
         memberId: Text,

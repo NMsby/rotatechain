@@ -64,8 +64,8 @@ export const connectPlug = async (network: 'mainnet' | 'testnet'): Promise<{ pri
   await window.ic.plug.requestConnect({
     whitelist: [frontendCid],
     host: network === 'testnet' 
-      ? 'https://ic0.app' 
-      : 'https://mainnet.ic0.app'
+      ? 'https://http:127.0.0.1:4943' 
+      : 'https://ic0.app'
   });
 
   const principal = await window.ic.plug.agent.getPrincipal();
