@@ -10,7 +10,9 @@ import Blob "mo:base/Blob";
 module PaymentHandler {
 
     // Pool account for holding group funds (in production, this would be the canister's account)
-    private let POOL_PRINCIPAL = Principal.fromText("2vxsx-fae"); // Replace with actual pool account
+    private func getPoolPrincipal() : Principal {
+        Principal.fromText("2vxsx-fae"); // Replace with actual pool account
+    };
     
     // Process real group contribution with ICP transfer
     public func processContribution(
@@ -30,6 +32,9 @@ module PaymentHandler {
             return #err(#InvalidAmount);
         };
 
+        // Get pool principal dynamically
+        let poolPrincipal = getPoolPrincipal();
+
         // Check contributor has sufficient balance
         let contributorBalance = await ICPPaymentService.getAccountBalance(contributor);
         let requiredAmount = amount + 10_000; // Amount + transfer fee
@@ -43,7 +48,7 @@ module PaymentHandler {
             contributor,
             groupId,
             amount,
-            POOL_PRINCIPAL
+            poolPrincipal
         )) {
             case (#ok(transactionId)) {
                 // Create transaction record
@@ -85,8 +90,11 @@ module PaymentHandler {
             return #err(#InvalidAmount);
         };
 
+        // Get pool principal dynamically
+        let poolPrincipal = getPoolPrincipal();
+
         // Check pool has sufficient balance
-        let poolBalance = await ICPPaymentService.getAccountBalance(POOL_PRINCIPAL);
+        let poolBalance = await ICPPaymentService.getAccountBalance(poolPrincipal);
         let requiredAmount = amount + 10_000; // Amount + transfer fee
         
         if (poolBalance < requiredAmount) {
@@ -139,8 +147,9 @@ module PaymentHandler {
 
     // Get pool account info
     public func getPoolAccountInfo() : {principal: Principal; accountId: Blob} {
+        let poolPrincipal = getPoolPrincipal();
         {
-            principal = POOL_PRINCIPAL;
+            principal = poolPrincipal;
             accountId = ICPPaymentService.getCanisterAccountId();
         }
     };
