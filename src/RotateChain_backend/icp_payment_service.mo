@@ -7,6 +7,7 @@ import Result "mo:base/Result";
 import Time "mo:base/Time";
 import Blob "mo:base/Blob";
 import Array "mo:base/Array";
+import Nat "mo:base/Nat";
 import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
 import Text "mo:base/Text";
@@ -21,10 +22,10 @@ module ICPPaymentService {
         subaccount: ?[Nat8];
     };
 
-    public type TransferArgs = {
+    public type TransferArg = {
         from_subaccount: ?[Nat8];
         to: Account;
-        ammount: Nat;
+        amount: Nat;
         fee: ?Nat;
         memo: ?Blob;
         created_at_time: ?Nat64;
@@ -74,10 +75,11 @@ module ICPPaymentService {
     
     // Generate transaction memo from group ID and round
     private func createMemo(groupId: Types.GroupId, roundNumber: ?Nat) : Blob {
-        let memoText = "group:" # Nat.toText(groupId) # switch (roundNumber) {
+        let roundSuffix = switch (roundNumber) {
             case (?round) { ":round:" # Nat.toText(round) };
             case null { "" };
         };
+        let memoText = "group:" # Nat.toText(groupId) # roundSuffix;
         Text.encodeUtf8(memoText)
     };
 
