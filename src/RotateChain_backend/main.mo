@@ -12,10 +12,11 @@ import Nat64 "mo:base/Nat64";
 import Types "./types";
 import Utils "./utils";
 
-// Import new modules for payment handling, group management, and rotation logic
+/// Imports required modules and libraries for the backend canister functionality.
 import PaymentHandler "./payment_handler";
 import GroupManagement "./group_management";
 import RotationEngine "./rotation_engine";
+import ICPPaymentService "./icp_payment_service";
 
 actor RotateChain {
   
@@ -319,7 +320,7 @@ actor RotateChain {
     };
 
     // Get pool information
-    public func getPoolInfo() : async {principal: Principal; accountId: Blob} {
+    public func getPoolInfo() : async {principal: Principal; account: ICPPaymentService.Account} {
         await PaymentHandler.getPoolAccountInfo()
     };
 

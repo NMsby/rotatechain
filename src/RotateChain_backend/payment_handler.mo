@@ -2,10 +2,8 @@
 import Types "./types";
 import Utils "./utils";
 import ICPPaymentService "./icp_payment_service";
-import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
-import Blob "mo:base/Blob";
 
 module PaymentHandler {
 
@@ -43,10 +41,7 @@ module PaymentHandler {
             poolPrincipal
         )) {
             case (#ok(blockIndex)) { 
-                // Convert block index to transaction ID
-                let transactionId = blockIndex;
-
-                #ok(transactionId)
+                #ok(blockIndex)
             };
             case (#err(error)) {
                 #err(error)
@@ -84,8 +79,7 @@ module PaymentHandler {
             roundNumber
         )) {
             case (#ok(blockIndex)) {
-                let transactionId = blockIndex;                
-                #ok(transactionId)
+                #ok(blockIndex)
             };
             case (#err(error)) {
                 #err(error)
@@ -107,11 +101,11 @@ module PaymentHandler {
     };
 
     // Get pool account info
-    public func getPoolAccountInfo() : async {principal: Principal; accountId: Blob} {
+    public func getPoolAccountInfo() : async {principal: Principal; account: ICPPaymentService.Account} {
         let poolPrincipal = getPoolPrincipal();
         {
             principal = poolPrincipal;
-            accountId = ICPPaymentService.getCanisterAccountId(poolPrincipal);
+            account = ICPPaymentService.getCanisterAccountId(poolPrincipal);
         }
     };
 }

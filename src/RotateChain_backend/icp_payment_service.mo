@@ -145,7 +145,10 @@ module ICPPaymentService {
                         case (#TooOld) { #InvalidTimestamp };
                         case (#CreatedInFuture(_)) { #InvalidTimestamp };
                         case (#Duplicate(_)) { #PaymentFailed };
-                        case (_) { #PaymentFailed };
+                        case (#BadBurn(_)) { #PaymentFailed };
+                        case (#TemporarilyUnavailable) { #NetworkError };
+                        case (#GenericError(_)) { #PaymentFailed };
+                        case _ { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
@@ -212,7 +215,10 @@ module ICPPaymentService {
                         case (#TooOld) { #InvalidTimestamp };
                         case (#CreatedInFuture(_)) { #InvalidTimestamp };
                         case (#Duplicate(_)) { #PaymentFailed };
-                        case (_) { #PaymentFailed };
+                        case (#BadBurn(_)) { #PaymentFailed };
+                        case (#TemporarilyUnavailable) { #NetworkError };
+                        case (#GenericError(_)) { #PaymentFailed };
+                        case _ { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
