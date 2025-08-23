@@ -28,7 +28,6 @@ import { useInternetIdentity } from 'ic-use-internet-identity';
 import { Principal } from '@dfinity/principal';
 
 //my exports
-export default Dashboard;
 
 
 
@@ -719,31 +718,32 @@ function Dashboard(){
 
   let depositFunds = async function(){
     if(ledgerActorState && actorState && roundChain){
-    //funds deposited to chain group and funds remitted from user plug account
-    // call the icpsend function for the plug wallet
-    let chain = await actorState.getChain(roundChain.id)
-    if(chain[0]){
-      let account:Account = {
-        owner:Principal.fromText(canisterId),
-        subaccount:chain[0].chainAccountIdentifier
-      }
-      let icpUnits = 1000000000
-      
-      if((balance * icpUnits) > chain[0].contributionAmount){
-
-        let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
+      //funds deposited to chain group and funds remitted from user plug account
+      // call the icpsend function for the plug wallet
+      let chain = await actorState.getChain(roundChain.id)
+      if(chain[0]){
+        let account:Account = {
+          owner:Principal.fromText(canisterId),
+          subaccount:chain[0].chainAccountIdentifier
+        }
         let icpUnits = 1000000000
-        let actualAmount = chain[0]?.contributionAmount ? Number(chain[0]?.contributionAmount) / 1000000000 : 0
-        let result = sendICP(chainAccountIdentifier.toString(),actualAmount,network)
-        //let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
+        
+        if((balance * icpUnits) > chain[0].contributionAmount){
+
+          let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
+          let icpUnits = 1000000000
+          let actualAmount = chain[0]?.contributionAmount ? Number(chain[0]?.contributionAmount) / 1000000000 : 0
+          let result = sendICP(chainAccountIdentifier.toString(),actualAmount,network)
+          //let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
+        }
+        else{
+          notification.error("insufficient funds to deposit")
+        }
+
       }
       else{
-        notification.error("insufficient funds to deposit")
+        notification.error("wait a while for synchronization")
       }
-
-    }
-    else{
-      notification.error("wait a while for synchronization")
     }
   }
 
@@ -811,36 +811,41 @@ function Dashboard(){
 
     if(ledgerActorState && actorState && roundChain){
 
-    //funds deposited to chain group and funds remitted from user plug account
-    // call the icpsend function for the plug wallet
-    let chain = await actorState.getChain(roundChain.id)
-    if(chain[0]){
-      if(liquidityWallet > chain[0].contributionAmount){
-        liquidityAutomatedDeposit()
-      }
-      else{
-        let icpUnits = 1000000000
-        if((balance * icpUnits) > chain[0].contributionAmount){
-          let account:Account = {
-            owner:Principal.fromText(canisterId),
-            subaccount:chain[0].chainAccountIdentifier
-          }
-
-          let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
-          let icpUnits = 1000000000
-          let actualAmount = chain[0]?.contributionAmount ? Number(chain[0]?.contributionAmount) / 1000000000 : 0
-          let result = sendICP(chainAccountIdentifier.toString(),actualAmount,network)
-          //let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
-
+      //funds deposited to chain group and funds remitted from user plug account
+      // call the icpsend function for the plug wallet
+      let chain = await actorState.getChain(roundChain.id)
+      if(chain[0]){
+        if(liquidityWallet > chain[0].contributionAmount){
+          liquidityAutomatedDeposit()
         }
         else{
-          notification.error("insufficient tokens to deposit")
+          let icpUnits = 1000000000
+          if((balance * icpUnits) > chain[0].contributionAmount){
+            let account:Account = {
+              owner:Principal.fromText(canisterId),
+              subaccount:chain[0].chainAccountIdentifier
+            }
+
+            let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
+            let icpUnits = 1000000000
+            let actualAmount = chain[0]?.contributionAmount ? Number(chain[0]?.contributionAmount) / 1000000000 : 0
+            let result = sendICP(chainAccountIdentifier.toString(),actualAmount,network)
+            //let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
+
+          }
+          else{
+            notification.error("insufficient tokens to deposit")
+          }
         }
+      }
+      else{
+        notification.error("wait a moment for synchronization")
       }
     }
     else{
-      notification.error("wait a moment for synchronization")
+      notification.error("error occured while depositing crypto")
     }
+
   }
 
 
@@ -868,7 +873,6 @@ function Dashboard(){
         
         setBalance(Number(userBalance))
         //get the user liquidity wallet balance
-        actorState.
         let liquidityAccount = await actorState.getChainMember(chain.id,identity.getPrincipal().toString()).walletAddress
         //let liquidityAccountIdentifier = await ledgerActorState.account_identifier({owner:principal,subaccount:liquidityAccount}) 
         let account:Account = {
@@ -1864,10 +1868,12 @@ function Dashboard(){
   );
 };
 
-/*function ChainGroupsMenu({menuItems}:{menuItems:SingleChain[]}){
+function ChainGroupsMenu({menuItems}:{menuItems:SingleChain[]}){
   return(
     <div className="w-full sm:w-4/5 md:w-3/5 lg:w-2/5 h-screen">
       {menuItems.map((item,index) => {return <div>{item.name}</div>})}
     </div>
   )
-}*/
+}
+
+export default Dashboard;

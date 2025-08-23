@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "setup": "npm i && dfx canister create RotateChain_backend && dfx generate RotateChain_backend && dfx deploy",
+    "setup": "npm i && dfx canister create internet_identity && dfx canister create icp_ledger_canister && dfx canister create chain_management && dfx generate internet_identity && dfx generate icp_ledger_canister && dfx generate chain_management  && dfx deploy",
     "start": "vite --port 3000",
     "prebuild": "dfx generate",
     "build": "tsc && vite build",
