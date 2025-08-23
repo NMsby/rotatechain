@@ -319,7 +319,7 @@ actor RotateChain {
     };
 
     // Get pool information
-    public query func getPoolInfo() : async {principal: Principal; accountId: Blob} {
+    public func getPoolInfo() : async {principal: Principal; accountId: Blob} {
         await PaymentHandler.getPoolAccountInfo()
     };
 

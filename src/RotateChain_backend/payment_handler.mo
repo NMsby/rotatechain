@@ -9,9 +9,9 @@ import Blob "mo:base/Blob";
 
 module PaymentHandler {
 
-    // Pool account for holding group funds (in production, this would be the canister's account)
+    // Get pool principal dynamically to avoid static expression error
     private func getPoolPrincipal() : Principal {
-        Principal.fromText("2vxsx-fae"); // Replace with actual pool account
+        Principal.fromText("2vxsx-fae"); // Placeholder - will be replaced with actual cansiter principal
     };
     
     // Process real group contribution with ICP transfer
@@ -35,35 +35,17 @@ module PaymentHandler {
         // Get pool principal dynamically
         let poolPrincipal = getPoolPrincipal();
 
-        // Check contributor has sufficient balance
-        let contributorBalance = await ICPPaymentService.getAccountBalance(contributor);
-        let requiredAmount = amount + 10_000; // Amount + transfer fee
-        
-        if (contributorBalance < requiredAmount) {
-            return #err(#InsufficientBalance);
-        };
-
-        // Process real ICP transfer
+        // Process real ICP transfer through payment service
         switch (await ICPPaymentService.processGroupContribution(
             contributor,
             groupId,
             amount,
             poolPrincipal
         )) {
-            case (#ok(transactionId)) {
-                // Create transaction record
-                let transaction: Types.Transaction = {
-                    id = transactionId;
-                    groupId = groupId;
-                    from = contributor;
-                    to = null; // Pool contribution
-                    amount = amount;
-                    timestamp = Time.now();
-                    transactionType = #contribution;
-                    memo = ?Utils.createTransactionMemo(#contribution, groupId, null);
-                    blockHeight = ?transactionId; // Using transaction ID as block reference
-                };
-                
+            case (#ok(blockIndex)) { 
+                // Convert block index to transaction ID
+                let transactionId = blockIndex;
+
                 #ok(transactionId)
             };
             case (#err(error)) {
@@ -93,36 +75,16 @@ module PaymentHandler {
         // Get pool principal dynamically
         let poolPrincipal = getPoolPrincipal();
 
-        // Check pool has sufficient balance
-        let poolBalance = await ICPPaymentService.getAccountBalance(poolPrincipal);
-        let requiredAmount = amount + 10_000; // Amount + transfer fee
-        
-        if (poolBalance < requiredAmount) {
-            return #err(#InsufficientBalance);
-        };
-
         // Process real ICP payout transfer
         switch (await ICPPaymentService.processRotationPayout(
-            POOL_PRINCIPAL,
+            poolPrincipal,
             recipient,
             amount,
             groupId,
             roundNumber
         )) {
-            case (#ok(transactionId)) {
-                // Create payout transaction record
-                let transaction: Types.Transaction = {
-                    id = transactionId;
-                    groupId = groupId;
-                    from = POOL_PRINCIPAL;
-                    to = ?recipient;
-                    amount = amount;
-                    timestamp = Time.now();
-                    transactionType = #payout;
-                    memo = ?Utils.createTransactionMemo(#payout, groupId, ?"Round " # Nat.toText(roundNumber));
-                    blockHeight = ?transactionId;
-                };
-                
+            case (#ok(blockIndex)) {
+                let transactionId = blockIndex;                
                 #ok(transactionId)
             };
             case (#err(error)) {
@@ -139,18 +101,17 @@ module PaymentHandler {
     // Verify real payment was processed
     public func verifyPayment(
         transactionId: Types.TransactionId,
-        expectedAmount: Types.Amount,
-        expectedRecipient: Principal
+        expectedAmount: Types.Amount
     ) : async Bool {
-        await ICPPaymentService.verifyTransaction(transactionId, expectedAmount, expectedRecipient)
+        await ICPPaymentService.verifyTransaction(transactionId, expectedAmount)
     };
 
     // Get pool account info
-    public func getPoolAccountInfo() : {principal: Principal; accountId: Blob} {
+    public func getPoolAccountInfo() : async {principal: Principal; accountId: Blob} {
         let poolPrincipal = getPoolPrincipal();
         {
             principal = poolPrincipal;
-            accountId = ICPPaymentService.getCanisterAccountId();
+            accountId = ICPPaymentService.getCanisterAccountId(poolPrincipal);
         }
     };
 }
