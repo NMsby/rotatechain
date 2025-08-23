@@ -14,73 +14,71 @@ import Int "mo:base/Int";
 
 module ICPPaymentService {
     
-    // ==================== ICP LEDGER TYPES (Latest ICRC-1 Standards) ====================
+    // ==================== ICP LEDGER TYPES (ICRC-1 Standards) ====================
     
-    public type AccountIdentifier = Blob;
-    public type Subaccount = [Nat8];
-    public type Memo = Nat64;
-    public type ICPTs = { e8s: Nat64 };
-    public type BlockIndex = Nat64;
-    public type Timestamp = { timestamp_nanos: Nat64 };
-    
+    public type Account = {
+        owner: Principal;
+        subaccount: ?[Nat8];
+    };
+
     public type TransferArgs = {
-        memo: Memo;
-        amount: ICPTs;
-        fee: ICPTs;
-        from_subaccount: ?Subaccount;
-        to: AccountIdentifier;
-        created_at_time: ?Timestamp;
+        from_subaccount: ?[Nat8];
+        to: Account;
+        ammount: Nat;
+        fee: ?Nat;
+        memo: ?Blob;
+        created_at_time: ?Nat64;
     };
     
     public type TransferError = { 
-        #BadFee: { expected_fee: ICPTs };
-        #BadBurn: { min_burn_amount: ICPTs };
-        #InsufficientFunds: { balance: ICPTs };
+        #BadFee: { expected_fee: Nat };
+        #BadBurn: { min_burn_amount: Nat };
+        #InsufficientFunds: { balance: Nat };
         #TooOld;
         #CreatedInFuture: { ledger_time: Nat64 };
-        #Duplicate: { duplicate_of: BlockIndex };
+        #Duplicate: { duplicate_of: Nat };
         #TemporarilyUnavailable;
         #GenericError: { error_code: Nat; message: Text };
     };
     
-    public type TransferResult = Result.Result<BlockIndex, TransferError>;
-    public type AccountBalanceArgs = { account: AccountIdentifier };
+    public type TransferResult = Result.Result<Nat, TransferError>;
 
     // ==================== CONSTANTS ====================
     
     // Standard ICP transfer fee (10,000 e8s = 0.0001 ICP)
-    private let ICP_TRANSFER_FEE : Nat64 = 10_000;
+    private let ICP_TRANSFER_FEE : Nat = 10_000;  // 0.0001 ICP
     
     // Ledger canister interface
-    private let ledger = actor("ryjl3-tyaaa-aaaaa-aaaba-cai") : actor {
-        transfer : (TransferArgs) -> async TransferResult;
-        account_balance : (AccountBalanceArgs) -> async ICPTs;
+    private let ledger = actor("uxrrr-q7777-77774-qaaaq-cai") : actor {
+        icrc1_transfer : (TransferArg) -> async TransferResult;
+        icrc1_balance_of : (Account) -> async Nat;
+        icrc1_fee : () -> async Nat;
     };
     
     // ==================== UTILITY FUNCTIONS ====================
 
-    // Convert Principal to AccountIdentifier (simplied version for local development)
-    private func principalToAccountIdentifier(principal: Principal) : AccountIdentifier {
-        // For now, return the principal blob directly (simplified)
-        // In production, use proper SHA224 + CRC32 calculation
-        Principal.toBlob(principal)
+    // Convert Principal to Account (simplied version for local development)
+    private func principalToAccount(principal: Principal) : Account {
+        {
+            // For now, return the principal directly (simplified)
+            // In production, use proper SHA224 + CRC32 calculation
+            owner = principal;
+            subaccount = null;
+        }
     };
 
     // Get current timestamp in nanoseconds
-    private func getCurrentTimestamp() : Timestamp {
-        { timestamp_nanos = Nat64.fromNat(Int.abs(Time.now())) }
+    private func getCurrentTimestamp() : Nat64 {
+        Nat64.fromNat(Int.abs(Time.now()))
     };
     
     // Generate transaction memo from group ID and round
-    private func createMemo(groupId: Types.GroupId, roundNumber: ?Nat) : Memo {
-        switch (roundNumber) {
-            case (?round) {
-                (Nat64.fromNat(groupId) * 10000) + Nat64.fromNat(round)
-            };
-            case null {
-                Nat64.fromNat(groupId) * 10000
-            };
-        }
+    private func createMemo(groupId: Types.GroupId, roundNumber: ?Nat) : Blob {
+        let memoText = "group:" # Nat.toText(groupId) # switch (roundNumber) {
+            case (?round) { ":round:" # Nat.toText(round) };
+            case null { "" };
+        };
+        Text.encodeUtf8(memoText)
     };
 
     // ==================== CORE PAYMENT FUNCTIONS ====================
@@ -103,51 +101,49 @@ module ICPPaymentService {
         };
 
         // Check contributor balance
-        let contributorAccountId = principalToAccountIdentifier(contributor);
-        let requiredAmount = contributionAmount + ICP_TRANSFER_FEE;
+        let contributorAccount = principalToAccount(contributor);
+        let amountNat = Nat64.toNat(contributionAmount);
 
         try {
-            let balanceResult = await ledger.account_balance({ account = contributorAccountId });
-            if (balanceResult.e8s < requiredAmount) {
+            let balance = await ledger.icrc1_balance_of(contributorAccount);
+            if (balance < amountNat + ICP_TRANSFER_FEE) {
                 return #err(#InsufficientBalance);
             };
         } catch (_) {
             return #err(#NetworkError);
-        };            
+        };          
         
         // Calculate net contribution (after platform fee)
+        let poolAccountDest = principalToAccount(poolAccount);
         let platformFee = Utils.calculatePlatformFee(contributionAmount);
-        let netAmount = contributionAmount - platformFee;
-        let poolAccountId = principalToAccountIdentifier(poolAccount);
-        
+        let netAmount = Nat64.toNat(contributionAmount - platformFee);
+
         // Prepare transfer args for group pool
-        let transferArgs: TransferArgs = {
-            memo = createMemo(groupId, null);
-            amount = { e8s = netAmount };
-            fee = { e8s = ICP_TRANSFER_FEE };
+        let transferArgs: TransferArg = {
             from_subaccount = null;
-            to = poolAccountId;
+            to = poolAccountDest;
+            amount = netAmount;
+            fee = ?ICP_TRANSFER_FEE;
+            memo = ?createMemo(groupId, null);
             created_at_time = ?getCurrentTimestamp();
         };
         
         // Execute ICP transfer
         try {
-            let transferResult = await ledger.transfer(transferArgs);
-            switch (transferResult) {
+            let result = await ledger.icrc1_transfer(transferArgs);
+            switch (result) {
                 case (#Ok(blockIndex)) {
-                    #ok(blockIndex)
+                    #ok(Nat64.fromNat(blockIndex))
                 };
-                case (#Err(transferError)) {
+                case (#Err(error)) {
                     // Map ledger errors to our error types
-                    let mappedError = switch (transferError) {
+                    let mappedError = switch (error) {
                         case (#InsufficientFunds(_)) { #InsufficientBalance };
                         case (#BadFee(_)) { #InvalidAmount };
                         case (#TooOld) { #InvalidTimestamp };
                         case (#CreatedInFuture(_)) { #InvalidTimestamp };
                         case (#Duplicate(_)) { #PaymentFailed };
-                        case (#BadBurn(_)) { #PaymentFailed };
-                        case (#TemporarilyUnavailable) { #NetworkError };
-                        case (#GenericError(_)) { #PaymentFailed };
+                        case (_) { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
@@ -176,47 +172,45 @@ module ICPPaymentService {
         };
 
         // Check pool balance
-        let poolAccountId = principalToAccountIdentifier(poolAccount);
-        let requiredAmount = payoutAmount + ICP_TRANSFER_FEE;
+        let poolAccountSrc = principalToAccount(poolAccount);
+        let amountNat = Nat64.toNat(payoutAmount);
         
         try {
-            let balanceResult = await ledger.account_balance({ account = poolAccountId });
-            if (balanceResult.e8s < requiredAmount) {
+            let balance = await ledger.icrc1_balance_of(poolAccountSrc);
+            if (balance < amountNat + ICP_TRANSFER_FEE) {
                 return #err(#InsufficientBalance);
             };
         } catch (_) {
             return #err(#NetworkError);
         };
         
-        let recipientAccountId = principalToAccountIdentifier(recipient);
+        let recipientAccount = principalToAccount(recipient);
         
         // Prepare payout transfer arguments
-        let transferArgs: TransferArgs = {
-            memo = createMemo(groupId, ?roundNumber);
-            amount = { e8s = payoutAmount };
-            fee = { e8s = ICP_TRANSFER_FEE };
+        let transferArgs: TransferArg = {
             from_subaccount = null;
-            to = recipientAccountId;
+            to = recipientAccount;
+            amount = amountNat;
+            fee = ?ICP_TRANSFER_FEE;
+            memo = ?createMemo(groupId, ?roundNumber);
             created_at_time = ?getCurrentTimestamp();
         };
         
         // Execute payout transfer
         try {
-            let transferResult = await ledger.transfer(transferArgs);
-            switch (transferResult) {
+            let result = await ledger.icrc1_transfer(transferArgs);
+            switch (result) {
                 case (#Ok(blockIndex)) {
-                    #ok(blockIndex)
+                    #ok(Nat64.fromNat(blockIndex))
                 };
-                case (#Err(transferError)) {
-                    let mappedError = switch (transferError) {
+                case (#Err(error)) {
+                    let mappedError = switch (error) {
                         case (#InsufficientFunds(_)) { #InsufficientBalance };
                         case (#BadFee(_)) { #InvalidAmount };
                         case (#TooOld) { #InvalidTimestamp };
                         case (#CreatedInFuture(_)) { #InvalidTimestamp };
                         case (#Duplicate(_)) { #PaymentFailed };
-                        case (#BadBurn(_)) { #PaymentFailed };
-                        case (#TemporarilyUnavailable) { #NetworkError };
-                        case (#GenericError(_)) { #PaymentFailed };
+                        case (_) { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
@@ -228,10 +222,10 @@ module ICPPaymentService {
     
     // Get real account balance from ICP ledger
     public func getAccountBalance(account: Principal) : async Types.Amount {
-        let accountId = principalToAccountIdentifier(account);
+        let accountQuery = principalToAccount(account);
         try {
-            let balance = await ledger.account_balance({ account = accountId });
-            balance.e8s
+            let balance = await ledger.icrc1_balance_of(accountQuery);
+            Nat64.fromNat(balance)
         } catch (_) {
             0 // Return 0 if balance check fails
         }
@@ -240,14 +234,14 @@ module ICPPaymentService {
     // ==================== HELPER FUNCTIONS ====================
 
     // Get canister's account identifier for pool management
-    public func getCanisterAccountId(canisterPrincipal: Principal) : AccountIdentifier {
+    public func getCanisterAccountId(canisterPrincipal: Principal) : Account {
         // Return canister's principal as account identifier
-        principalToAccountIdentifier(canisterPrincipal)
+        principalToAccount(canisterPrincipal)
     };
     
     // Verify transaction exists on ledger (simplified for MVP)
     public func verifyTransaction(
-        blockIndex: BlockIndex,
+        blockIndex: Types.TransactionId,
         _expectedAmount: Types.Amount
     ) : async Bool {
         // In production, query the ledger for transaction details
