@@ -14,7 +14,7 @@ import Int "mo:base/Int";
 
 module ICPPaymentService {
     
-    // ==================== ICP LEDGER TYPES (Latest Standards) ====================
+    // ==================== ICP LEDGER TYPES (Latest ICRC-1 Standards) ====================
     
     public type AccountIdentifier = Blob;
     public type Subaccount = [Nat8];
@@ -32,16 +32,18 @@ module ICPPaymentService {
         created_at_time: ?Timestamp;
     };
     
-    public type TransferError = {
+    public type TransferError = { 
         #BadFee: { expected_fee: ICPTs };
+        #BadBurn: { min_burn_amount: ICPTs };
         #InsufficientFunds: { balance: ICPTs };
-        #TxTooOld: { allowed_window_nanos: Nat64 };
-        #TxCreatedInFuture;
-        #TxDuplicate: { duplicate_of: BlockIndex };
+        #TooOld;
+        #CreatedInFuture: { ledger_time: Nat64 };
+        #Duplicate: { duplicate_of: BlockIndex };
+        #TemporarilyUnavailable;
+        #GenericError: { error_code: Nat; message: Text };
     };
     
     public type TransferResult = Result.Result<BlockIndex, TransferError>;
-
     public type AccountBalanceArgs = { account: AccountIdentifier };
 
     // ==================== CONSTANTS ====================
@@ -109,7 +111,7 @@ module ICPPaymentService {
             if (balanceResult.e8s < requiredAmount) {
                 return #err(#InsufficientBalance);
             };
-        } catch (error) {
+        } catch (_) {
             return #err(#NetworkError);
         };            
         
@@ -140,14 +142,17 @@ module ICPPaymentService {
                     let mappedError = switch (transferError) {
                         case (#InsufficientFunds(_)) { #InsufficientBalance };
                         case (#BadFee(_)) { #InvalidAmount };
-                        case (#TxTooOld(_)) { #InvalidTimestamp };
-                        case (#TxCreatedInFuture) { #InvalidTimestamp };
-                        case (#TxDuplicate(_)) { #PaymentFailed };
+                        case (#TooOld) { #InvalidTimestamp };
+                        case (#CreatedInFuture(_)) { #InvalidTimestamp };
+                        case (#Duplicate(_)) { #PaymentFailed };
+                        case (#BadBurn(_)) { #PaymentFailed };
+                        case (#TemporarilyUnavailable) { #NetworkError };
+                        case (#GenericError(_)) { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
             }
-        } catch (error) {
+        } catch (_) {
             #err(#NetworkError)
         }
     };
@@ -179,7 +184,7 @@ module ICPPaymentService {
             if (balanceResult.e8s < requiredAmount) {
                 return #err(#InsufficientBalance);
             };
-        } catch (error) {
+        } catch (_) {
             return #err(#NetworkError);
         };
         
@@ -206,14 +211,17 @@ module ICPPaymentService {
                     let mappedError = switch (transferError) {
                         case (#InsufficientFunds(_)) { #InsufficientBalance };
                         case (#BadFee(_)) { #InvalidAmount };
-                        case (#TxTooOld(_)) { #InvalidTimestamp };
-                        case (#TxCreatedInFuture) { #InvalidTimestamp };
-                        case (#TxDuplicate(_)) { #PaymentFailed };
+                        case (#TooOld) { #InvalidTimestamp };
+                        case (#CreatedInFuture(_)) { #InvalidTimestamp };
+                        case (#Duplicate(_)) { #PaymentFailed };
+                        case (#BadBurn(_)) { #PaymentFailed };
+                        case (#TemporarilyUnavailable) { #NetworkError };
+                        case (#GenericError(_)) { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
             }
-        } catch (error) {
+        } catch (_) {
             #err(#NetworkError)
         }
     };
@@ -224,7 +232,7 @@ module ICPPaymentService {
         try {
             let balance = await ledger.account_balance({ account = accountId });
             balance.e8s
-        } catch (error) {
+        } catch (_) {
             0 // Return 0 if balance check fails
         }
     };
@@ -239,8 +247,8 @@ module ICPPaymentService {
     
     // Verify transaction exists on ledger (simplified for MVP)
     public func verifyTransaction(
-        blockIndex: Nat64,
-        expectedAmount: Types.Amount
+        blockIndex: BlockIndex,
+        _expectedAmount: Types.Amount
     ) : async Bool {
         // In production, query the ledger for transaction details
         // For MVP, assume verification passes if blockIndex > 0

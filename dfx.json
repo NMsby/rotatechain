@@ -2,7 +2,8 @@
   "canisters": {
     "rotatechain_backend": {
       "main": "src/RotateChain_backend/main.mo",
-      "type": "motoko"
+      "type": "motoko",
+      "dependencies": ["icp_ledger_canister", "internet_identity"]
     },
     "rotatechain_frontend": {
       "dependencies": [

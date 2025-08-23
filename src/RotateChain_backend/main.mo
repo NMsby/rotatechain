@@ -199,7 +199,7 @@ actor RotateChain {
                 // Process REAL ICP payment through payment handler
                 let contributionAmount = Nat64.fromNat(group.contributionAmount);
                 switch (await PaymentHandler.processContribution(
-                    Nat64.fromNat(groupId),
+                    groupId,
                     msg.caller,
                     contributionAmount,
                     contributionAmount
@@ -255,7 +255,7 @@ actor RotateChain {
                 switch (group.nextRecipient) {
                     case (?recipient) {
                         switch (await PaymentHandler.processRotationPayout(
-                            Nat64.fromNat(groupId),
+                            groupId,
                             recipient,
                             totalPayout,
                             group.currentRound
