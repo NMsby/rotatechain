@@ -16,15 +16,20 @@ import { SplashScreen } from './sassySplash';
 import ICPShoppingPopup from '../instructions/icp_buying-instructions';
 import PlugConnect from './plug_wallet_icp';
 import PaymentForm from './Icp_payment_form';
-import { getICPBalance, getPaymentCanister } from '../services/icp_canister';
+import { getICPBalance, getPaymentCanister, sendICP } from '../services/icp_canister';
 import { AuthClient, LocalStorage } from '@dfinity/auth-client';
 import { Actor ,ActorSubclass, Identity} from '@dfinity/agent';
 import {canisterId, chain_management, createActor } from '../../../declarations/chain_management'
-import { _SERVICE, CreateChainParams } from '../../../declarations/chain_management/chain_management.did';
-import {_SERVICE as _LEDGER_SERVICE,AccountIdentifier} from "../../../declarations/icp_ledger_canister/icp_ledger_canister.did"
+import { _SERVICE, CreateChainParams,Chain as DbChain } from '../../../declarations/chain_management/chain_management.did';
+import {_SERVICE as _LEDGER_SERVICE,Account,AccountIdentifier, TransferArg, TransferArgs, TransferFromArgs} from "../../../declarations/icp_ledger_canister/icp_ledger_canister.did"
 import {canisterId as ledgerCanisterId,createActor as createActorLedger } from "../../../declarations/icp_ledger_canister";
 import { useAppSelector } from '../state/hooks';
 import { useInternetIdentity } from 'ic-use-internet-identity';
+import { Principal } from '@dfinity/principal';
+
+//my exports
+export default Dashboard;
+
 
 
 interface Member {
@@ -239,7 +244,7 @@ const fakeLoans:Loan[] = [
 type onLogout = () => void 
 
 
-export function Dashboard(){
+function Dashboard(){
   const navigate = useNavigate();  
   const {status,identity} = useInternetIdentity()
   //const [chainActor,setChainActor] = useState<ActorSubclass<_SERVICE> | null>(null)
@@ -301,7 +306,7 @@ export function Dashboard(){
   const [dbLiquidityBalance,setDbLiquidityBalance] = useState(0);
   const [actorState,setActorState] = useState<ActorSubclass<_SERVICE>>()
   const [ledgerActorState,setLedgerActorState] = useState<ActorSubclass<_LEDGER_SERVICE>>()
-
+  const [liquidityWallet,setLiquidityWallet] = useState(0)
 
   useEffect(function(){
 
@@ -439,14 +444,14 @@ export function Dashboard(){
         actorState.getAllChains().then(function(result:any){
           if(result.ok){
 
-            let filteredChains:SingleChain[] = result.ok.filter((function(group,index){
+            let filteredChains:SingleChain[] = result.ok.filter((function(group:any,index:number){
               //search for details of the member from the list of members in chains
               // then return the chains themselves after maping them
               let userPrincipal = identity?.getPrincipal().toString()
-              return group.members.indexOf(group.members.find((function(member,index){
+              return group.members.indexOf(group.members.find((function(member:any,index:number){
                 member.id == userPrincipal
               }))) != -1  
-            })).map(function(group,index){
+            })).map(function(group:any,index:number){
               //map the group to ChainGroup type, so slice it in a way
               let newChainGroup:SingleChain = {
                 id:group.id,
@@ -557,6 +562,14 @@ export function Dashboard(){
     return () => clearInterval(dateTimeInterval);
   }, []);
 
+  useEffect(function(){
+    if(status == "success" && chain){
+      setTimeout(function(){
+        //automatedDeposit()
+      },chain.roundDuration)
+    }
+  },[status])
+
   useEffect(() => {
     if(roundChain && identity != undefined){
       roundChain.loans.forEach(loan => {
@@ -630,8 +643,66 @@ export function Dashboard(){
         seconds: seasonSeconds
       });
     };
+    //also update the rotateChain
+    const recallChain = (): void => {
+      if(actorState && status == "success"){
+        actorState.getChain(chain.id).then(function(result:[] | [DbChain]){
+          if(result[0]){
+
+            let newChain:Chain = {
+              currency:chainResult.currency,
+              currentFunds:chainResult.currentFunds,
+              currentRound:Number(chainResult.currentRound),
+              fineRate:chainResult.fineRate,
+              id:chainResult.id,
+              interestRate:chainResult.interestRate,
+              loans:chainResult.loans.map((loan,index)=>{
+
+                return {
+                  id:loan.id,
+                  amount:loan.amount,
+                  borrowerId:loan.borrowerId,
+                  dueDate:loan.dueDate,
+                  interestRate:loan.interestRate,
+                  lenderId:loan.lenderId,
+                  status:loan.status,
+                  repaymentDate:loan.repaymentDate
+                }
+              }),
+              members:chainResult.members.map(member => ({
+                id: member.id,
+                name: member.name,
+                walletAddress: member.walletAddress,
+                contributed: member.contributed,
+                contributionAmount: member.contributionAmount,
+                isLender: member.isLender,
+                loans: chainResult.loans.filter(loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
+              })),
+              name:chainResult.name,
+              roundDuration:Number(chainResult.roundDuration),
+              startDate:chainResult.startDate,
+              totalFunds:chainResult.totalFunds,
+              totalRounds:Number(chainResult.totalRounds),
+              type:String(chainResult.chainType),
+              userId: chainResult.userId,
+              userName: chainResult.userName
+            }
+            
+
+            setRoundChain(newChain)
+          }
+          else{
+            notification.error("seems like your chain has issues hang on tight")
+          }
+        }).catch(function(err){
+          notification.error("error updating your chain data hang on tight")
+        })
+      }
+    }
     
     updateTimeRemaining();
+    recallChain();
+    const recallInterval = setInterval(recallChain, 1000);
     const timerInterval = setInterval(updateTimeRemaining, 1000);
     
     return () => clearInterval(timerInterval);
@@ -646,79 +717,136 @@ export function Dashboard(){
     navigate("/")
   };
 
-  let depositFunds = function(){
-    let chainAccountIdentifier = ledgerActorState.AccountIdentifier(canisterId,chain.walletAddress)
-    //funds deposited to chain group and funds remitted from user plug account 
-    let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
+  let depositFunds = async function(){
+    if(ledgerActorState && actorState && roundChain){
+    //funds deposited to chain group and funds remitted from user plug account
+    // call the icpsend function for the plug wallet
+    let chain = await actorState.getChain(roundChain.id)
+    if(chain[0]){
+      let account:Account = {
+        owner:Principal.fromText(canisterId),
+        subaccount:chain[0].chainAccountIdentifier
+      }
+      let icpUnits = 1000000000
+      
+      if((balance * icpUnits) > chain[0].contributionAmount){
+
+        let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
+        let icpUnits = 1000000000
+        let actualAmount = chain[0]?.contributionAmount ? Number(chain[0]?.contributionAmount) / 1000000000 : 0
+        let result = sendICP(chainAccountIdentifier.toString(),actualAmount,network)
+        //let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
+      }
+      else{
+        notification.error("insufficient funds to deposit")
+      }
+
+    }
+    else{
+      notification.error("wait a while for synchronization")
+    }
   }
 
-  let withrawFunds = function(chainPrincipal:Principal,userPrincipal:Principal){
-    //send the funds to user's plug wallet
-    let chainAccountIdentifier = ledgerActorState.AccountIdentifier(canisterId,chain.walletAddress)
-    //has the from and the to properties
-    // from chain wallet to user plug wallet account id
-    let result = ledgerActorState.icrc1_transfer(chainAccountIdentifier,accountId)
+  let withrawFunds = async function(chainPrincipal:Principal,userPrincipal:Principal){
+    if(actorState && (ledgerActorState && roundChain)){
+      let chain = await actorState.getChain(roundChain.id)
+      if(chain[0]){
+
+        let account:Account = {
+          owner:Principal.fromText(canisterId),
+          subaccount:chain[0].chainAccountIdentifier,
+        }
+        //send the funds to user's plug wallet
+        let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
+        //has the from and the to properties
+        // from chain wallet to user plug wallet account id
+        let transactionFee = await ledgerActorState.icrc1_fee()
+        let transferArg:TransferArg = {
+          amount:BigInt(Math.floor(Number(chain[0].contributionAmount)/90 * 100)),
+          created_at_time:[],
+          fee:[transactionFee],
+          memo:[],
+          from_subaccount:chain[0].chainAccountIdentifier,
+          to:{owner:Principal.fromText(principal),subaccount:[]},
+        }
+
+        
+        let result = await ledgerActorState.icrc1_transfer(transferArg)
+
+      }
+
+    }
   }
 
-  let liquidityStake = function(){
-    //transfer funds from the plug wallet to the liquidity wallet
-    let userPrincipal = identity.getPrincipal()
-    let member = actorState.getChainMember(chain.id,userPrincipal)
-    let liquidityWallet = member.walletAddress
-    let liquidityAccouuntIdentifier = ledgerActorState.AccountIdentifier(userPrincipal,liquidityWallet) 
-    //has the from and the to properties
-    // from plug wallet account id to the liqudity wallet
-    let result = ledgerActorState.icrc1_transfer(accountId,liquidityAccouuntIdentifier)
+  let liquidityStake = async function(amount:GLfloat){
+    if(identity && (actorState && ledgerActorState)){
+      
+      //transfer funds from the plug wallet to the liquidity wallet
+      let userPrincipal = identity.getPrincipal()
+      let member = await actorState.getChainMember(chain.id,userPrincipal)
+      let liquidityWallet = member.walletAddress
+      let account:Account = {
+        owner:userPrincipal,
+        subaccount:liquidityWallet,
+      }
+      let liquidityAccountIdentifier = await ledgerActorState.account_identifier(account) 
+      //has the from and the to properties
+      let result = await sendICP(liquidityAccountIdentifier.toString(),amount,network)
+      // from plug wallet account id to the liqudity wallet
+      //let result = ledgerActorState.icrc1_transfer(accountId,liquidityAccouuntIdentifier)
+    }
 
   }
 
   //for the liquid wallet
   let liquidityAutomatedDeposit = function(){
-    let userPrincipal = identity.
+    //for roundDurations less than an hour therefore a stipulated amount enough for the rounds in an hour is placed there
+    //same logic as the one for staking
   }
 
   // this is the one called immediately a user connects his or her wallet. the balance is checked first and then the funds automatically remmited to the chain group
   // for the plug wallet
-  let automatedDeposit = function(){
+  let automatedDeposit = async function(){
     //should check liquid wallet first before remitting directly from the plug wallet
-    if(liquidityWallet > chain.contributionAmount){
-      liquidityAutomatedDeposit()
-    }
-    else{
-      let balance = ledgerActorState.icrc1_balance_of(accountId)
-      let icpUnits = 1000000000
-      
-      if(walletBalance > chain.contributionAmount){
-          let chainAccountIdentifier = ledgerActorState.AccountIdentifier(canisterId,chain.walletAddress)
-          //funds deposited to chain group and funds remitted from user plug account 
-          let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier,chain.contributionAmount)
 
+    if(ledgerActorState && actorState && roundChain){
+
+    //funds deposited to chain group and funds remitted from user plug account
+    // call the icpsend function for the plug wallet
+    let chain = await actorState.getChain(roundChain.id)
+    if(chain[0]){
+      if(liquidityWallet > chain[0].contributionAmount){
+        liquidityAutomatedDeposit()
       }
       else{
-        notification.error("insufficient tokens to deposit")
+        let icpUnits = 1000000000
+        if((balance * icpUnits) > chain[0].contributionAmount){
+          let account:Account = {
+            owner:Principal.fromText(canisterId),
+            subaccount:chain[0].chainAccountIdentifier
+          }
+
+          let chainAccountIdentifier = await ledgerActorState.account_identifier(account)
+          let icpUnits = 1000000000
+          let actualAmount = chain[0]?.contributionAmount ? Number(chain[0]?.contributionAmount) / 1000000000 : 0
+          let result = sendICP(chainAccountIdentifier.toString(),actualAmount,network)
+          //let result = ledgerActorState.icrc1_transfer(accountId,chainAccountIdentifier)
+
+        }
+        else{
+          notification.error("insufficient tokens to deposit")
+        }
       }
+    }
+    else{
+      notification.error("wait a moment for synchronization")
     }
   }
 
 
   const handleConnect = (principal: string, accountId: string) => {
     // plug wallet interactions
-    if(ledgerActorState != undefined){
-      //balance of the plug wallet
-      let walletBalance = ledgerActorState.icrc1_balance_of(principal)
-      setWalletBalance(walletBalance)
-      //setWalletAdress as it is for use in transactions
-      //divide the balance by a 1000,000,000 to get the actual human readable tokens
-      setBalance(walletBalance/1000000000)
-      //get the user liquidity wallet balance
-      let liqudityAccount = actorState.getChainMember(chain.id,identity.getPrincipal().toString())
-      
-      let liquidityBalance = ledgerActorState.icrc1_balance_of(principal,liquidityAccount)
-      //for visibility
-      setLiquidityBalance(liquidityBalance/1000000000)
-      //for transactions
-      setDbLiquidityBalance(liquidityBalance)
-    }
+
     //update the user balance in the frontend.
     setPrincipal(principal);
     setAccountId(accountId);
@@ -730,23 +858,28 @@ export function Dashboard(){
   const fetchBalance = async () => {
     if (!isConnected) return;
     try {
-      if(ledgerActorState != undefined){
+      if(ledgerActorState != undefined && (actorState && identity)){
         //balance of the plug wallet
-        let walletBalance = ledgerActorState.icrc1_balance_of(principal)
-        setWalletBalance(walletBalance)
+        let userBalance = await getICPBalance('testnet')
+        setWalletBalance(Number(userBalance))
         //setWalletAdress as it is for use in transactions
         //divide the balance by a 1000,000,000 to get the actual human readable tokens
         setBalance(walletBalance/1000000000)
-        let userBalance = getICPBalance('testnet')
-        setBalance(userBalance)
-        //get the user liquidity wallet balance
-        let liqudityAccount = actorState.getChainMember(chain.id,identity.getPrincipal().toString())
         
-        let liquidityBalance = ledgerActorState.icrc1_balance_of(principal,liquidityAccount)
+        setBalance(Number(userBalance))
+        //get the user liquidity wallet balance
+        actorState.
+        let liquidityAccount = await actorState.getChainMember(chain.id,identity.getPrincipal().toString()).walletAddress
+        //let liquidityAccountIdentifier = await ledgerActorState.account_identifier({owner:principal,subaccount:liquidityAccount}) 
+        let account:Account = {
+          owner: Principal.fromText(principal),
+          subaccount:liquidityAccount
+        }
+        let liquidityBalance = await  ledgerActorState.icrc1_balance_of(account)
         //for visibility
-        setLiquidityBalance(liquidityBalance/1000000000)
+        setLiquidityBalance(Number(liquidityBalance)/Number(1000000000))
         //for transactions
-        setDbLiquidityBalance(liquidityBalance)
+        setDbLiquidityBalance(Number(liquidityBalance))
       }
 
 
@@ -759,7 +892,7 @@ export function Dashboard(){
       const paymentCanister = await getPaymentCanister();
       await paymentCanister.storeBalance(BigInt(balance * 100000000));
     } catch (err) {
-      notfication.error("Failed to fetch user wallet balance:", err);
+      notification.error("Failed to fetch user wallet balance:");
     }
   };
 
@@ -770,7 +903,7 @@ export function Dashboard(){
       const payments = await paymentCanister.getPayments();
       setPayments(payments);
     } catch (err) {
-      notification.error("Failed to fetch payments:", err);
+      notification.error("Failed to fetch payments");
     }
   };
 
@@ -971,7 +1104,7 @@ export function Dashboard(){
     }
   };
 
-  let approveHandler = function(loan:Loan){
+  let approveHandler = async function(loan:Loan){
     setEligibleBalance(loan.amount)
     // isBalanceEligible determines whether the balance in the user's wallet can loan another
     if(isBalanceEligible){
@@ -1731,12 +1864,10 @@ export function Dashboard(){
   );
 };
 
-export default Dashboard;
-
-export function ChainGroupsMenu({menuItems}:{menuItems:SingleChain[]}){
+/*function ChainGroupsMenu({menuItems}:{menuItems:SingleChain[]}){
   return(
     <div className="w-full sm:w-4/5 md:w-3/5 lg:w-2/5 h-screen">
       {menuItems.map((item,index) => {return <div>{item.name}</div>})}
     </div>
   )
-}
+}*/

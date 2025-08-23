@@ -1,11 +1,7 @@
 {
   "canisters": {
-    "RotateChain_backend": {
-      "main": "src/RotateChain_backend/main.mo",
-      "type": "motoko"
-    },
     "chain_management": {
-      "main": "src/RotateChain_backend/chain_management_corrected.mo",
+      "main": "src/RotateChain_backend/chain_management.mo",
       "type": "motoko"
     },
     "RotateChain_frontend": {

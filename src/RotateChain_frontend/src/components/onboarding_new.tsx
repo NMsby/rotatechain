@@ -12,6 +12,7 @@ import { useInternetIdentity } from 'ic-use-internet-identity';
 import { DateTime } from 'luxon';
 import NoDataPalette from "../utilities/nodata"
 import { useAppDispatch } from '../state/hooks';
+import { roundUpdate } from '../state/slice';
 
 // Define types for our state objects
 export type Frequency = 'weekly' | 'bi-weekly' | 'monthly' | 'quarterly';
@@ -266,7 +267,7 @@ const SmartOnboarding = () => {
   
 
   useEffect(function(){
-    setCurrentChainId("svvjab374b38784b3hbh")
+    //setCurrentChainId("svvjab374b38784b3hbh")
   },[])
 
   
@@ -314,7 +315,7 @@ const SmartOnboarding = () => {
     setStep(2);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e:any) => {
     //create the chain onchain
     //derived from the socialChainInfo
     if(actorState){
@@ -324,13 +325,13 @@ const SmartOnboarding = () => {
 
       if(socialChainInfo){
 
-        let actualContributionAmount = BigInt(socialChainInfo.contribution) * icpUnits   
+        let actualContributionAmount = BigInt(Number(socialChainInfo.contribution)* icpUnits)   
 
         if(actualContributionAmount > icpUnits){
           //stored in iso format, you should note that.
           let now = DateTime.now().toString()
           let newChain:CreateChainParams = {
-            chainType:{social:null},
+            chainType:"social",
             creatorContributionAmount:0,
             creatorIsLender:true,
             creatorWallet:"",
@@ -347,9 +348,10 @@ const SmartOnboarding = () => {
             userName:""
           }
 
-          if(isLoggedIn){
+          if(isLoggedIn && actorState){
             actorState.createChain(newChain).then(function(result:any){
               if(result.ok){
+                setCurrentChainId(result.ok.id)
                 notification.success("chain created successfully")
                 setStep(3);
                 setIsVettingComplete(false);
@@ -359,7 +361,6 @@ const SmartOnboarding = () => {
                 notification.error("error creating your chain")
               }
             })
-
           }
           else{
             notification.error("you're not logged in kindly login")
@@ -373,13 +374,13 @@ const SmartOnboarding = () => {
       if(globalChainInfo){
 
 
-        let actualContributionAmount = BigInt(globalChainInfo.contribution) * icpUnits   
+        let actualContributionAmount = BigInt(Number(globalChainInfo.contribution) * icpUnits)   
 
         if(actualContributionAmount > icpUnits){
           let now = DateTime.now().toString()
           
           let newChain:CreateChainParams = {
-            chainType:{global:null},
+            chainType:"global",
             creatorContributionAmount:0,
             creatorIsLender:true,
             creatorWallet:"",
@@ -396,9 +397,10 @@ const SmartOnboarding = () => {
             userName:"user1"
           }
 
-          if(isLoggedIn){
+          if(isLoggedIn && actorState){
             actorState.createChain(newChain).then(function(result:any){
               if(result.ok){
+                setCurrentChainId(result.ok.id)
                 notification.success("chain created successfully")
                 setStep(3);
                 setIsVettingComplete(false);
@@ -408,7 +410,6 @@ const SmartOnboarding = () => {
                 notification.error("error creating your chain")
               }
             })
-
           }
           else{
             notification.error("you're not logged in kindly login")
@@ -498,6 +499,7 @@ const SmartOnboarding = () => {
             //set the redux dispatch here for the roundchain
             //reduxDispatch(updateChain({chain:result}))
             let chainObject = result.ok
+            setCurrentChainId(result.ok.id)
             let newChain:Chain = {
               currency:chainObject.currency,
               currentFunds:chainObject.currentFunds,
@@ -505,7 +507,7 @@ const SmartOnboarding = () => {
               fineRate:chainObject.fineRate,
               id:chainObject.id,
               interestRate:chainObject.interestRate,
-              loans:chainObject.loans.map((loan,index)=>{
+              loans:chainObject.loans.map((loan:any,index:any)=>{
                 return {
                   id:loan.id,
                   amount:loan.amount,
@@ -517,14 +519,14 @@ const SmartOnboarding = () => {
                   repaymentDate:loan.repaymentDate
                 }
               }),
-              members:chainObject.members.map(member => ({
+              members:chainObject.members.map((member:any) => ({
                 id: member.id,
                 name: member.name,
                 walletAddress: member.walletAddress,
                 contributed: member.contributed,
                 contributionAmount: member.contributionAmount,
                 isLender: member.isLender,
-                loans: result.loans.filter(loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
+                loans: result.loans.filter( loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
               })),
               name:chainObject.name,
               roundDuration:Number(chainObject.roundDuration),
@@ -1389,6 +1391,7 @@ const ChainGroupsOnboarding = () => {
   const [isLoggedIn,setIsLoggedIn] = useState<boolean>(false)
   const [actorState,setActorState] = useState<ActorSubclass<_SERVICE>>()
   const notification = useNotification()
+  const reduxDispatch = useDispatch()
   const navigate = useNavigate()
 
   // User data
@@ -1462,6 +1465,7 @@ const ChainGroupsOnboarding = () => {
       //fetch the chain from the db.
       //actorState.getChain({})
       if(isLoggedIn && identity){
+        
         actorState.getAllChains().then(function(result:any){
           if(result.ok){
             //result.ok
@@ -1480,7 +1484,7 @@ const ChainGroupsOnboarding = () => {
             let prevUserData = userData
             let groupsCount = result.ok.reduce(function(previousValue:any,currentValue:any){
               currentValue.map()
-              let available = currentValue.members.findIndexOf(function(member:any,index){
+              let available = currentValue.members.findIndexOf(function(member:any,index:number){
                 return member.id == identity.getPrincipal().toString()
               }).length > 0
 
@@ -1492,9 +1496,9 @@ const ChainGroupsOnboarding = () => {
               }
 
             },0)
-            let paidRounds = result.ok.reduce(function(prev,current){
+            let paidRounds = result.ok.reduce(function(prev:number,current:any){
               
-              let memberIndex = current.members.findIndexOf(function(member,index){
+              let memberIndex = current.members.findIndexOf(function(member:any,index:number){
                 member.id == identity.getPrincipal().toString()
               })
               let memberPaidStatus = current.members[memberIndex].paid
@@ -1503,13 +1507,12 @@ const ChainGroupsOnboarding = () => {
               }else{
                 return prev
               }
-            },[0])
+            },0)
             let userPrincipal = identity.getPrincipal().toString() 
             let newUserData = {...prevUserData,internetIdentity:userPrincipal,groupsCount,paidRounds:0,pendingRounds:1}
 
             setUserData(newUserData)
 
-            //notification.success("chain  successfully")
           } 
           else{
             notification.error("error loading chains")
@@ -1530,6 +1533,80 @@ const ChainGroupsOnboarding = () => {
     // Trigger animations after component mounts
     setTimeout(() => setAnimate(true), 100);
   }, []);
+
+
+  let joinHandler = function(groupId:string){
+            if(actorState){
+              //fetch the chain from the db.
+              //actorState.getChain({})
+              if(isLoggedIn){
+                actorState.getChain(groupId).then((result:  [] | [DbChain]) => {
+                  if(result.length > 0 && result[0]){
+                    let chainResult = result[0]
+    
+    
+                    //set the redux dispatch here for the roundchain
+                    //reduxDispatch(updateChain({chain:result}))
+                    let newChain:Chain = {
+                      currency:chainResult.currency,
+                      currentFunds:chainResult.currentFunds,
+                      currentRound:Number(chainResult.currentRound),
+                      fineRate:chainResult.fineRate,
+                      id:chainResult.id,
+                      interestRate:chainResult.interestRate,
+                      loans:chainResult.loans.map((loan,index)=>{
+    
+                        return {
+                          id:loan.id,
+                          amount:loan.amount,
+                          borrowerId:loan.borrowerId,
+                          dueDate:loan.dueDate,
+                          interestRate:loan.interestRate,
+                          lenderId:loan.lenderId,
+                          status:loan.status,
+                          repaymentDate:loan.repaymentDate
+                        }
+                      }),
+                      members:chainResult.members.map(member => ({
+                        id: member.id,
+                        name: member.name,
+                        walletAddress: member.walletAddress,
+                        contributed: member.contributed,
+                        contributionAmount: member.contributionAmount,
+                        isLender: member.isLender,
+                        loans: chainResult.loans.filter(loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
+                      })),
+                      name:chainResult.name,
+                      roundDuration:Number(chainResult.roundDuration),
+                      startDate:chainResult.startDate,
+                      totalFunds:chainResult.totalFunds,
+                      totalRounds:Number(chainResult.totalRounds),
+                      type:String(chainResult.chainType),
+                      userId: chainResult.userId,
+                      userName: chainResult.userName
+                    }
+                    reduxDispatch(roundUpdate({chain:newChain}))
+                    notification.success(`Rotatechain welcomes you `)
+                    // In a real app: redirect to group page or show join confirmation
+                    //use a general dashboard for the time being
+                    navigate(`/dashboard`)
+                  } 
+                  else{
+                    notification.error("error joining your chain")
+                  }
+                }).catch(function(err){
+                  notification.error("error joining your chain")
+                })
+        
+              }
+              else{
+                notification.error("you're not logged in kindly login")
+                navigate("/login")
+              }
+            }
+    
+
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-blue-100 p-4 md:p-8">
@@ -1675,7 +1752,7 @@ const ChainGroupsOnboarding = () => {
                           </svg>
                           <span className="text-xs">Smart Contract Secured</span>
                         </div>
-                        <button className="bg-white text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition flex items-center">
+                        <button onClick={(e:any) => joinHandler(group.id)} className="bg-white text-blue-700 px-4 py-2 rounded-lg font-medium hover:bg-blue-50 transition flex items-center">
                           Join Group
                           <svg className="w-4 h-4 ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />

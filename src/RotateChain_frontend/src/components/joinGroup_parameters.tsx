@@ -12,8 +12,8 @@ import { SplashScreen } from './sassySplash';
 import { useAppDispatch, useAppSelector } from '../state/hooks';
 import { roundUpdate } from '../state/slice';
 import { useInternetIdentity } from 'ic-use-internet-identity';
-import { _SERVICE } from '../../../declarations/chain_management/chain_management.did';
-import { createActor } from '../../../declarations/chain_management';
+import { _SERVICE,Chain as dbChain, Loan, LoanStatus} from '../../../declarations/chain_management/chain_management.did';
+import { canisterId, createActor } from '../../../declarations/chain_management';
 
 //This is the onboarding that I intend to use as the redirect url whenever someone clicks on the join link incorporate with the email directory files for joining the group before one is finally admitted into the group.
 
@@ -122,13 +122,14 @@ const JoinGroupPage = () => {
           //fetch the chain from the db.
           //actorState.getChain({})
           if(isLoggedIn){
-            actorState.getChain(inviteCode).then((result:DbChain) => {
-              if(result){
+            actorState.getChain(inviteCode).then((result:  [] | [dbChain]) => {
+              if(result.length > 0 && result[0]){
+                let chainResult = result[0]
                 let newGroup:Group = {
-                  id: result.id,
-                  name: result.name,
-                  members: result.members.length,
-                  image: "https://images.unsplash.com/photo-1544025162-d76694265947?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=800&q=80",
+                  id: chainResult.id,
+                  name: chainResult.name,
+                  members: chainResult.members.length,
+                  image: "",
                   tags: ["crypto", "economy", "savings","lending"],
                   location: "online",
                   organizer: "RotateChain",
@@ -142,13 +143,14 @@ const JoinGroupPage = () => {
                 //set the redux dispatch here for the roundchain
                 //reduxDispatch(updateChain({chain:result}))
                 let newChain:Chain = {
-                  currency:result.currency,
-                  currentFunds:result.currentFunds,
-                  currentRound:Number(result.currentRound),
-                  fineRate:result.fineRate,
-                  id:result.id,
-                  interestRate:result.interestRate,
-                  loans:result.loans.map((loan,index)=>{
+                  currency:chainResult.currency,
+                  currentFunds:chainResult.currentFunds,
+                  currentRound:Number(chainResult.currentRound),
+                  fineRate:chainResult.fineRate,
+                  id:chainResult.id,
+                  interestRate:chainResult.interestRate,
+                  loans:chainResult.loans.map((loan,index)=>{
+
                     return {
                       id:loan.id,
                       amount:loan.amount,
@@ -160,25 +162,25 @@ const JoinGroupPage = () => {
                       repaymentDate:loan.repaymentDate
                     }
                   }),
-                  members:result.members.map(member => ({
+                  members:chainResult.members.map(member => ({
                     id: member.id,
                     name: member.name,
                     walletAddress: member.walletAddress,
                     contributed: member.contributed,
                     contributionAmount: member.contributionAmount,
                     isLender: member.isLender,
-                    loans: result.loans.filter(loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
+                    loans: chainResult.loans.filter(loan => (loan.borrowerId == identity?.getPrincipal().toString()  || loan.lenderId == identity?.getPrincipal().toString())),
                   })),
-                  name:result.name,
-                  roundDuration:Number(result.roundDuration),
-                  startDate:result.startDate,
-                  totalFunds:result.totalFunds,
-                  totalRounds:Number(result.totalRounds),
-                  type:result.chainType,
-                  userId: result.userId,
-                  userName: result.userName
+                  name:chainResult.name,
+                  roundDuration:Number(chainResult.roundDuration),
+                  startDate:chainResult.startDate,
+                  totalFunds:chainResult.totalFunds,
+                  totalRounds:Number(chainResult.totalRounds),
+                  type:String(chainResult.chainType),
+                  userId: chainResult.userId,
+                  userName: chainResult.userName
                 }
-                reduxDispatch(roundUpdate({chain:result}))
+                reduxDispatch(roundUpdate({chain:newChain}))
                 notification.success(`Rotatechain welcomes you `)
                 // In a real app: redirect to group page or show join confirmation
                 //use a general dashboard for the time being
@@ -215,76 +217,6 @@ const JoinGroupPage = () => {
       notification.error("key in your userName first")
     }
     else{
-
-        /* //uncomment later in production
-        if(chainActor && authClient){
-          let chain = await chainActor.getChain(inviteCode.split("//")[1].split("/")[2])
-
-          let now = DateTime.now()
-          let startDate = chain.StartDate
-          let diff = now.diff(startDate,"days").days
-          let currentRound = Number(diff)/Number(chain.roundDuration)
-          let ceiledRound = Math.ceil(currentRound)
-
-
-          let userIdentity = authClient.getIdentity()
-          //userNameReceived should be a state
-          let userName = userNameReceived
-          //by default here the walletaddress should be empty or it can use the accounts address
-          let principal = userIdentity.getPrincipal()
-          //once he/she adds the plug wallet address can be used only for withdrawal
-          const userAccountId = AccountIdentifier.fromPrincipal({
-            principal: Principal.fromText(principal.toText()),
-            subAccount:undefined
-          }).toHex()
-          let walletAddress = userAccountId 
-          let contributionAmount = 0.0
-          let isLender = true
-
-          //add him as a member then retrieve the userName
-          let addResult = await chainActor.addMember(
-            userIdentity,
-            userName,
-            walletAddress,
-            contributionAmount,
-            isLender
-          )
-
-          //just used the principal, both as the userId and the borrowerId in this case. 
-          //funny thing is it gets the loan of a single user
-          let loan = await chainActor.getMemberLoans(principal,principal)
-
-          //the chain to join
-          let newChain:Chain = {
-            currency:chain.currency,
-            currentFunds:chain.creatorContributionAmount,
-            currentRound:ceiledRound,
-            fineRate:Math.floor(chain.fineRate),
-            //this is the group's id I don't need the userId but I mispelt it as so.
-            id:chain.userId,
-            interestRate:chain.interestRate,
-            //fetch loans data and match the values that match
-            loans:[loan],
-            members:chain,
-            name:chain.name,
-            roundDuration:chain.roundDuration,
-            startDate:chain.startDate,
-            totalFunds:chain.totalFunds,
-            totalRounds:chain.totalRounds,
-            type:chain.chainType,
-            //this to be fetched from the member's userId or principal
-            userId:principal.toString(),
-            //it's saved to backend as well so no worries
-            userName: userNameReceived
-          }
-
-          const groupData = await fetchGroupByInviteCode(inviteCode);
-          setGroup(groupData);
-          setLoading(false);
-
-          setChainData(newChain)
-
-        }*/
 
       //add the chain data to be passed
       //take him/her to the dashboard immediately
