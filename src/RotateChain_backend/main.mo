@@ -15,7 +15,6 @@ import Utils "./utils";
 /// Imports required modules and libraries for the backend canister functionality.
 import Ledger "canister:icp_ledger_canister";
 import PaymentHandler "./payment_handler";
-import ICPPaymentService "./icp_payment_service";
 
 actor RotateChain {
   
@@ -368,7 +367,7 @@ actor RotateChain {
     };
 
     // Get platform Stats
-    public query func getPlatformStats() : async PlatformStats {
+    private func calculatePlatformStats() : PlatformStats {
         var totalMembers = 0;
         var totalValueLocked = 0;
         var activeGroups = 0;
@@ -393,6 +392,11 @@ actor RotateChain {
         }
     };
 
+    // Public query function for platform statistics
+    public query func getPlatformStats() : async PlatformStats {
+        calculatePlatformStats()
+    };
+
     // System statistics
     public query func getSystemStats() : async {
         totalGroups: Nat;
@@ -400,7 +404,7 @@ actor RotateChain {
         totalTransactions: Nat;
         systemVersion: Text;
     } {
-        let stats = getPlatformStats();
+        let stats = calculatePlatformStats();
         {
             totalGroups = stats.totalGroups;
             activeGroups = stats.activeGroups; 
