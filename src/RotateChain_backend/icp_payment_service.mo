@@ -6,42 +6,19 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Time "mo:base/Time";
 import Blob "mo:base/Blob";
-import Array "mo:base/Array";
 import Nat "mo:base/Nat";
-import Nat8 "mo:base/Nat8";
 import Nat64 "mo:base/Nat64";
 import Text "mo:base/Text";
 import Int "mo:base/Int";
+import Debug "mo:base/Debug";
 
 module ICPPaymentService {
     
     // ==================== ICP LEDGER TYPES (ICRC-1 Standards) ====================
     
-    public type Account = {
-        owner: Principal;
-        subaccount: ?[Nat8];
-    };
-
-    public type TransferArg = {
-        from_subaccount: ?[Nat8];
-        to: Account;
-        amount: Nat;
-        fee: ?Nat;
-        memo: ?Blob;
-        created_at_time: ?Nat64;
-    };
-    
-    public type TransferError = { 
-        #BadFee: { expected_fee: Nat };
-        #BadBurn: { min_burn_amount: Nat };
-        #InsufficientFunds: { balance: Nat };
-        #TooOld;
-        #CreatedInFuture: { ledger_time: Nat64 };
-        #Duplicate: { duplicate_of: Nat };
-        #GenericError: { error_code: Nat; message: Text };
-    };
-    
-    public type TransferResult = Result.Result<Nat, TransferError>;
+    public type Account = Ledger.Account;
+    public type TransferArg = Ledger.TransferArg;
+    public type Icrc1TransferResult = Ledger.Icrc1TransferResult;
 
     // ==================== CONSTANTS ====================
     
@@ -50,7 +27,7 @@ module ICPPaymentService {
     
     // Ledger canister interface
     private let ledger = actor("uxrrr-q7777-77774-qaaaq-cai") : actor {
-        icrc1_transfer : (TransferArg) -> async TransferResult;
+        icrc1_transfer : (TransferArg) -> async Icrc1TransferResult;
         icrc1_balance_of : (Account) -> async Nat;
         icrc1_fee : () -> async Nat;
     };
@@ -82,6 +59,48 @@ module ICPPaymentService {
         Text.encodeUtf8(memoText)
     };
 
+    // Handle transfer errors from the ledger
+    private func handleTransferError(error: Ledger.Icrc1TransferError, context: Text) : Types.Error {
+        // Log detailed error for debugging
+        Debug.print("ICP Transfer Error in " # context # ": " # debug_show(error));
+        
+        // Map to appropriate application error with specific logic
+        switch (error) {
+            case (#InsufficientFunds({ balance })) {
+                Debug.print("Insufficient funds - Balance: " # Nat.toText(balance));
+                #InsufficientBalance
+            };
+            case (#BadFee({ expected_fee })) {
+                Debug.print("Bad fee - Expected: " # Nat.toText(expected_fee));
+                #InvalidAmount
+            };
+            case (#TooOld) {
+                Debug.print("Transaction too old - Request expired");
+                #InvalidTimestamp
+            };
+            case (#CreatedInFuture({ ledger_time })) {
+                Debug.print("Transaction created in future - Ledger time: " # Nat64.toText(ledger_time));
+                #InvalidTimestamp
+            };
+            case (#Duplicate({ duplicate_of })) {
+                Debug.print("Duplicate transaction - Block: " # Nat.toText(duplicate_of));
+                #PaymentFailed
+            };
+            case (#BadBurn({ min_burn_amount })) {
+                Debug.print("Bad burn amount - Minimum: " # Nat.toText(min_burn_amount));
+                #PaymentFailed
+            };
+            case (#TemporarilyUnavailable) {
+                Debug.print("Ledger temporarily unavailable");
+                #NetworkError
+            };
+            case (#GenericError({ error_code; message })) {
+                Debug.print("Generic ledger error - Code: " # Nat.toText(error_code) # ", Message: " # message);
+                #PaymentFailed
+            };
+        }
+    };
+
     // ==================== CORE PAYMENT FUNCTIONS ====================
     
     // Process group contribution with real ICP transfer
@@ -107,12 +126,19 @@ module ICPPaymentService {
 
         try {
             let balance = await ledger.icrc1_balance_of(contributorAccount);
-            if (balance < amountNat + ICP_TRANSFER_FEE) {
+            let requiredAmount = amountNat + ICP_TRANSFER_FEE;
+
+            if (balance < requiredAmount) {
+                Debug.print("Contribution failed - Balance: " # Nat.toText(balance) # 
+                           ", Required: " # Nat.toText(requiredAmount));
                 return #err(#InsufficientBalance);
             };
+            
+            Debug.print("Balance check passed - Available: " # Nat.toText(balance));
         } catch (_) {
+            Debug.print("Balance check failed: Network or ledger connection error");
             return #err(#NetworkError);
-        };          
+        };        
         
         // Calculate net contribution (after platform fee)
         let poolAccountDest = principalToAccount(poolAccount);
@@ -128,30 +154,25 @@ module ICPPaymentService {
             memo = ?createMemo(groupId, null);
             created_at_time = ?getCurrentTimestamp();
         };
+
+        Debug.print("Processing contribution - Amount: " # Nat.toText(netAmount) # 
+                   ", Fee: " # Nat.toText(ICP_TRANSFER_FEE));
         
         // Execute ICP transfer
         try {
             let result = await ledger.icrc1_transfer(transferArgs);
             switch (result) {
                 case (#Ok(blockIndex)) {
+                    Debug.print("Contribution successful - Block: " # Nat.toText(blockIndex));
                     #ok(Nat64.fromNat(blockIndex))
                 };
                 case (#Err(error)) {
-                    // Map ledger errors to our error types
-                    let mappedError = switch (error) {
-                        case (#InsufficientFunds(_)) { #InsufficientBalance };
-                        case (#BadFee(_)) { #InvalidAmount };
-                        case (#TooOld) { #InvalidTimestamp };  // No destructuring
-                        case (#CreatedInFuture(_)) { #InvalidTimestamp };
-                        case (#Duplicate(_)) { #PaymentFailed };
-                        case (#BadBurn(_)) { #PaymentFailed };
-                        case (#TemporarilyUnavailable) { #NetworkError };
-                        case (#GenericError(_)) { #PaymentFailed };
-                    };
+                    let mappedError = handleTransferError(error, "processGroupContribution");
                     #err(mappedError)
                 };
             }
         } catch (_) {
+            Debug.print("Transfer call failed: Network or canister communication error");
             #err(#NetworkError)
         }
     };
@@ -180,10 +201,17 @@ module ICPPaymentService {
         
         try {
             let balance = await ledger.icrc1_balance_of(poolAccountSrc);
-            if (balance < amountNat + ICP_TRANSFER_FEE) {
+            let requiredAmount = amountNat + ICP_TRANSFER_FEE;
+
+            if (balance < requiredAmount) {
+                Debug.print("Payout failed - Pool balance: " # Nat.toText(balance) # 
+                           ", Required: " # Nat.toText(requiredAmount));
                 return #err(#InsufficientBalance);
             };
+
+            Debug.print("Pool balance check passed - Available: " # Nat.toText(balance));
         } catch (_) {
+            Debug.print("Pool balance check failed: Network or ledger connection error");
             return #err(#NetworkError);
         };
         
@@ -198,30 +226,24 @@ module ICPPaymentService {
             memo = ?createMemo(groupId, ?roundNumber);
             created_at_time = ?getCurrentTimestamp();
         };
+
+        Debug.print("Processing payout - Amount: " # Nat.toText(amountNat) # 
+        ", Round: " # Nat.toText(roundNumber));
         
         // Execute payout transfer
         try {
-            let result = await ledger.icrc1_transfer(transferArgs);
-            switch (result) {
+            switch (await ledger.icrc1_transfer(transferArgs)) {
                 case (#Ok(blockIndex)) {
+                    Debug.print("Payout successful - Block: " # Nat.toText(blockIndex));
                     #ok(Nat64.fromNat(blockIndex))
                 };
                 case (#Err(error)) {
-                    // Map ledger errors to our error types
-                    let mappedError = switch (error) {
-                        case (#InsufficientFunds(_)) { #InsufficientBalance };
-                        case (#BadFee(_)) { #InvalidAmount };
-                        case (#TooOld) { #InvalidTimestamp };  // No destructuring
-                        case (#CreatedInFuture(_)) { #InvalidTimestamp };
-                        case (#Duplicate(_)) { #PaymentFailed };
-                        case (#BadBurn(_)) { #PaymentFailed };
-                        case (#TemporarilyUnavailable) { #NetworkError };
-                        case (#GenericError(_)) { #PaymentFailed };
-                    };
+                    let mappedError = handleTransferError(error, "processRotationPayout");
                     #err(mappedError)
                 };
             }
         } catch (_) {
+            Debug.print("Payout call failed: Network or canister communication error");
             #err(#NetworkError)
         }
     };
@@ -231,9 +253,12 @@ module ICPPaymentService {
         let accountQuery = principalToAccount(account);
         try {
             let balance = await ledger.icrc1_balance_of(accountQuery);
+            Debug.print("Balance query - Account: " # Principal.toText(account) # 
+                       ", Balance: " # Nat.toText(balance));
             Nat64.fromNat(balance)
         } catch (_) {
-            0 // Return 0 if balance check fails
+            Debug.print("Balance query failed: Network or ledger connection error");
+            0  // Return 0 if balance check fails
         }
     };
 
@@ -252,6 +277,9 @@ module ICPPaymentService {
     ) : async Bool {
         // In production, query the ledger for transaction details
         // For MVP, assume verification passes if blockIndex > 0
-        blockIndex > 0
+        let isValid = blockIndex > 0;
+        Debug.print("Transaction verification - Block: " # Nat64.toText(blockIndex) # 
+                   ", Valid: " # debug_show(isValid));
+        isValid
     };
 }
