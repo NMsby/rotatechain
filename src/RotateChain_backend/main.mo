@@ -14,8 +14,6 @@ import Utils "./utils";
 
 /// Imports required modules and libraries for the backend canister functionality.
 import PaymentHandler "./payment_handler";
-import GroupManagement "./group_management";
-import RotationEngine "./rotation_engine";
 import ICPPaymentService "./icp_payment_service";
 
 actor RotateChain {

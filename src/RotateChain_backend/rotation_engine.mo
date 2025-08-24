@@ -75,7 +75,7 @@ module RotationEngine {
     
     // Calculate payout amount with yield
     public func calculatePayoutAmount(
-        rotation: Types.RotationState,
+        _rotation: Types.RotationState,
         contributionAmount: Nat64,
         memberCount: Nat
     ) : Nat64 {
