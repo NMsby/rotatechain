@@ -38,7 +38,6 @@ module ICPPaymentService {
         #TooOld;
         #CreatedInFuture: { ledger_time: Nat64 };
         #Duplicate: { duplicate_of: Nat };
-        #TemporarilyUnavailable;
         #GenericError: { error_code: Nat; message: Text };
     };
     
@@ -142,13 +141,12 @@ module ICPPaymentService {
                     let mappedError = switch (error) {
                         case (#InsufficientFunds(_)) { #InsufficientBalance };
                         case (#BadFee(_)) { #InvalidAmount };
-                        case (#TooOld) { #InvalidTimestamp };
+                        case (#TooOld) { #InvalidTimestamp };  // No destructuring
                         case (#CreatedInFuture(_)) { #InvalidTimestamp };
                         case (#Duplicate(_)) { #PaymentFailed };
                         case (#BadBurn(_)) { #PaymentFailed };
                         case (#TemporarilyUnavailable) { #NetworkError };
                         case (#GenericError(_)) { #PaymentFailed };
-                        case _ { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
@@ -209,16 +207,16 @@ module ICPPaymentService {
                     #ok(Nat64.fromNat(blockIndex))
                 };
                 case (#Err(error)) {
+                    // Map ledger errors to our error types
                     let mappedError = switch (error) {
                         case (#InsufficientFunds(_)) { #InsufficientBalance };
                         case (#BadFee(_)) { #InvalidAmount };
-                        case (#TooOld) { #InvalidTimestamp };
+                        case (#TooOld) { #InvalidTimestamp };  // No destructuring
                         case (#CreatedInFuture(_)) { #InvalidTimestamp };
                         case (#Duplicate(_)) { #PaymentFailed };
                         case (#BadBurn(_)) { #PaymentFailed };
                         case (#TemporarilyUnavailable) { #NetworkError };
                         case (#GenericError(_)) { #PaymentFailed };
-                        case _ { #PaymentFailed };
                     };
                     #err(mappedError)
                 };
