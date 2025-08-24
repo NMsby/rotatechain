@@ -1,0 +1,19 @@
+{
+  "canisters": {
+    "tests": {
+      "main": "backend_tests.mo",
+      "type": "motoko"
+    },
+    "rotatechain_backend": {
+      "main": "../src/RotateChain_backend/main.mo",
+      "type": "motoko"
+    }
+  },
+  "networks": {
+    "local": {
+      "bind": "127.0.0.1:4943",
+      "type": "ephemeral"
+    }
+  },
+  "version": 1
+}

@@ -1,22 +1,26 @@
 #!/bin/bash
-# scripts/run_tests.sh - Comprehensive test execution script
+# Test execution automation script
 
-echo "🧪 RotateChain Phase 1 Test Suite"
-echo "================================"
+set -e
+
+echo "Starting RotateChain Phase 1 Test Suite..."
+
+# Navigate to test directory
+cd "$(dirname "$0")/../tests"
 
 # Ensure dfx is running
 if ! dfx ping > /dev/null 2>&1; then
-    echo "Starting dfx..."
+    echo "Starting local IC replica..."
     dfx start --background --clean
-    sleep 5
+    sleep 10
 fi
 
 # Deploy test canister
-echo "📦 Deploying test suite..."
-dfx deploy tests
+echo "Deploying test suite environment..."
+dfx deploy
 
-# Run comprehensive tests
-echo "🚀 Running all tests..."
+# Run tests
+echo "Running all tests..."
 dfx canister call tests runAllTests
 
-echo "✅ Test execution complete"
+echo "Test execution complete"
