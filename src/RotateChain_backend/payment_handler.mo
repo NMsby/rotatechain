@@ -1,6 +1,7 @@
 // payment_handler.mo - Complete ICP payment integration
 import Types "./types";
 import Utils "./utils";
+import Ledger "canister:icp_ledger_canister";
 import ICPPaymentService "./icp_payment_service";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
@@ -101,11 +102,11 @@ module PaymentHandler {
     };
 
     // Get pool account info
-    public func getPoolAccountInfo() : async {principal: Principal; account: ICPPaymentService.Account} {
+    public func getPoolAccountInfo() : async {principal: Principal; accountId: Ledger.Account} {
         let poolPrincipal = getPoolPrincipal();
         {
             principal = poolPrincipal;
-            account = ICPPaymentService.getCanisterAccountId(poolPrincipal);
+            accountId = ICPPaymentService.getCanisterAccountId(poolPrincipal);
         }
     };
 }

@@ -13,6 +13,7 @@ import Types "./types";
 import Utils "./utils";
 
 /// Imports required modules and libraries for the backend canister functionality.
+import Ledger "canister:icp_ledger_canister";
 import PaymentHandler "./payment_handler";
 import ICPPaymentService "./icp_payment_service";
 
@@ -318,7 +319,7 @@ actor RotateChain {
     };
 
     // Get pool information
-    public func getPoolInfo() : async {principal: Principal; account: ICPPaymentService.Account} {
+    public func getPoolInfo() : async {principal: Principal; accountId: Ledger.Account} {
         await PaymentHandler.getPoolAccountInfo()
     };
 
@@ -392,6 +393,22 @@ actor RotateChain {
         }
     };
 
+    // System statistics
+    public query func getSystemStats() : async {
+        totalGroups: Nat;
+        activeGroups: Nat;
+        totalTransactions: Nat;
+        systemVersion: Text;
+    } {
+        let stats = getPlatformStats();
+        {
+            totalGroups = stats.totalGroups;
+            activeGroups = stats.activeGroups; 
+            totalTransactions = 0; // Will be implemented with state manager integration
+            systemVersion = "1.0.0";
+        }
+    };
+
     // Demo data initialization
     public func initializeDemoData() : async Bool {
         Debug.print("🚀 Initializing RotateChain demo data...");
@@ -416,7 +433,7 @@ actor RotateChain {
     // Health check
     public query func healthCheck() : async Bool {
         // Basic health check - can be enhanced later
-        groupsArray.size() >= 0  // Always true, but validates state access
+        true  // System is operational
     };
 
     // Error handling helper
