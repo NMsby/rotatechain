@@ -40,6 +40,11 @@ module StateManager {
         private stable var transactionEntries: [(TransactionId, Transaction)] = [];
         private stable var groupMembershipEntries: [(Principal, [GroupId])] = [];
 
+        // R Token stable storage
+        private stable var rTokenEntries: [(RTokenId, RToken)] = [];
+        private stable var rTokenTransferEntries: [(TransactionId, RTokenTransfer)] = [];
+        private stable var rTokenHolderEntries: [(Principal, [(GroupId, Amount)])] = [];
+
         // ==================== R TOKEN INTEGRATION ====================
         // Initialize R Token manager as part of state management
         private let rTokenManager = RTokenManager.RTokenManager();
@@ -88,6 +93,9 @@ module StateManager {
                 );
                 members.put(groupId, memberMap);
             };
+            
+            // Initialize R Token manager with stored state
+            rTokenManager.initializeFromState(rTokenEntries, rTokenTransferEntries, rTokenHolderEntries);
         };
 
         // Call initialization
@@ -490,9 +498,11 @@ module StateManager {
             };
             memberEntries := Buffer.toArray(memberBuffer);
 
-            // Handle R Token manager pre-upgrade
-            let (rTokenEntries, rTransferEntries, rHolderEntries) = rTokenManager.preUpgrade();
-            // Note: These would need to be stored in stable variables if R Token manager is recreated
+            // Export R Token state for upgrade
+            let (tokenEntries, transferEntries, holderEntries) = rTokenManager.exportState();
+            rTokenEntries := tokenEntries;
+            rTokenTransferEntries := transferEntries;
+            rTokenHolderEntries := holderEntries;
         };
 
         public func postUpgrade() {
@@ -502,6 +512,9 @@ module StateManager {
             memberEntries := [];
             transactionEntries := [];
             groupMembershipEntries := [];
+            rTokenEntries := [];
+            rTokenTransferEntries := [];
+            rTokenHolderEntries := [];
         };
 
         // ==================== VALIDATION & INTEGRITY ====================

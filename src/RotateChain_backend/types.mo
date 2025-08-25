@@ -17,8 +17,8 @@ module Types {
     // R Token status lifecycle
     public type RTokenStatus = {
         #active;       // Can be transferred and redeemed
-        #locked;       // Locked as collateral or during rotation
         #redeemed;     // Already converted back to ICP
+        #locked;       // Locked as collateral or during rotation
     };
 
     // R Token record - represents liquid contribution tokens

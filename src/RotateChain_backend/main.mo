@@ -86,7 +86,7 @@ actor RotateChain {
         if (totalRounds == 0) { 0 } else { (currentRound * 100) / totalRounds }
     };
 
-    // Initialize state manager for R Token support (alongside your existing state)
+    // Initialize state manager for R Token support
     private let stateManager = StateManager.StateManager();
 
     // Create new rotation group
@@ -505,5 +505,17 @@ actor RotateChain {
     // Error handling helper
     public func getErrorMessage(error: Types.Error) : async Text {
         Utils.errorToText(error)
+    };
+
+    // Pre-upgrade hook
+    system func preupgrade() {
+        // Handle state manager upgrade preparation
+        stateManager.preUpgrade();
+    };
+
+    // Post-upgrade hook
+    system func postupgrade() {
+        // Handle post-upgrade cleanup
+        stateManager.postUpgrade();
     };
 }

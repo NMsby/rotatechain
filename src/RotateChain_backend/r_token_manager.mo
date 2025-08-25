@@ -8,6 +8,8 @@ import Nat "mo:base/Nat";
 import Principal "mo:base/Principal";
 import Debug "mo:base/Debug";
 import Nat64 "mo:base/Nat64";
+import Iter "mo:base/Iter";
+import Int "mo:base/Int";
 
 import Types "./types";
 import Utils "./utils";
@@ -26,18 +28,13 @@ module RTokenManager {
     // ==================== R TOKEN MANAGER CLASS ====================
     public class RTokenManager() {
         
-        // ==================== STABLE VARIABLES ====================
-        private stable var tokenCounter: RTokenId = 0;
-        private stable var transferCounter: Types.TransactionId = 0;
-        
-        // Stable storage for upgrades
-        private stable var tokenEntries: [(RTokenId, RToken)] = [];
-        private stable var transferEntries: [(Types.TransactionId, RTokenTransfer)] = [];
-        private stable var holderBalanceEntries: [(Principal, [(GroupId, Amount)])] = [];
+        // ==================== NON-STABLE VARIABLES ====================
+        private var tokenCounter: RTokenId = 0;
+        private var transferCounter: Types.TransactionId = 0;
 
         // ==================== RUNTIME STATE ====================
-        private var tokens = HashMap.HashMap<RTokenId, RToken>(100, Nat.equal, Nat.hash);
-        private var transfers = HashMap.HashMap<Types.TransactionId, RTokenTransfer>(500, Nat.equal, Nat.hash);
+        private var tokens = HashMap.HashMap<RTokenId, RToken>(100, Nat.equal, Int.hash);
+        private var transfers = HashMap.HashMap<Types.TransactionId, RTokenTransfer>(500, Nat.equal, Int.hash);
         
         // Track balances: Principal -> (GroupId -> Amount)
         private var holderBalances = HashMap.HashMap<Principal, HashMap.HashMap<GroupId, Amount>>(
@@ -46,7 +43,7 @@ module RTokenManager {
         
         // Token ownership index: GroupId -> [RTokenId]
         private var groupTokens = HashMap.HashMap<GroupId, Buffer.Buffer<RTokenId>>(
-            20, Nat.equal, Nat.hash
+            20, Nat.equal, Int.hash
         );
         
         // User token index: Principal -> [RTokenId]
@@ -56,22 +53,39 @@ module RTokenManager {
 
         // ==================== INITIALIZATION ====================
         
-        // Initialize state from stable storage
-        private func initializeState() {
+        // Initialize with provided state (called from actor's post upgrade)
+        private func initializeFromState(
+            tokenEntries: [(RTokenId, RToken)],
+            transferEntries: [(Types.TransactionId, RTokenTransfer)], 
+            holderEntries: [(Principal, [(GroupId, Amount)])]
+        ) {
             // Restore tokens
             tokens := HashMap.fromIter<RTokenId, RToken>(
-                tokenEntries.vals(), 100, Nat.equal, Nat.hash
+                tokenEntries.vals(), 100, Nat.equal, Int.hash
             );
             
             // Restore transfers
             transfers := HashMap.fromIter<Types.TransactionId, RTokenTransfer>(
-                transferEntries.vals(), 500, Nat.equal, Nat.hash
+                transferEntries.vals(), 500, Nat.equal, Int.hash
             );
+
+            // Find highest counters
+            for ((tokenId, _) in tokens.entries()) {
+                if (tokenId >= tokenCounter) {
+                    tokenCounter := tokenId + 1;
+                };
+            };
+            
+            for ((transferId, _) in transfers.entries()) {
+                if (transferId >= transferCounter) {
+                    transferCounter := transferId + 1;
+                };
+            };
             
             // Restore holder balances
-            for ((principal, balances) in holderBalanceEntries.vals()) {
+            for ((principal, balances) in holderEntries.vals()) {
                 let balanceMap = HashMap.fromIter<GroupId, Amount>(
-                    balances.vals(), 10, Nat.equal, Nat.hash
+                    balances.vals(), 10, Nat.equal, Int.hash
                 );
                 holderBalances.put(principal, balanceMap);
             };
@@ -109,33 +123,19 @@ module RTokenManager {
             };
         };
 
-        // Initialize on creation
-        initializeState();
-
-        // ==================== UPGRADE HOOKS ====================
+        // ==================== STATE EXPORT FOR UPGRADES ====================
         
-        public func preUpgrade() : ([(RTokenId, RToken)], [(Types.TransactionId, RTokenTransfer)], [(Principal, [(GroupId, Amount)])]) {
-            let tokenEntries = Array.fromIter(tokens.entries());
-            let transferEntries = Array.fromIter(transfers.entries());
+        public func exportState() : ([(RTokenId, RToken)], [(Types.TransactionId, RTokenTransfer)], [(Principal, [(GroupId, Amount)])]) {
+            let tokenEntries = Iter.toArray(tokens.entries());
+            let transferEntries = Iter.toArray(transfers.entries());
             
             let holderEntries = Buffer.Buffer<(Principal, [(GroupId, Amount)])>(holderBalances.size());
             for ((principal, balanceMap) in holderBalances.entries()) {
-                let balances = Array.fromIter(balanceMap.entries());
+                let balances = Iter.toArray(balanceMap.entries());
                 holderEntries.add((principal, balances));
             };
             
             (tokenEntries, transferEntries, Buffer.toArray(holderEntries))
-        };
-
-        public func postUpgrade(
-            _tokenEntries: [(RTokenId, RToken)],
-            _transferEntries: [(Types.TransactionId, RTokenTransfer)], 
-            _holderEntries: [(Principal, [(GroupId, Amount)])]
-        ) {
-            tokenEntries := _tokenEntries;
-            transferEntries := _transferEntries;
-            holderBalanceEntries := _holderEntries;
-            initializeState();
         };
 
         // ==================== CORE R TOKEN FUNCTIONS ====================
@@ -373,7 +373,7 @@ module RTokenManager {
         public func getAllRTokenBalances(holder: Principal) : [(GroupId, Amount)] {
             switch (holderBalances.get(holder)) {
                 case (?balanceMap) {
-                    Array.fromIter(balanceMap.entries())
+                    Iter.toArray(balanceMap.entries())
                 };
                 case null { [] };
             }
@@ -424,12 +424,12 @@ module RTokenManager {
         private func updateHolderBalance(holder: Principal, groupId: GroupId, amount: Amount, isAdd: Bool) {
             switch (holderBalances.get(holder)) {
                 case (?balanceMap) {
-                    let currentBalance = switch (balanceMap.get(groupId)) {
+                    let currentBalance: Amount = switch (balanceMap.get(groupId)) {
                         case (?balance) { balance };
                         case null { 0 };
                     };
                     
-                    let newBalance = if (isAdd) {
+                    let newBalance: Amount = if (isAdd) {
                         currentBalance + amount
                     } else {
                         if (currentBalance >= amount) { currentBalance - amount } else { 0 }
@@ -443,7 +443,7 @@ module RTokenManager {
                 };
                 case null {
                     if (isAdd) {
-                        let newBalanceMap = HashMap.HashMap<GroupId, Amount>(5, Nat.equal, Nat.hash);
+                        let newBalanceMap = HashMap.HashMap<GroupId, Amount>(5, Nat.equal, Int.hash);
                         newBalanceMap.put(groupId, amount);
                         holderBalances.put(holder, newBalanceMap);
                     };
