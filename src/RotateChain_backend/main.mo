@@ -15,6 +15,7 @@ import Utils "./utils";
 /// Imports required modules and libraries for the backend canister functionality.
 import Ledger "canister:icp_ledger_canister";
 import PaymentHandler "./payment_handler";
+import StateManager "./state_manager";
 
 actor RotateChain {
   
@@ -84,6 +85,9 @@ actor RotateChain {
     private func calculateProgress(currentRound: Nat, totalRounds: Nat) : Nat {
         if (totalRounds == 0) { 0 } else { (currentRound * 100) / totalRounds }
     };
+
+    // Initialize state manager for R Token support (alongside your existing state)
+    private let stateManager = StateManager.StateManager();
 
     // Create new rotation group
     public shared(msg) func createGroup(
@@ -205,6 +209,22 @@ actor RotateChain {
                 )) {
                     case (#ok(transactionId)) {
                         recordContributionInternal(groupId, msg.caller, group.currentRound);
+
+                        // Issue R Tokens for contribution
+                        switch (stateManager.issueRTokensForContribution(
+                            groupId,
+                            msg.caller,
+                            contributionAmount,
+                            ?"Group contribution"
+                        )) {
+                            case (#ok(tokenId)) {
+                                Debug.print("R Token issued: " # Nat.toText(tokenId));
+                            };
+                            case (#err(rTokenError)) {
+                                Debug.print("R Token issuance failed: " # debug_show(rTokenError));
+                                // Continue anyway - ICP payment was successful
+                            };
+                        };
                         
                         Debug.print("✅ Real ICP payment processed successfully!");
                         Debug.print("Transaction ID: " # Nat64.toText(transactionId));
@@ -310,6 +330,48 @@ actor RotateChain {
             };
             case null { #err("Group not found") };
         }
+    };
+
+    // Transfer R Tokens between members
+    public shared(msg) func transferRTokens(
+        tokenId: Types.RTokenId,
+        to: Principal,
+        amount: Types.Amount
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        stateManager.transferRTokens(tokenId, msg.caller, to, amount, ?"Member transfer")
+    };
+    
+    // Redeem R Tokens for ICP
+    public shared(msg) func redeemRTokens(
+        tokenId: Types.RTokenId,
+        amount: Types.Amount
+    ) : async Result.Result<Types.Amount, Types.Error> {
+        stateManager.redeemRTokens(tokenId, msg.caller, amount)
+    };
+    
+    // Get R Token balance for specific group
+    public shared query(msg) func getRTokenBalance(groupId: Nat) : async Types.Amount {
+        stateManager.getRTokenBalance(msg.caller, groupId)
+    };
+    
+    // Get all R Token balances
+    public shared query(msg) func getAllRTokenBalances() : async [(Types.GroupId, Types.Amount)] {
+        stateManager.getAllRTokenBalances(msg.caller)
+    };
+    
+    // Get R Token details
+    public query func getRToken(tokenId: Types.RTokenId) : async ?Types.RToken {
+        stateManager.getRToken(tokenId)
+    };
+    
+    // Get user's R Tokens
+    public shared query(msg) func getMyRTokens() : async [Types.RToken] {
+        stateManager.getHolderTokens(msg.caller)
+    };
+    
+    // Get R Token statistics for a group
+    public query func getGroupRTokenStats(groupId: Nat) : async {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
+        stateManager.getGroupTokenStats(groupId)
     };
 
     // Check account balance
