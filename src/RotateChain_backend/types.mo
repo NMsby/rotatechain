@@ -12,6 +12,41 @@ module Types {
     public type TransactionId = Nat64;
     public type RoundNumber = Nat;
 
+    // ==================== R TOKEN SYSTEM ====================
+    public type RTokenId = Nat;
+
+    // R Token status lifecycle
+    public type RTokenStatus = {
+        #active;       // Can be transferred and redeemed
+        #locked;       // Locked as collateral or during rotation
+        #redeemed;     // Already converted back to ICP
+    };
+
+    // R Token record - represents liquid contribution tokens
+    public type RToken = {
+        id: RTokenId;
+        groupId: GroupId;
+        holder: Principal;
+        originalAmount: Amount;         // Original ICP contribution amount
+        currentAmount: Amount;          // Current value (including yield)
+        issuedAt: Timestamp;
+        lastYieldUpdate: Timestamp;
+        accumulatedYield: Amount;       // Total yield earned
+        status: RTokenStatus;
+        memo: ?Text;                    // Optional issuance memo
+    };
+
+    // R Token transfer record
+    public type RTokenTransfer = {
+        id: TransactionId;
+        tokenId: RTokenId;
+        from: Principal;
+        to: Principal;
+        amount: Amount;
+        timestamp: Timestamp;
+        memo: ?Text;
+    };
+
     // ==================== ENUMERATIONS ====================
     
     // Group lifecycle status
