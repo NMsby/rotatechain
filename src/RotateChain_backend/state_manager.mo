@@ -6,7 +6,10 @@ import Nat "mo:base/Nat";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Time "mo:base/Time";
+import Float "mo:base/Float";
+
 import Types "./types";
+import RTokenManager "./r_token_manager";
 
 module StateManager {
     public type GroupId = Types.GroupId;
@@ -15,6 +18,11 @@ module StateManager {
     public type Member = Types.Member;
     public type Transaction = Types.Transaction;
     public type TransactionId = Types.TransactionId;
+
+    // R Token types
+    public type RTokenId = Types.RTokenId;
+    public type RToken = Types.RToken;
+    public type RTokenTransfer = Types.RTokenTransfer;
 
     public class StateManager() {
         
@@ -31,6 +39,10 @@ module StateManager {
         private stable var memberEntries: [(GroupId, [(Principal, Member)])] = [];
         private stable var transactionEntries: [(TransactionId, Transaction)] = [];
         private stable var groupMembershipEntries: [(Principal, [GroupId])] = [];
+
+        // ==================== R TOKEN INTEGRATION ====================
+        // Initialize R Token manager as part of state management
+        private let rTokenManager = RTokenManager.RTokenManager();
 
         // ==================== RUNTIME STATE ====================
         // Rebuilt from stable storage on canister start
@@ -95,6 +107,7 @@ module StateManager {
             groups.delete(groupId);
             rotations.delete(groupId);
             members.delete(groupId);
+            // Note: R Token cleanup is handled by the R Token manager
         };
 
         public func getAllGroups() : [(GroupId, GroupConfig)] {
@@ -136,49 +149,74 @@ module StateManager {
 
         public func putMember(groupId: GroupId, principal: Principal, member: Member) {
             switch (members.get(groupId)) {
-                case (?memberMap) { 
+                case (?memberMap) {
                     memberMap.put(principal, member);
                 };
                 case null {
-                    let newMap = HashMap.HashMap<Principal, Member>(10, Principal.equal, Principal.hash);
-                    newMap.put(principal, member);
-                    members.put(groupId, newMap);
+                    let newMemberMap = HashMap.HashMap<Principal, Member>(5, Principal.equal, Principal.hash);
+                    newMemberMap.put(principal, member);
+                    members.put(groupId, newMemberMap);
                 };
             };
             
-            // Update membership index
-            updateMembershipIndex(principal, groupId);
+            // Update group membership index
+            addMembershipIndex(principal, groupId);
         };
 
         public func removeMember(groupId: GroupId, principal: Principal) {
             switch (members.get(groupId)) {
-                case (?memberMap) { 
+                case (?memberMap) {
                     memberMap.delete(principal);
                 };
                 case null { };
             };
             
-            // Update membership index
+            // Remove group membership index
             removeMembershipIndex(principal, groupId);
         };
 
-        public func getGroupMembers(groupId: GroupId) : [(Principal, Member)] {
+        public func getGroupMembers(groupId: GroupId) : [Member] {
             switch (members.get(groupId)) {
-                case (?memberMap) { Iter.toArray(memberMap.entries()) };
+                case (?memberMap) {
+                    let memberBuffer = Buffer.Buffer<Member>(memberMap.size());
+                    for ((_, member) in memberMap.entries()) {
+                        memberBuffer.add(member);
+                    };
+                    Buffer.toArray(memberBuffer)
+                };
                 case null { [] };
             }
         };
 
+        // Update member's liquid token balance (integrated with R Token system)
+        public func updateMemberLiquidTokenBalance(groupId: GroupId, principal: Principal, newBalance: Types.Amount) {
+            switch (members.get(groupId)) {
+                case (?memberMap) {
+                    switch (memberMap.get(principal)) {
+                        case (?member) {
+                            let updatedMember = { member with liquidTokenBalance = newBalance };
+                            memberMap.put(principal, updatedMember);
+                        };
+                        case null { };
+                    };
+                };
+                case null { };
+            };
+        };
+
         // ==================== MEMBERSHIP INDEX ====================
         
-        private func updateMembershipIndex(principal: Principal, groupId: GroupId) {
+        private func addMembershipIndex(principal: Principal, groupId: GroupId) {
             switch (groupMemberships.get(principal)) {
                 case (?currentGroups) {
-                    // Check if already in list
+                    // Check if already exists to avoid duplicates
                     let exists = Array.find<GroupId>(currentGroups, func(id) = id == groupId);
-                    if (exists == null) {
-                        let updatedGroups = Array.append(currentGroups, [groupId]);
-                        groupMemberships.put(principal, updatedGroups);
+                    switch (exists) {
+                        case null {
+                            let updatedGroups = Array.append<GroupId>(currentGroups, [groupId]);
+                            groupMemberships.put(principal, updatedGroups);
+                        };
+                        case (?_) { }; // Already exists
                     };
                 };
                 case null {
@@ -215,6 +253,119 @@ module StateManager {
                 };
                 case null { [] };
             }
+        };
+
+        // ==================== R TOKEN DELEGATED OPERATIONS ====================
+        
+        // Issue R Tokens when contribution is made
+        public func issueRTokensForContribution(
+            groupId: GroupId,
+            recipient: Principal,
+            contributionAmount: Types.Amount,
+            memo: ?Text
+        ) : Result.Result<RTokenId, Types.Error> {
+            let result = rTokenManager.issueRTokens(groupId, recipient, contributionAmount, memo);
+            
+            // Update member's liquid token balance
+            switch (result) {
+                case (#ok(tokenId)) {
+                    let currentBalance = rTokenManager.getRTokenBalance(recipient, groupId);
+                    updateMemberLiquidTokenBalance(groupId, recipient, currentBalance);
+                };
+                case (#err(_)) { };
+            };
+            
+            result
+        };
+
+        // Transfer R Tokens between members
+        public func transferRTokens(
+            tokenId: RTokenId,
+            from: Principal,
+            to: Principal,
+            amount: Types.Amount,
+            memo: ?Text
+        ) : Result.Result<Types.TransactionId, Types.Error> {
+            let result = rTokenManager.transferRTokens(tokenId, from, to, amount, memo);
+            
+            // Update both members' liquid token balances
+            switch (result) {
+                case (#ok(_)) {
+                    // Get token to find groupId
+                    switch (rTokenManager.getRToken(tokenId)) {
+                        case (?token) {
+                            let fromBalance = rTokenManager.getRTokenBalance(from, token.groupId);
+                            let toBalance = rTokenManager.getRTokenBalance(to, token.groupId);
+                            updateMemberLiquidTokenBalance(token.groupId, from, fromBalance);
+                            updateMemberLiquidTokenBalance(token.groupId, to, toBalance);
+                        };
+                        case null { };
+                    };
+                };
+                case (#err(_)) { };
+            };
+            
+            result
+        };
+
+        // Redeem R Tokens for ICP
+        public func redeemRTokens(
+            tokenId: RTokenId,
+            holder: Principal,
+            amount: Types.Amount
+        ) : Result.Result<Types.Amount, Types.Error> {
+            let result = rTokenManager.redeemRTokens(tokenId, holder, amount);
+            
+            // Update member's liquid token balance
+            switch (result) {
+                case (#ok(_)) {
+                    switch (rTokenManager.getRToken(tokenId)) {
+                        case (?token) {
+                            let newBalance = rTokenManager.getRTokenBalance(holder, token.groupId);
+                            updateMemberLiquidTokenBalance(token.groupId, holder, newBalance);
+                        };
+                        case null { };
+                    };
+                };
+                case (#err(_)) { };
+            };
+            
+            result
+        };
+
+        // Get R Token balance for user in specific group
+        public func getRTokenBalance(holder: Principal, groupId: GroupId) : Types.Amount {
+            rTokenManager.getRTokenBalance(holder, groupId)
+        };
+
+        // Get all R Token balances for a user
+        public func getAllRTokenBalances(holder: Principal) : [(GroupId, Types.Amount)] {
+            rTokenManager.getAllRTokenBalances(holder)
+        };
+
+        // Get specific R Token details
+        public func getRToken(tokenId: RTokenId) : ?RToken {
+            rTokenManager.getRToken(tokenId)
+        };
+
+        // Get all R Tokens for a holder
+        public func getHolderTokens(holder: Principal) : [RToken] {
+            rTokenManager.getHolderTokens(holder)
+        };
+
+        // Get all R Tokens in a group
+        public func getGroupTokens(groupId: GroupId) : [RToken] {
+            rTokenManager.getGroupTokens(groupId)
+        };
+
+        // Get R Token statistics for a group
+        public func getGroupTokenStats(groupId: GroupId) : {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
+            rTokenManager.getGroupTokenStats(groupId)
+        };
+
+        // Get platform-wide R Token statistics
+        public func getPlatformTokenStats() : {totalTokens: Nat; totalValue: Types.Amount; totalHolders: Nat} {
+            rTokenManager.getPlatformTokenStats()
         };
 
         // ==================== TRANSACTION OPERATIONS ====================
@@ -281,11 +432,15 @@ module StateManager {
             
             var totalMembers = 0;
             var totalValueLocked : Types.Amount = 0;
+            var totalYieldGenerated : Types.Amount = 0;
             
             for ((_, group) in allGroups.vals()) {
                 totalMembers += group.members.size();
                 switch (rotations.get(group.id)) {
-                    case (?rotation) { totalValueLocked += rotation.poolBalance };
+                    case (?rotation) { 
+                        totalValueLocked += rotation.poolBalance;
+                        totalYieldGenerated += rotation.yieldGenerated;
+                    };
                     case null { };
                 };
             };
@@ -294,42 +449,54 @@ module StateManager {
                 Float.fromInt(totalMembers) / Float.fromInt(allGroups.size())
             } else { 0.0 };
 
+            // Get R Token statistics
+            let rTokenStats = rTokenManager.getPlatformTokenStats();
+
             {
                 totalGroups = allGroups.size();
                 activeGroups = activeGroups.size();
                 totalMembers = totalMembers;
-                totalValueLocked = totalValueLocked;
+                totalValueLocked = totalValueLocked + rTokenStats.totalValue; // Include R Token value
                 totalTransactions = transactions.size();
                 averageGroupSize = averageGroupSize;
-                totalYieldGenerated = 0; // TODO: Calculate from transactions
+                totalYieldGenerated = totalYieldGenerated;
             }
         };
 
         // ==================== UPGRADE HOOKS ====================
         
         public func preUpgrade() {
+            // Prepare main state for stable storage
+
             // Save groups
             groupEntries := Iter.toArray(groups.entries());
             
             // Save rotations
             rotationEntries := Iter.toArray(rotations.entries());
-            
-            // Save members (flatten nested structure)
-            let memberEntriesBuffer = Buffer.Buffer<(GroupId, [(Principal, Member)])>(members.size());
-            for ((groupId, memberMap) in members.entries()) {
-                memberEntriesBuffer.add((groupId, Iter.toArray(memberMap.entries())));
-            };
-            memberEntries := Buffer.toArray(memberEntriesBuffer);
-            
+
             // Save transactions
             transactionEntries := Iter.toArray(transactions.entries());
-            
+
             // Save group memberships
             groupMembershipEntries := Iter.toArray(groupMemberships.entries());
+            
+            // Save members (flatten nested structure)
+            
+            // Prepare member data
+            let memberBuffer = Buffer.Buffer<(GroupId, [(Principal, Member)])>(members.size());
+            for ((groupId, memberMap) in members.entries()) {
+                let memberArray = Iter.toArray(memberMap.entries());
+                memberBuffer.add((groupId, memberArray));
+            };
+            memberEntries := Buffer.toArray(memberBuffer);
+
+            // Handle R Token manager pre-upgrade
+            let (rTokenEntries, rTransferEntries, rHolderEntries) = rTokenManager.preUpgrade();
+            // Note: These would need to be stored in stable variables if R Token manager is recreated
         };
 
         public func postUpgrade() {
-            // Clear stable storage to save space
+            // Clear temporary storage after successfull upgrade to save space
             groupEntries := [];
             rotationEntries := [];
             memberEntries := [];

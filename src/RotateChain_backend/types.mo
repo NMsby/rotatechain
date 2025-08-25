@@ -1,5 +1,4 @@
 // types.mo - Complete type system for RotateChain
-import Time "mo:base/Time";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 
