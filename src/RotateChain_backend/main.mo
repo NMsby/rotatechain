@@ -7,6 +7,7 @@ import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import Time "mo:base/Time";
 import Nat64 "mo:base/Nat64";
+import Buffer "mo:base/Buffer";
 
 // Import new modules for validation and utilities
 import Types "./types";
@@ -15,6 +16,7 @@ import Utils "./utils";
 /// Imports required modules and libraries for the backend canister functionality.
 import Ledger "canister:icp_ledger_canister";
 import PaymentHandler "./payment_handler";
+import StateManager "./state_manager";
 
 actor RotateChain {
   
@@ -55,35 +57,84 @@ actor RotateChain {
         completedRounds: Nat;
     };
 
-    // State management
+    // ==================== STABLE VARIABLES (ACTOR LEVEL) ====================
+    // Legacy state for existing system
     private stable var nextGroupId: Nat = 1;
     private stable var groupsArray: [Group] = [];
     private stable var contributionsTracker: [(Nat, Principal, Nat)] = [];
 
-    // Helper functions
+    // StateManager stable storage - These persist across upgrades
+    private stable var groupEntries: [(Types.GroupId, Types.GroupConfig)] = [];
+    private stable var rotationEntries: [(Types.GroupId, Types.RotationState)] = [];
+    private stable var memberEntries: [(Types.GroupId, [(Principal, Types.Member)])] = [];
+    private stable var transactionEntries: [(Types.TransactionId, Types.Transaction)] = [];
+    private stable var groupMembershipEntries: [(Principal, [Types.GroupId])] = [];
+
+    // R Token stable storage
+    private stable var rTokenEntries: [(Types.RTokenId, Types.RToken)] = [];
+    private stable var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
+    private stable var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
+
+    // State counters
+    private stable var groupCounter: Types.GroupId = 0;
+    private stable var transactionCounter: Types.TransactionId = 0;
+    private stable var isSystemPaused: Bool = false;
+
+    // ==================== INITIALIZE STATE MANAGER ====================
+    private let stateManager = StateManager.StateManager();
+
+    // Initialize state on canister creation
+    private func initializeStateManager() {
+        stateManager.initializeFromState(
+            groupEntries,
+            rotationEntries, 
+            memberEntries,
+            transactionEntries,
+            groupMembershipEntries,
+            rTokenEntries,
+            rTokenTransferEntries,
+            rTokenHolderEntries,
+            groupCounter,
+            transactionCounter,
+            isSystemPaused
+        );
+    };
+
+    // Call initialization
+    initializeStateManager();
+
+    // ==================== HELPER FUNCTIONS ====================
+
+    // Find a group by ID
     private func findGroup(groupId: Nat) : ?Group {
         Array.find<Group>(groupsArray, func(g) = g.id == groupId)
     };
 
+    // Update an existing group
     private func updateGroup(updatedGroup: Group) : () {
         groupsArray := Array.map<Group, Group>(groupsArray, func(g) = 
         if (g.id == updatedGroup.id) updatedGroup else g
         );
     };
 
+    // Check if a user has contributed to a specific group in a specific round
     private func hasContributed(groupId: Nat, principal: Principal, round: Nat) : Bool {
         Array.find<(Nat, Principal, Nat)>(contributionsTracker, func((gId, p, r)) = 
         gId == groupId and Principal.equal(p, principal) and r == round
         ) != null
     };
 
+    // Record a user's contribution to a specific group in a specific round
     private func recordContributionInternal(groupId: Nat, principal: Principal, round: Nat) : () {
         contributionsTracker := Array.append(contributionsTracker, [(groupId, principal, round)]);
     };
 
+    // Calculate progress percentage
     private func calculateProgress(currentRound: Nat, totalRounds: Nat) : Nat {
         if (totalRounds == 0) { 0 } else { (currentRound * 100) / totalRounds }
     };
+
+    // ==================== GROUP MANAGEMENT ====================
 
     // Create new rotation group
     public shared(msg) func createGroup(
@@ -205,6 +256,22 @@ actor RotateChain {
                 )) {
                     case (#ok(transactionId)) {
                         recordContributionInternal(groupId, msg.caller, group.currentRound);
+
+                        // Issue R Tokens for contribution
+                        switch (stateManager.issueRTokensForContribution(
+                            groupId,
+                            msg.caller,
+                            contributionAmount,
+                            ?"Group contribution"
+                        )) {
+                            case (#ok(tokenId)) {
+                                Debug.print("R Token issued: " # Nat.toText(tokenId));
+                            };
+                            case (#err(rTokenError)) {
+                                Debug.print("R Token issuance failed: " # debug_show(rTokenError));
+                                // Continue anyway - ICP payment was successful
+                            };
+                        };
                         
                         Debug.print("✅ Real ICP payment processed successfully!");
                         Debug.print("Transaction ID: " # Nat64.toText(transactionId));
@@ -311,6 +378,104 @@ actor RotateChain {
             case null { #err("Group not found") };
         }
     };
+
+    // ==================== R TOKEN OPERATIONS ====================
+
+    // Transfer R Tokens between members
+    public shared(msg) func transferRTokens(
+        tokenId: Types.RTokenId,
+        to: Principal,
+        amount: Types.Amount,
+        memo: ?Text
+    ) : async Result.Result<Types.TransactionId, Types.Error> { 
+        // Validate basic parameters
+        if (not Utils.validatePrincipal(to)) {
+            return #err(#UnauthorizedAccess);
+        };
+        
+        if (Principal.equal(msg.caller, to)) {
+            return #err(#InvalidAmount);
+        };
+        
+        // Use enhanced state manager function with validation
+        switch (stateManager.transferRTokensWithValidation(tokenId, msg.caller, to, amount, memo)) {
+            case (#ok(transferId)) {
+                Debug.print("R Token transfer initiated by: " # Principal.toText(msg.caller));
+                Debug.print("Transfer ID: " # Nat64.toText(transferId));
+                #ok(transferId)
+            };
+            case (#err(error)) {
+                Debug.print("R Token transfer failed: " # debug_show(error));
+                #err(error)
+            };
+        }
+    };
+
+    // Batch Transfer Functionality for convenience
+    public shared(msg) func batchTransferRTokens(
+        transfers: [(Types.RTokenId, Principal, Types.Amount, ?Text)]
+    ) : async Result.Result<[Types.TransactionId], Types.Error> {
+        
+        let results = Buffer.Buffer<Types.TransactionId>(transfers.size());
+        
+        for ((tokenId, to, amount, memo) in transfers.vals()) {
+            switch (stateManager.transferRTokensWithValidation(tokenId, msg.caller, to, amount, memo)) {
+                case (#ok(transferId)) {
+                    results.add(transferId);
+                };
+                case (#err(error)) {
+                    return #err(error); // Fail fast on any error
+                };
+            };
+        };
+        
+        #ok(Buffer.toArray(results))
+    };
+
+    // Get transfer history for user
+    public shared query(msg) func getMyTransferHistory() : async [Types.RTokenTransfer] {
+        stateManager.getUserTransferHistory(msg.caller)
+    };
+
+    // Get transfer details
+    public query func getTransferDetails(transferId: Types.TransactionId) : async ?Types.RTokenTransfer {
+        stateManager.getTransferDetails(transferId)
+    };
+    
+    // Redeem R Tokens for ICP
+    public shared(msg) func redeemRTokens(
+        tokenId: Types.RTokenId,
+        amount: Types.Amount
+    ) : async Result.Result<Types.Amount, Types.Error> {
+        stateManager.redeemRTokens(tokenId, msg.caller, amount)
+    };
+    
+    // Get R Token balance for specific group
+    public shared query(msg) func getRTokenBalance(groupId: Nat) : async Types.Amount {
+        stateManager.getRTokenBalance(msg.caller, groupId)
+    };
+    
+    // Get all R Token balances
+    public shared query(msg) func getAllRTokenBalances() : async [(Types.GroupId, Types.Amount)] {
+        stateManager.getAllRTokenBalances(msg.caller)
+    };
+    
+    // Get R Token details
+    public query func getRToken(tokenId: Types.RTokenId) : async ?Types.RToken {
+        stateManager.getRToken(tokenId)
+    };
+    
+    // Get user's R Tokens
+    public shared query(msg) func getMyRTokens() : async [Types.RToken] {
+        stateManager.getHolderTokens(msg.caller)
+    };
+    
+    // Get R Token statistics for a group
+    public query func getGroupRTokenStats(groupId: Nat) : async {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
+        stateManager.getGroupTokenStats(groupId)
+    };
+
+    // ==================== QUERY FUNCTIONS ====================
 
     // Check account balance
     public shared(msg) func getMyBalance() : async Nat64 {
@@ -443,5 +608,44 @@ actor RotateChain {
     // Error handling helper
     public func getErrorMessage(error: Types.Error) : async Text {
         Utils.errorToText(error)
+    };
+
+    // ==================== SYSTEM UPGRADE HOOKS ====================
+
+    // Pre-upgrade hook
+    system func preupgrade() {
+        // Export all state from StateManager
+        let (groups, rotations, members, transactions, memberships, rtokens, rtransfers, rholders, gCounter, tCounter, paused) = stateManager.exportState();
+        
+        // Store in stable variables
+        groupEntries := groups;
+        rotationEntries := rotations;
+        memberEntries := members;
+        transactionEntries := transactions;
+        groupMembershipEntries := memberships;
+        rTokenEntries := rtokens;
+        rTokenTransferEntries := rtransfers;
+        rTokenHolderEntries := rholders;
+        groupCounter := gCounter;
+        transactionCounter := tCounter;
+        isSystemPaused := paused;
+        
+        Debug.print("Pre-upgrade: State exported successfully");
+    };
+
+    // Post-upgrade hook
+    system func postupgrade() {
+        // State is automatically restored via initializeStateManager()
+        // Clear stable storage to save memory
+        groupEntries := [];
+        rotationEntries := [];
+        memberEntries := [];
+        transactionEntries := [];
+        groupMembershipEntries := [];
+        rTokenEntries := [];
+        rTokenTransferEntries := [];
+        rTokenHolderEntries := [];
+        
+        Debug.print("Post-upgrade: State restored successfully");
     };
 }
