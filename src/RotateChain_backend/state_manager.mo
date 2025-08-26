@@ -315,7 +315,7 @@ module StateManager {
             
             // Update member's liquid token balance
             switch (result) {
-                case (#ok(tokenId)) {
+                case (#ok(_tokenId)) {
                     let currentBalance = rTokenManager.getRTokenBalance(recipient, groupId);
                     updateMemberLiquidTokenBalance(groupId, recipient, currentBalance);
                 };
