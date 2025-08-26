@@ -1,5 +1,5 @@
 // r_token_manager.mo - Complete R Token management system
-import HashMap "mo:base/HashMap";
+import RBTree "mo:base/RBTree";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Time "mo:base/Time";
@@ -33,23 +33,24 @@ module RTokenManager {
         private var transferCounter: Types.TransactionId = 0;
 
         // ==================== RUNTIME STATE ====================
-        private var tokens = HashMap.HashMap<RTokenId, RToken>(100, Nat.equal, Int.hash);
-        private var transfers = HashMap.HashMap<Types.TransactionId, RTokenTransfer>(500, Nat.equal, Int.hash);
+        private var tokens = RBTree.RBTree<RTokenId, RToken>(Nat.compare);
+        private var transfers = RBTree.RBTree<Types.TransactionId, RTokenTransfer>(Nat64.compare);
         
         // Track balances: Principal -> (GroupId -> Amount)
-        private var holderBalances = HashMap.HashMap<Principal, HashMap.HashMap<GroupId, Amount>>(
-            50, Principal.equal, Principal.hash
+        private var holderBalances = RBTree.RBTree<Principal, RBTree.RBTree<GroupId, Amount>>(
+            Principal.compare
         );
         
         // Token ownership index: GroupId -> [RTokenId]
-        private var groupTokens = HashMap.HashMap<GroupId, Buffer.Buffer<RTokenId>>(
-            20, Nat.equal, Int.hash
+        private var groupTokens = RBTree.RBTree<GroupId, Buffer.Buffer<RTokenId>>(
+            Nat.compare
         );
         
         // User token index: Principal -> [RTokenId]
-        private var userTokens = HashMap.HashMap<Principal, Buffer.Buffer<RTokenId>>(
-            50, Principal.equal, Principal.hash
+        private var userTokens = RBTree.RBTree<Principal, Buffer.Buffer<RTokenId>>(
+            Principal.compare
         );
+
 
         // ==================== INITIALIZATION ====================
         
@@ -59,36 +60,39 @@ module RTokenManager {
             transferEntries: [(Types.TransactionId, RTokenTransfer)], 
             holderEntries: [(Principal, [(GroupId, Amount)])]
         ) {
-            // Restore tokens
-            tokens := HashMap.fromIter<RTokenId, RToken>(
-                tokenEntries.vals(), 100, Nat.equal, Int.hash
-            );
+             // Create new trees and batch-load them
+            let newTokens = RBTree.RBTree<RTokenId, RToken>(Nat.compare);
+            let newTransfers = RBTree.RBTree<Types.TransactionId, RTokenTransfer>(Nat64.compare);
             
-            // Restore transfers
-            transfers := HashMap.fromIter<Types.TransactionId, RTokenTransfer>(
-                transferEntries.vals(), 500, Nat.equal, Int.hash
-            );
-
-            // Find highest counters
-            for ((tokenId, _) in tokens.entries()) {
-                if (tokenId >= tokenCounter) {
-                    tokenCounter := tokenId + 1;
+            // Batch load with counter tracking
+            for ((id, token) in tokenEntries.vals()) {
+                newTokens.put(id, token);
+                if (id >= tokenCounter) {
+                    tokenCounter := id + 1;
                 };
             };
             
-            for ((transferId, _) in transfers.entries()) {
-                if (transferId >= transferCounter) {
-                    transferCounter := transferId + 1;
+            for ((id, transfer) in transferEntries.vals()) {
+                newTransfers.put(id, transfer);
+                if (id >= transferCounter) {
+                    transferCounter := id + 1;
                 };
             };
             
-            // Restore holder balances
+            // Replace the trees atomically
+            tokens := newTokens;
+            transfers := newTransfers;
+            
+            // Rebuild holder balances
+            let newHolderBalances = RBTree.RBTree<Principal, RBTree.RBTree<GroupId, Amount>>(Principal.compare);
             for ((principal, balances) in holderEntries.vals()) {
-                let balanceMap = HashMap.fromIter<GroupId, Amount>(
-                    balances.vals(), 10, Nat.equal, Int.hash
-                );
-                holderBalances.put(principal, balanceMap);
+                let balanceTree = RBTree.RBTree<GroupId, Amount>(Nat.compare);
+                for ((groupId, amount) in balances.vals()) {
+                    balanceTree.put(groupId, amount);
+                };
+                newHolderBalances.put(principal, balanceTree);
             };
+            holderBalances := newHolderBalances;
             
             // Rebuild indexes
             rebuildIndexes();
@@ -130,8 +134,8 @@ module RTokenManager {
             let transferEntries = Iter.toArray(transfers.entries());
             
             let holderEntries = Buffer.Buffer<(Principal, [(GroupId, Amount)])>(holderBalances.size());
-            for ((principal, balanceMap) in holderBalances.entries()) {
-                let balances = Iter.toArray(balanceMap.entries());
+            for ((principal, balanceTree) in holderBalances.entries()) {
+                let balances = Iter.toArray(balanceTree.entries());
                 holderEntries.add((principal, balances));
             };
             
@@ -359,8 +363,8 @@ module RTokenManager {
         // Get R Token balance for user in specific group
         public func getRTokenBalance(holder: Principal, groupId: GroupId) : Amount {
             switch (holderBalances.get(holder)) {
-                case (?balanceMap) {
-                    switch (balanceMap.get(groupId)) {
+                case (?balanceTree) {
+                    switch (balanceTree.get(groupId)) {
                         case (?balance) { balance };
                         case null { 0 };
                     };
@@ -372,8 +376,8 @@ module RTokenManager {
         // Get all R Token balances for a user
         public func getAllRTokenBalances(holder: Principal) : [(GroupId, Amount)] {
             switch (holderBalances.get(holder)) {
-                case (?balanceMap) {
-                    Iter.toArray(balanceMap.entries())
+                case (?balanceTree) {
+                    Iter.toArray(balanceTree.entries())
                 };
                 case null { [] };
             }
@@ -422,36 +426,34 @@ module RTokenManager {
 
         // Update holder balance tracking
         private func updateHolderBalance(holder: Principal, groupId: GroupId, amount: Amount, isAdd: Bool) {
-            switch (holderBalances.get(holder)) {
-                case (?balanceMap) {
-                    let currentBalance: Amount = switch (balanceMap.get(groupId)) {
-                        case (?balance) { balance };
-                        case null { 0 };
-                    };
-                    
-                    let newBalance: Amount = if (isAdd) {
-                        currentBalance + amount
-                    } else {
-                        if (currentBalance >= amount) { currentBalance - amount } else { 0 }
-                    };
-                    
-                    if (newBalance == 0) {
-                        balanceMap.delete(groupId);
-                    } else {
-                        balanceMap.put(groupId, newBalance);
-                    };
-                };
+            let balanceTree = switch (holderBalances.get(holder)) {
+                case (?tree) { tree };
                 case null {
-                    if (isAdd) {
-                        let newBalanceMap = HashMap.HashMap<GroupId, Amount>(5, Nat.equal, Int.hash);
-                        newBalanceMap.put(groupId, amount);
-                        holderBalances.put(holder, newBalanceMap);
-                    };
+                    let newTree = RBTree.RBTree<GroupId, Amount>(Nat.compare);
+                    holderBalances.put(holder, newTree);
+                    newTree
                 };
-            }
+            };
+            
+            let currentBalance: Amount = switch (balanceTree.get(groupId)) {
+                case (?balance) { balance };
+                case null { 0 };
+            };
+            
+            let newBalance: Amount = if (isAdd) {
+                currentBalance + amount
+            } else {
+                if (currentBalance >= amount) { currentBalance - amount } else { 0 }
+            };
+            
+            if (newBalance == 0) {
+                balanceTree.delete(groupId);
+            } else {
+                balanceTree.put(groupId, newBalance);
+            };
         };
 
-        // Update token ownership indexes
+        // Update token indexes
         private func updateTokenIndexes(tokenId: RTokenId, newToken: RToken, oldToken: ?RToken) {
             // Update group token index
             switch (groupTokens.get(newToken.groupId)) {
