@@ -12,6 +12,7 @@ import Time "mo:base/Time";
 
 import Types "./types";
 import RTokenManager "./r_token_manager";
+import yieldManager "./yield_manager";
 
 module StateManager {
     public type GroupId = Types.GroupId;
@@ -38,6 +39,10 @@ module StateManager {
         // ==================== R TOKEN INTEGRATION ====================
         // Initialize R Token manager as part of state management
         private let rTokenManager = RTokenManager.RTokenManager();
+
+        // ==================== YIELD MANAGER ====================
+        // Initialize Yield manager as part of state management
+        private let yieldManager = YieldManager.YieldManager();
         
         // ==================== RUNTIME STATE ====================
         // Rebuilt from stable storage on canister start
@@ -453,6 +458,66 @@ module StateManager {
         // Get platform-wide R Token statistics
         public func getPlatformTokenStats() : {totalTokens: Nat; totalValue: Types.Amount; totalHolders: Nat} {
             rTokenManager.getPlatformTokenStats()
+        };
+
+        // ==================== YIELD OPERATIONS ====================
+
+        // Calculate yield for a specific group over a duration
+        public func calculateGroupYield(
+            groupId: GroupId,
+            durationDays: Nat
+        ) : Result.Result<Types.YieldCalculation, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    switch (rotations.get(groupId)) {
+                        case (?rotation) {
+                            let strategy = yieldManager.createDefaultStrategy(
+                                group.members.size(), 
+                                group.contributionAmount
+                            );
+                            yieldManager.calculateYield(
+                                rotation.poolBalance,
+                                strategy,
+                                durationDays,
+                                ?rotation.poolBalance,
+                                null
+                            )
+                        };
+                        case null { #err(#GroupNotFound) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Update R Token yields
+        public func updateRTokenYields(groupId: GroupId) : Result.Result<Nat, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    let strategy = yieldManager.createDefaultStrategy(
+                        group.members.size(),
+                        group.contributionAmount
+                    );
+                    
+                    let tokens = rTokenManager.getGroupTokens(groupId);
+                    var updatedCount = 0;
+                    
+                    for (token in tokens.vals()) {
+                        switch (yieldManager.calculateRTokenYieldUpdate(token, strategy)) {
+                            case (#ok(yieldAmount)) {
+                                if (yieldAmount > 0) {
+                                    ignore rTokenManager.updateTokenYield(token.id, yieldAmount);
+                                    updatedCount += 1;
+                                };
+                            };
+                            case (#err(_)) { /* Continue with other tokens */ };
+                        };
+                    };
+                    
+                    #ok(updatedCount)
+                };
+                case null { #err(#GroupNotFound) };
+            }
         };
 
         // ==================== TRANSACTION OPERATIONS ====================

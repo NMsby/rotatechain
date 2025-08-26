@@ -46,6 +46,36 @@ module Types {
         memo: ?Text;
     };
 
+    // ==================== YIELD SYSTEM TYPES ====================
+
+    // Yield calculation strategies
+    public type YieldStrategy = {
+        #fixed: Nat;           // Fixed annual rate in basis points
+        #variable: {           // Variable rate with bounds
+            baseRate: Nat;     // Base rate in basis points
+            minRate: Nat;      // Minimum rate cap
+            maxRate: Nat;      // Maximum rate cap
+            marketFactor: Float; // Market adjustment multiplier
+        };
+        #tiered: {             // Tiered rates based on pool size
+            tiers: [(Amount, Nat)]; // (threshold, rate) pairs
+        };
+        #compound: {           // Compound interest strategy
+            rate: Nat;         // Annual rate
+            compoundFrequency: Nat; // Times per year
+        };
+    };
+
+    // Yield calculation result
+    public type YieldCalculation = {
+        baseAmount: Amount;
+        yieldAmount: Amount;
+        effectiveRate: Float;
+        calculationMethod: Text;
+        timestamp: Timestamp;
+        durationDays: Nat;
+    };
+
     // ==================== ENUMERATIONS ====================
     
     // Group lifecycle status
@@ -94,6 +124,7 @@ module Types {
         totalPoolSize: Amount;           // Total expected pool size
         platformFeeRate: Nat;            // Fee rate in basis points (e.g., 25 = 0.25%)
         yieldRate: Nat;                  // Expected annual yield rate in basis points
+        yieldStrategy: YieldStrategy;
     };
 
     // Individual member information

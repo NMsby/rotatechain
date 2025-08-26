@@ -17,6 +17,7 @@ import Utils "./utils";
 import Ledger "canister:icp_ledger_canister";
 import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
+import YieldManager "./yield_manager";
 
 actor RotateChain {
   
@@ -473,6 +474,51 @@ actor RotateChain {
     // Get R Token statistics for a group
     public query func getGroupRTokenStats(groupId: Nat) : async {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
         stateManager.getGroupTokenStats(groupId)
+    };
+
+    // ==================== YIELD FUNCTIONS ====================
+    
+    // Get projected yield for a group
+    public query func getProjectedYield(
+        groupId: Nat,
+        durationDays: Nat
+    ) : async Result.Result<Types.YieldCalculation, Types.Error> {
+        stateManager.calculateGroupYield(groupId, durationDays)
+    };
+
+    // Update all R Token yields for a group (admin function)
+    public shared(msg) func updateGroupRTokenYields(
+        groupId: Nat
+    ) : async Result.Result<Nat, Types.Error> {
+        // Add admin check if needed
+        stateManager.updateRTokenYields(groupId)
+    };
+
+    // Get yield comparison for different strategies
+    public query func compareYieldStrategies(
+        principal: Types.Amount,
+        durationDays: Nat
+    ) : async [(Types.YieldStrategy, Types.YieldCalculation)] {
+        let strategies = [
+            (#fixed(500) : Types.YieldStrategy), // 5% fixed
+            (#variable({
+                baseRate = 500;
+                minRate = 300;
+                maxRate = 800;
+                marketFactor = 1.0;
+            }) : Types.YieldStrategy),
+            (#compound({
+                rate = 550;
+                compoundFrequency = 12;
+            }) : Types.YieldStrategy)
+        ];
+        
+        yieldManager.compareStrategies(principal, strategies, durationDays)
+    };
+
+    // Get current market conditions
+    public query func getMarketConditions() : async {volatility: Float; liquidity: Float; riskFactor: Float} {
+        yieldManager.getCurrentMarketConditions()
     };
 
     // ==================== QUERY FUNCTIONS ====================
