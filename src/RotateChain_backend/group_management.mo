@@ -3,7 +3,6 @@ import Types "./types";
 import Utils "./utils";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
-import Array "mo:base/Array";
 import Nat64 "mo:base/Nat64";
 
 module GroupManagement {

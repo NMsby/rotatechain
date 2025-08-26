@@ -1,6 +1,5 @@
 // r_token_manager.mo - Complete R Token management system
 import RBTree "mo:base/RBTree";
-import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
@@ -9,7 +8,6 @@ import Principal "mo:base/Principal";
 import Debug "mo:base/Debug";
 import Nat64 "mo:base/Nat64";
 import Iter "mo:base/Iter";
-import Int "mo:base/Int";
 
 import Types "./types";
 import Utils "./utils";
@@ -55,7 +53,7 @@ module RTokenManager {
         // ==================== INITIALIZATION ====================
         
         // Initialize with provided state (called from actor's post upgrade)
-        private func initializeFromState(
+        public func initializeFromState(
             tokenEntries: [(RTokenId, RToken)],
             transferEntries: [(Types.TransactionId, RTokenTransfer)], 
             holderEntries: [(Principal, [(GroupId, Amount)])]

@@ -1,11 +1,11 @@
 // state_manager.mo - Centralized state management with upgrade support
-import HashMap "mo:base/HashMap";
+import RBTree "mo:base/RBTree";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
-import Time "mo:base/Time";
 import Float "mo:base/Float";
 import Result "mo:base/Result";
 
@@ -27,80 +27,120 @@ module StateManager {
 
     public class StateManager() {
         
-        // ==================== STABLE VARIABLES ====================
-        // These persist across canister upgrades
+        // ==================== NON-STABLE VARIABLES ====================
+        // State persistence handled at actor level
         
-        private stable var groupCounter: GroupId = 0;
-        private stable var transactionCounter: TransactionId = 0;
-        private stable var isSystemPaused: Bool = false;
-        
-        // Stable storage for complex data structures
-        private stable var groupEntries: [(GroupId, GroupConfig)] = [];
-        private stable var rotationEntries: [(GroupId, RotationState)] = [];
-        private stable var memberEntries: [(GroupId, [(Principal, Member)])] = [];
-        private stable var transactionEntries: [(TransactionId, Transaction)] = [];
-        private stable var groupMembershipEntries: [(Principal, [GroupId])] = [];
-
-        // R Token stable storage
-        private stable var rTokenEntries: [(Types.RTokenId, Types.RToken)] = [];
-        private stable var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
-        private stable var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
+        private var groupCounter: GroupId = 0;
+        private var transactionCounter: TransactionId = 0;
+        private var isSystemPaused: Bool = false;
 
         // ==================== R TOKEN INTEGRATION ====================
         // Initialize R Token manager as part of state management
         private let rTokenManager = RTokenManager.RTokenManager();
-
+        
         // ==================== RUNTIME STATE ====================
         // Rebuilt from stable storage on canister start
         
-        private var groups = HashMap.HashMap<GroupId, GroupConfig>(10, Nat.equal, Nat.hash);
-        private var rotations = HashMap.HashMap<GroupId, RotationState>(10, Nat.equal, Nat.hash);
-        private var transactions = HashMap.HashMap<TransactionId, Transaction>(100, Nat.equal, Nat.hash);
-        private var groupMemberships = HashMap.HashMap<Principal, [GroupId]>(50, Principal.equal, Principal.hash);
+        private var groups = RBTree.RBTree<GroupId, GroupConfig>(Nat.compare);
+        private var rotations = RBTree.RBTree<GroupId, RotationState>(Nat.compare);
+        private var transactions = RBTree.RBTree<TransactionId, Transaction>(Nat64.compare);
+        private var groupMemberships = RBTree.RBTree<Principal, [GroupId]>(Principal.compare);
         
         // Member data: GroupId -> (Principal -> Member)
-        private var members = HashMap.HashMap<GroupId, HashMap.HashMap<Principal, Member>>(
-            10, Nat.equal, Nat.hash
-        );
+        private var members = RBTree.RBTree<GroupId, RBTree.RBTree<Principal, Member>>(Nat.compare);
 
-        // ==================== INITIALIZATION ====================
-        
+        // ==================== STATE INITIALIZATION ====================
+
         // Restore state from stable storage
-        private func initializeState() {
-            // Restore groups
-            groups := HashMap.fromIter<GroupId, GroupConfig>(
-                groupEntries.vals(), 10, Nat.equal, Nat.hash
-            );
+        public func initializeFromState(
+            groupEntries: [(GroupId, GroupConfig)],
+            rotationEntries: [(GroupId, RotationState)],
+            memberEntries: [(GroupId, [(Principal, Member)])],
+            transactionEntries: [(TransactionId, Transaction)],
+            groupMembershipEntries: [(Principal, [GroupId])],
+            rTokenEntries: [(Types.RTokenId, Types.RToken)],
+            rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)],
+            rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])],
+            gCounter: GroupId,
+            tCounter: TransactionId,
+            paused: Bool
+        ) {
+            // Initialize counters and flags
+            groupCounter := gCounter;
+            transactionCounter := tCounter;
+            isSystemPaused := paused;
+
+            // Initialize groups
+            for ((id, group) in groupEntries.vals()) {
+                groups.put(id, group);
+                if (id >= groupCounter) {
+                    groupCounter := id + 1;
+                };
+            };
             
-            // Restore rotations
-            rotations := HashMap.fromIter<GroupId, RotationState>(
-                rotationEntries.vals(), 10, Nat.equal, Nat.hash
-            );
+            // Initialize rotations
+            for ((id, rotation) in rotationEntries.vals()) {
+                rotations.put(id, rotation);
+            };
             
-            // Restore transactions
-            transactions := HashMap.fromIter<TransactionId, Transaction>(
-                transactionEntries.vals(), 100, Nat.equal, Nat.hash
-            );
+            // Initialize transactions
+            for ((id, transaction) in transactionEntries.vals()) {
+                transactions.put(id, transaction);
+                if (id >= transactionCounter) {
+                    transactionCounter := id + 1;
+                };
+            };
             
-            // Restore group memberships
-            groupMemberships := HashMap.fromIter<Principal, [GroupId]>(
-                groupMembershipEntries.vals(), 50, Principal.equal, Principal.hash
-            );
+            // Initialize group memberships
+            for ((principal, groupIds) in groupMembershipEntries.vals()) {
+                groupMemberships.put(principal, groupIds);
+            };
             
-            // Restore members (more complex due to nested structure)
+            // Initialize members (nested structure)
             for ((groupId, memberList) in memberEntries.vals()) {
-                let memberMap = HashMap.fromIter<Principal, Member>(
-                    memberList.vals(), 10, Principal.equal, Principal.hash
-                );
-                members.put(groupId, memberMap);
+                let memberTree = RBTree.RBTree<Principal, Member>(Principal.compare);
+                for ((principal, member) in memberList.vals()) {
+                    memberTree.put(principal, member);
+                };
+                members.put(groupId, memberTree);
             };
             
             // Initialize R Token manager with stored state
             rTokenManager.initializeFromState(rTokenEntries, rTokenTransferEntries, rTokenHolderEntries);
         };
 
-        // Call initialization
-        initializeState();
+        public func exportState() : (
+            [(GroupId, GroupConfig)],
+            [(GroupId, RotationState)],
+            [(GroupId, [(Principal, Member)])],
+            [(TransactionId, Transaction)],
+            [(Principal, [GroupId])],
+            [(Types.RTokenId, Types.RToken)],
+            [(Types.TransactionId, Types.RTokenTransfer)],
+            [(Principal, [(Types.GroupId, Types.Amount)])],
+            GroupId,
+            TransactionId,
+            Bool
+        ) {
+            let groupEntries = Iter.toArray(groups.entries());
+            let rotationEntries = Iter.toArray(rotations.entries());
+            let transactionEntries = Iter.toArray(transactions.entries());
+            let groupMembershipEntries = Iter.toArray(groupMemberships.entries());
+            
+            // Export nested member structure
+            let memberBuffer = Buffer.Buffer<(GroupId, [(Principal, Member)])>(RBTree.size(members.share()));
+            for ((groupId, memberTree) in members.entries()) {
+                let memberArray = Iter.toArray(memberTree.entries());
+                memberBuffer.add((groupId, memberArray));
+            };
+            let memberEntries = Buffer.toArray(memberBuffer);
+            
+            // Export R Token state
+            let (rTokenEntries, rTokenTransferEntries, rTokenHolderEntries) = rTokenManager.exportState();
+            
+            (groupEntries, rotationEntries, memberEntries, transactionEntries, groupMembershipEntries, 
+             rTokenEntries, rTokenTransferEntries, rTokenHolderEntries, groupCounter, transactionCounter, isSystemPaused)
+        };
 
         // ==================== GROUP OPERATIONS ====================
         
@@ -124,7 +164,7 @@ module StateManager {
         };
 
         public func getActiveGroups() : [(GroupId, GroupConfig)] {
-            let activeGroups = Buffer.Buffer<(GroupId, GroupConfig)>(groups.size());
+            let activeGroups = Buffer.Buffer<(GroupId, GroupConfig)>(RBTree.size(groups.share()));
             for ((id, group) in groups.entries()) {
                 if (group.status == #active) {
                     activeGroups.add((id, group));
@@ -151,31 +191,29 @@ module StateManager {
         
         public func getMember(groupId: GroupId, principal: Principal) : ?Member {
             switch (members.get(groupId)) {
-                case (?memberMap) { memberMap.get(principal) };
+                case (?memberTree) { memberTree.get(principal) };
                 case null { null };
             }
         };
 
         public func putMember(groupId: GroupId, principal: Principal, member: Member) {
-            switch (members.get(groupId)) {
-                case (?memberMap) {
-                    memberMap.put(principal, member);
-                };
+            let memberTree = switch (members.get(groupId)) {
+                case (?tree) { tree };
                 case null {
-                    let newMemberMap = HashMap.HashMap<Principal, Member>(5, Principal.equal, Principal.hash);
-                    newMemberMap.put(principal, member);
-                    members.put(groupId, newMemberMap);
+                    let newTree = RBTree.RBTree<Principal, Member>(Principal.compare);
+                    members.put(groupId, newTree);
+                    newTree
                 };
             };
             
-            // Update group membership index
+            memberTree.put(principal, member);
             addMembershipIndex(principal, groupId);
         };
 
         public func removeMember(groupId: GroupId, principal: Principal) {
             switch (members.get(groupId)) {
-                case (?memberMap) {
-                    memberMap.delete(principal);
+                case (?memberTree) {
+                    memberTree.delete(principal);
                 };
                 case null { };
             };
@@ -186,9 +224,9 @@ module StateManager {
 
         public func getGroupMembers(groupId: GroupId) : [Member] {
             switch (members.get(groupId)) {
-                case (?memberMap) {
-                    let memberBuffer = Buffer.Buffer<Member>(memberMap.size());
-                    for ((_, member) in memberMap.entries()) {
+                case (?memberTree) {
+                    let memberBuffer = Buffer.Buffer<Member>(RBTree.size(memberTree.share()));
+                    for ((_, member) in memberTree.entries()) {
                         memberBuffer.add(member);
                     };
                     Buffer.toArray(memberBuffer)
@@ -465,57 +503,11 @@ module StateManager {
                 totalGroups = allGroups.size();
                 activeGroups = activeGroups.size();
                 totalMembers = totalMembers;
-                totalValueLocked = totalValueLocked + rTokenStats.totalValue; // Include R Token value
-                totalTransactions = transactions.size();
+                totalValueLocked = totalValueLocked + rTokenStats.totalValue;
+                totalTransactions = RBTree.size(transactions.share());
                 averageGroupSize = averageGroupSize;
                 totalYieldGenerated = totalYieldGenerated;
             }
-        };
-
-        // ==================== UPGRADE HOOKS ====================
-        
-        public func preUpgrade() {
-            // Prepare main state for stable storage
-
-            // Save groups
-            groupEntries := Iter.toArray(groups.entries());
-            
-            // Save rotations
-            rotationEntries := Iter.toArray(rotations.entries());
-
-            // Save transactions
-            transactionEntries := Iter.toArray(transactions.entries());
-
-            // Save group memberships
-            groupMembershipEntries := Iter.toArray(groupMemberships.entries());
-            
-            // Save members (flatten nested structure)
-            
-            // Prepare member data
-            let memberBuffer = Buffer.Buffer<(GroupId, [(Principal, Member)])>(members.size());
-            for ((groupId, memberMap) in members.entries()) {
-                let memberArray = Iter.toArray(memberMap.entries());
-                memberBuffer.add((groupId, memberArray));
-            };
-            memberEntries := Buffer.toArray(memberBuffer);
-
-            // Export R Token state for upgrade
-            let (tokenEntries, transferEntries, holderEntries) = rTokenManager.exportState();
-            rTokenEntries := tokenEntries;
-            rTokenTransferEntries := transferEntries;
-            rTokenHolderEntries := holderEntries;
-        };
-
-        public func postUpgrade() {
-            // Clear temporary storage after successfull upgrade to save space
-            groupEntries := [];
-            rotationEntries := [];
-            memberEntries := [];
-            transactionEntries := [];
-            groupMembershipEntries := [];
-            rTokenEntries := [];
-            rTokenTransferEntries := [];
-            rTokenHolderEntries := [];
         };
 
         // ==================== VALIDATION & INTEGRITY ====================

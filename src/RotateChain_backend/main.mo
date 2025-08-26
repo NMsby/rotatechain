@@ -56,38 +56,84 @@ actor RotateChain {
         completedRounds: Nat;
     };
 
-    // State management
+    // ==================== STABLE VARIABLES (ACTOR LEVEL) ====================
+    // Legacy state for existing system
     private stable var nextGroupId: Nat = 1;
     private stable var groupsArray: [Group] = [];
     private stable var contributionsTracker: [(Nat, Principal, Nat)] = [];
 
-    // Helper functions
+    // StateManager stable storage - These persist across upgrades
+    private stable var groupEntries: [(Types.GroupId, Types.GroupConfig)] = [];
+    private stable var rotationEntries: [(Types.GroupId, Types.RotationState)] = [];
+    private stable var memberEntries: [(Types.GroupId, [(Principal, Types.Member)])] = [];
+    private stable var transactionEntries: [(Types.TransactionId, Types.Transaction)] = [];
+    private stable var groupMembershipEntries: [(Principal, [Types.GroupId])] = [];
+
+    // R Token stable storage
+    private stable var rTokenEntries: [(Types.RTokenId, Types.RToken)] = [];
+    private stable var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
+    private stable var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
+
+    // State counters
+    private stable var groupCounter: Types.GroupId = 0;
+    private stable var transactionCounter: Types.TransactionId = 0;
+    private stable var isSystemPaused: Bool = false;
+
+    // ==================== INITIALIZE STATE MANAGER ====================
+    private let stateManager = StateManager.StateManager();
+
+    // Initialize state on canister creation
+    private func initializeStateManager() {
+        stateManager.initializeFromState(
+            groupEntries,
+            rotationEntries, 
+            memberEntries,
+            transactionEntries,
+            groupMembershipEntries,
+            rTokenEntries,
+            rTokenTransferEntries,
+            rTokenHolderEntries,
+            groupCounter,
+            transactionCounter,
+            isSystemPaused
+        );
+    };
+
+    // Call initialization
+    initializeStateManager();
+
+    // ==================== HELPER FUNCTIONS ====================
+
+    // Find a group by ID
     private func findGroup(groupId: Nat) : ?Group {
         Array.find<Group>(groupsArray, func(g) = g.id == groupId)
     };
 
+    // Update an existing group
     private func updateGroup(updatedGroup: Group) : () {
         groupsArray := Array.map<Group, Group>(groupsArray, func(g) = 
         if (g.id == updatedGroup.id) updatedGroup else g
         );
     };
 
+    // Check if a user has contributed to a specific group in a specific round
     private func hasContributed(groupId: Nat, principal: Principal, round: Nat) : Bool {
         Array.find<(Nat, Principal, Nat)>(contributionsTracker, func((gId, p, r)) = 
         gId == groupId and Principal.equal(p, principal) and r == round
         ) != null
     };
 
+    // Record a user's contribution to a specific group in a specific round
     private func recordContributionInternal(groupId: Nat, principal: Principal, round: Nat) : () {
         contributionsTracker := Array.append(contributionsTracker, [(groupId, principal, round)]);
     };
 
+    // Calculate progress percentage
     private func calculateProgress(currentRound: Nat, totalRounds: Nat) : Nat {
         if (totalRounds == 0) { 0 } else { (currentRound * 100) / totalRounds }
     };
 
-    // Initialize state manager for R Token support
-    private let stateManager = StateManager.StateManager();
+    // ==================== GROUP MANAGEMENT ====================
 
     // Create new rotation group
     public shared(msg) func createGroup(
@@ -332,6 +378,8 @@ actor RotateChain {
         }
     };
 
+    // ==================== R TOKEN OPERATIONS ====================
+
     // Transfer R Tokens between members
     public shared(msg) func transferRTokens(
         tokenId: Types.RTokenId,
@@ -373,6 +421,8 @@ actor RotateChain {
     public query func getGroupRTokenStats(groupId: Nat) : async {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
         stateManager.getGroupTokenStats(groupId)
     };
+
+    // ==================== QUERY FUNCTIONS ====================
 
     // Check account balance
     public shared(msg) func getMyBalance() : async Nat64 {
@@ -507,15 +557,42 @@ actor RotateChain {
         Utils.errorToText(error)
     };
 
+    // ==================== SYSTEM UPGRADE HOOKS ====================
+
     // Pre-upgrade hook
     system func preupgrade() {
-        // Handle state manager upgrade preparation
-        stateManager.preUpgrade();
+        // Export all state from StateManager
+        let (groups, rotations, members, transactions, memberships, rtokens, rtransfers, rholders, gCounter, tCounter, paused) = stateManager.exportState();
+        
+        // Store in stable variables
+        groupEntries := groups;
+        rotationEntries := rotations;
+        memberEntries := members;
+        transactionEntries := transactions;
+        groupMembershipEntries := memberships;
+        rTokenEntries := rtokens;
+        rTokenTransferEntries := rtransfers;
+        rTokenHolderEntries := rholders;
+        groupCounter := gCounter;
+        transactionCounter := tCounter;
+        isSystemPaused := paused;
+        
+        Debug.print("Pre-upgrade: State exported successfully");
     };
 
     // Post-upgrade hook
     system func postupgrade() {
-        // Handle post-upgrade cleanup
-        stateManager.postUpgrade();
+        // State is automatically restored via initializeStateManager()
+        // Clear stable storage to save memory
+        groupEntries := [];
+        rotationEntries := [];
+        memberEntries := [];
+        transactionEntries := [];
+        groupMembershipEntries := [];
+        rTokenEntries := [];
+        rTokenTransferEntries := [];
+        rTokenHolderEntries := [];
+        
+        Debug.print("Post-upgrade: State restored successfully");
     };
 }
