@@ -7,6 +7,7 @@ import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Time "mo:base/Time";
 import Float "mo:base/Float";
+import Result "mo:base/Result";
 
 import Types "./types";
 import RTokenManager "./r_token_manager";
@@ -41,9 +42,9 @@ module StateManager {
         private stable var groupMembershipEntries: [(Principal, [GroupId])] = [];
 
         // R Token stable storage
-        private stable var rTokenEntries: [(RTokenId, RToken)] = [];
-        private stable var rTokenTransferEntries: [(TransactionId, RTokenTransfer)] = [];
-        private stable var rTokenHolderEntries: [(Principal, [(GroupId, Amount)])] = [];
+        private stable var rTokenEntries: [(Types.RTokenId, Types.RToken)] = [];
+        private stable var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
+        private stable var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
 
         // ==================== R TOKEN INTEGRATION ====================
         // Initialize R Token manager as part of state management

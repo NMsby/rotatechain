@@ -133,7 +133,7 @@ module RTokenManager {
             let tokenEntries = Iter.toArray(tokens.entries());
             let transferEntries = Iter.toArray(transfers.entries());
             
-            let holderEntries = Buffer.Buffer<(Principal, [(GroupId, Amount)])>(holderBalances.size());
+            let holderEntries = Buffer.Buffer<(Principal, [(GroupId, Amount)])>(RBTree.size(holderBalances.share()));
             for ((principal, balanceTree) in holderBalances.entries()) {
                 let balances = Iter.toArray(balanceTree.entries());
                 holderEntries.add((principal, balances));
@@ -544,9 +544,9 @@ module RTokenManager {
 
         // Get platform-wide R Token statistics
         public func getPlatformTokenStats() : {totalTokens: Nat; totalValue: Amount; totalHolders: Nat} {
-            let totalTokens = tokens.size();
+            let totalTokens = RBTree.size(tokens.share());
             var totalValue: Amount = 0;
-            let totalHolders = holderBalances.size();
+            let totalHolders = RBTree.size(holderBalances.share());
 
             for ((_, token) in tokens.entries()) {
                 totalValue += token.currentAmount;
