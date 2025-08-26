@@ -8,6 +8,7 @@ import Principal "mo:base/Principal";
 import Debug "mo:base/Debug";
 import Nat64 "mo:base/Nat64";
 import Iter "mo:base/Iter";
+import Array "mo:base/Array";
 
 import Types "./types";
 import Utils "./utils";
@@ -198,7 +199,8 @@ module RTokenManager {
             from: Principal,
             to: Principal,
             amount: Amount,
-            memo: ?Text
+            memo: ?Text,
+            groupMembers: [Principal] // Add group membership validation
         ) : Result.Result<Types.TransactionId, Error> {
             
             // Validate inputs
@@ -214,7 +216,15 @@ module RTokenManager {
                 return #err(#InvalidAmount);
             };
 
-            // Get token
+            // Validate both parties are group members
+            let fromIsMember = Array.find<Principal>(groupMembers, func(p) = Principal.equal(p, from)) != null;
+            let toIsMember = Array.find<Principal>(groupMembers, func(p) = Principal.equal(p, to)) != null;
+            
+            if (not fromIsMember or not toIsMember) {
+                return #err(#NotMember);
+            };
+
+            // Get token and validate
             switch (tokens.get(tokenId)) {
                 case (?token) {
                     // Verify ownership and status
@@ -283,7 +293,7 @@ module RTokenManager {
                         updateTokenIndexes(newTokenId, newToken, null);
                     };
 
-                    // Record transfer
+                    // Record transfer with enhanced metadata
                     let transfer: RTokenTransfer = {
                         id = transferId;
                         tokenId = tokenId;
@@ -295,13 +305,47 @@ module RTokenManager {
                     };
                     transfers.put(transferId, transfer);
 
-                    Debug.print("R Token transfer completed - Amount: " # Nat64.toText(amount) # " e8s");
+                    // Add comprehensive logging
+                    Debug.print("R Token transfer completed");
+                    Debug.print("Transfer ID: " # Nat64.toText(transferId));
+                    Debug.print("Token ID: " # Nat.toText(tokenId));
+                    Debug.print("From: " # Principal.toText(from));
+                    Debug.print("To: " # Principal.toText(to));
+                    Debug.print("Amount: " # Nat64.toText(amount) # " e8s");
+                    
                     #ok(transferId)
                 };
                 case null {
                     #err(#GroupNotFound) // Token not found
                 };
             }
+        };
+
+        // Get transfer history for a user
+        public func getUserTransferHistory(user: Principal) : [Types.RTokenTransfer] {
+            let userTransfers = Buffer.Buffer<Types.RTokenTransfer>(100);
+            for ((_, transfer) in transfers.entries()) {
+                if (Principal.equal(transfer.from, user) or Principal.equal(transfer.to, user)) {
+                    userTransfers.add(transfer);
+                };
+            };
+            Buffer.toArray(userTransfers)
+        };
+
+        // Get specific transfer details
+        public func getTransferDetails(transferId: Types.TransactionId) : ?Types.RTokenTransfer {
+            transfers.get(transferId)
+        };
+
+        // Get all transfers for a specific token
+        public func getTokenTransferHistory(tokenId: Types.RTokenId) : [Types.RTokenTransfer] {
+            let tokenTransfers = Buffer.Buffer<Types.RTokenTransfer>(50);
+            for ((_, transfer) in transfers.entries()) {
+                if (transfer.tokenId == tokenId) {
+                    tokenTransfers.add(transfer);
+                };
+            };
+            Buffer.toArray(tokenTransfers)
         };
 
         // Redeem R Tokens for ICP

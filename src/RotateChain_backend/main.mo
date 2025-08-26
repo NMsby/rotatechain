@@ -7,6 +7,7 @@ import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import Time "mo:base/Time";
 import Nat64 "mo:base/Nat64";
+import Buffer "mo:base/Buffer";
 
 // Import new modules for validation and utilities
 import Types "./types";
@@ -384,9 +385,61 @@ actor RotateChain {
     public shared(msg) func transferRTokens(
         tokenId: Types.RTokenId,
         to: Principal,
-        amount: Types.Amount
-    ) : async Result.Result<Types.TransactionId, Types.Error> {
-        stateManager.transferRTokens(tokenId, msg.caller, to, amount, ?"Member transfer")
+        amount: Types.Amount,
+        memo: ?Text
+    ) : async Result.Result<Types.TransactionId, Types.Error> { 
+        // Validate basic parameters
+        if (not Utils.validatePrincipal(to)) {
+            return #err(#UnauthorizedAccess);
+        };
+        
+        if (Principal.equal(msg.caller, to)) {
+            return #err(#InvalidAmount);
+        };
+        
+        // Use enhanced state manager function with validation
+        switch (stateManager.transferRTokensWithValidation(tokenId, msg.caller, to, amount, memo)) {
+            case (#ok(transferId)) {
+                Debug.print("R Token transfer initiated by: " # Principal.toText(msg.caller));
+                Debug.print("Transfer ID: " # Nat64.toText(transferId));
+                #ok(transferId)
+            };
+            case (#err(error)) {
+                Debug.print("R Token transfer failed: " # debug_show(error));
+                #err(error)
+            };
+        }
+    };
+
+    // Batch Transfer Functionality for convenience
+    public shared(msg) func batchTransferRTokens(
+        transfers: [(Types.RTokenId, Principal, Types.Amount, ?Text)]
+    ) : async Result.Result<[Types.TransactionId], Types.Error> {
+        
+        let results = Buffer.Buffer<Types.TransactionId>(transfers.size());
+        
+        for ((tokenId, to, amount, memo) in transfers.vals()) {
+            switch (stateManager.transferRTokensWithValidation(tokenId, msg.caller, to, amount, memo)) {
+                case (#ok(transferId)) {
+                    results.add(transferId);
+                };
+                case (#err(error)) {
+                    return #err(error); // Fail fast on any error
+                };
+            };
+        };
+        
+        #ok(Buffer.toArray(results))
+    };
+
+    // Get transfer history for user
+    public shared query(msg) func getMyTransferHistory() : async [Types.RTokenTransfer] {
+        stateManager.getUserTransferHistory(msg.caller)
+    };
+
+    // Get transfer details
+    public query func getTransferDetails(transferId: Types.TransactionId) : async ?Types.RTokenTransfer {
+        stateManager.getTransferDetails(transferId)
     };
     
     // Redeem R Tokens for ICP

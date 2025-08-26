@@ -8,6 +8,7 @@ import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Float "mo:base/Float";
 import Result "mo:base/Result";
+import Time "mo:base/Time";
 
 import Types "./types";
 import RTokenManager "./r_token_manager";
@@ -326,33 +327,72 @@ module StateManager {
         };
 
         // Transfer R Tokens between members
-        public func transferRTokens(
+        public func transferRTokensWithValidation(
             tokenId: RTokenId,
             from: Principal,
             to: Principal,
             amount: Types.Amount,
             memo: ?Text
-        ) : Result.Result<Types.TransactionId, Types.Error> {
-            let result = rTokenManager.transferRTokens(tokenId, from, to, amount, memo);
-            
-            // Update both members' liquid token balances
-            switch (result) {
-                case (#ok(_)) {
-                    // Get token to find groupId
-                    switch (rTokenManager.getRToken(tokenId)) {
-                        case (?token) {
-                            let fromBalance = rTokenManager.getRTokenBalance(from, token.groupId);
-                            let toBalance = rTokenManager.getRTokenBalance(to, token.groupId);
-                            updateMemberLiquidTokenBalance(token.groupId, from, fromBalance);
-                            updateMemberLiquidTokenBalance(token.groupId, to, toBalance);
+        ) : Result.Result<Types.TransactionId, Types.Error> { 
+
+            // Get token to determine group
+            switch (rTokenManager.getRToken(tokenId)) {
+                case (?token) {
+                    // Get group to validate membership
+                    switch (groups.get(token.groupId)) {
+                        case (?group) {
+                            // Call enhanced transfer with group member validation
+                            let result = rTokenManager.transferRTokens(
+                                tokenId, from, to, amount, memo, group.members
+                            );
+
+                            // Update both members' liquid token balances on success
+                            switch (result) {
+                                case (#ok(transferId)) {
+                                    let fromBalance = rTokenManager.getRTokenBalance(from, token.groupId);
+                                    let toBalance = rTokenManager.getRTokenBalance(to, token.groupId);
+                                    updateMemberLiquidTokenBalance(token.groupId, from, fromBalance);
+                                    updateMemberLiquidTokenBalance(token.groupId, to, toBalance);
+                                    
+                                    // Create transaction record
+                                    let transaction: Types.Transaction = {
+                                        id = nextTransactionId();
+                                        groupId = token.groupId;
+                                        from = from;
+                                        to = ?to;
+                                        amount = amount;
+                                        timestamp = Time.now();
+                                        transactionType = #yield; // Using yield type for R Token transfers
+                                        memo = ?("R Token transfer: " # Nat64.toText(transferId));
+                                        blockHeight = ?transferId;
+                                    };
+                                    putTransaction(transaction);
+                                    
+                                    #ok(transferId)
+                                };
+                                case (#err(error)) { #err(error) };
+                            };
                         };
-                        case null { };
+                        case null { #err(#GroupNotFound) };
                     };
                 };
-                case (#err(_)) { };
+                case null { #err(#GroupNotFound) };
             };
-            
-            result
+        };
+
+        // Get transfer history for a specific user
+        public func getUserTransferHistory(user: Principal) : [Types.RTokenTransfer] {
+            rTokenManager.getUserTransferHistory(user)
+        };
+
+        // Get transfer details
+        public func getTransferDetails(transferId: Types.TransactionId) : ?Types.RTokenTransfer {
+            rTokenManager.getTransferDetails(transferId)
+        };
+
+        // Get all transfers for a specific token
+        public func getTokenTransferHistory(tokenId: Types.RTokenId) : [Types.RTokenTransfer] {
+            rTokenManager.getTokenTransferHistory(tokenId)
         };
 
         // Redeem R Tokens for ICP
