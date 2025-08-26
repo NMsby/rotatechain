@@ -12,7 +12,7 @@ import Time "mo:base/Time";
 
 import Types "./types";
 import RTokenManager "./r_token_manager";
-import yieldManager "./yield_manager";
+import YieldManager "./yield_manager";
 
 module StateManager {
     public type GroupId = Types.GroupId;

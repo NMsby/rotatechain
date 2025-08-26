@@ -1,10 +1,13 @@
 // yield_manager.mo - Advanced yield calculation and management system
 import Time "mo:base/Time";
 import Float "mo:base/Float";
+import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Result "mo:base/Result";
 import Array "mo:base/Array";
 import Debug "mo:base/Debug";
+import Int "mo:base/Int";
+import Int64 "mo:base/Int64";
 
 import Types "./types";
 import Utils "./utils";
@@ -13,31 +16,8 @@ module YieldManager {
     
     // ==================== YIELD STRATEGY TYPES ====================
     
-    public type YieldStrategy = {
-        #fixed: Nat;           // Fixed annual rate in basis points
-        #variable: {           // Variable rate with bounds
-            baseRate: Nat;     // Base rate in basis points
-            minRate: Nat;      // Minimum rate cap
-            maxRate: Nat;      // Maximum rate cap
-            marketFactor: Float; // Market adjustment multiplier
-        };
-        #tiered: {             // Tiered rates based on pool size
-            tiers: [(Amount, Nat)]; // (threshold, rate) pairs
-        };
-        #compound: {           // Compound interest strategy
-            rate: Nat;         // Annual rate
-            compoundFrequency: Nat; // Times per year (12=monthly, 365=daily)
-        };
-    };
-    
-    public type YieldCalculation = {
-        baseAmount: Types.Amount;
-        yieldAmount: Types.Amount;
-        effectiveRate: Float;
-        calculationMethod: Text;
-        timestamp: Types.Timestamp;
-        durationDays: Nat;
-    };
+    public type YieldStrategy = Types.YieldStrategy;
+    public type YieldCalculation = Types.YieldCalculation;
     
     // ==================== YIELD MANAGER CLASS ====================
     
@@ -306,12 +286,12 @@ module YieldManager {
             strategies: [YieldStrategy],
             durationDays: Nat
         ) : [(YieldStrategy, YieldCalculation)] {
-            let results = Array.map<YieldStrategy, (YieldStrategy, YieldCalculation)>(
+            Array.map<YieldStrategy, (YieldStrategy, YieldCalculation)>(
                 strategies,
-                func(strategy) = {
+                func(strategy: YieldStrategy) : (YieldStrategy, YieldCalculation) {
                     let calculation = switch (calculateYield(principal, strategy, durationDays, null, null)) {
                         case (#ok(calc)) { calc };
-                        case (#err(_)) { 
+                        case (#err(_)) {
                             {
                                 baseAmount = principal;
                                 yieldAmount = 0;
@@ -319,13 +299,12 @@ module YieldManager {
                                 calculationMethod = "Error";
                                 timestamp = Time.now();
                                 durationDays = durationDays;
-                            }
+                            } : YieldCalculation
                         };
                     };
                     (strategy, calculation)
                 }
-            );
-            results
+            )
         };
     }
 }
