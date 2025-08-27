@@ -19,6 +19,7 @@ import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
 import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
+import AnalyticsEngine "./analytics_engine";
 
 actor RotateChain {
   
@@ -720,6 +721,192 @@ actor RotateChain {
         }
     };
 
+    // ==================== ANALYTICS ENDPOINTS ====================
+
+    // Get comprehensive group performance analytics
+    public query func getGroupAnalytics(groupId: Nat) : async ?AnalyticsEngine.GroupPerformanceMetrics {
+        switch (findGroup(groupId)) {
+            case (?group) {
+                // Convert legacy Group to enhanced types and get related data
+                // This is a simplified implementation - full integration would require
+                // proper data conversion between legacy and new type systems
+                
+                let mockRotation: Types.RotationState = {
+                    groupId = groupId;
+                    currentRound = group.currentRound;
+                    totalRounds = group.totalRounds;
+                    nextPayoutDate = Time.now() + 86400000000000; // 1 day
+                    currentRecipient = group.nextRecipient;
+                    previousRecipients = [];
+                    poolBalance = Nat64.fromNat(group.contributionAmount * group.members.size());
+                    yieldGenerated = Nat64.fromNat(group.contributionAmount * group.members.size() / 20); // 5% yield
+                    rotationOrder = group.members;
+                    roundStartTime = group.createdAt;
+                    contributionsThisRound = [];
+                };
+                
+                let mockMembers = Array.map<Principal, Types.Member>(group.members, func(p) = {
+                    {
+                        principal = p;
+                        joinedAt = group.createdAt;
+                        totalContributions = Nat64.fromNat(group.contributionAmount * group.currentRound);
+                        receivedPayouts = if (Principal.equal(p, group.creator)) Nat64.fromNat(group.contributionAmount * group.members.size()) else 0;
+                        pendingContributions = 0;
+                        status = #active;
+                        lastContributionTime = ?Time.now();
+                        missedContributions = 0;
+                        liquidTokenBalance = Nat64.fromNat(group.contributionAmount);
+                    }
+                });
+                
+                ?analyticsEngine.calculateGroupPerformance(
+                    groupId, 
+                    {
+                        id = groupId;
+                        name = group.name;
+                        description = "Legacy group";
+                        admin = group.creator;
+                        members = group.members;
+                        maxMembers = group.totalRounds;
+                        minMembers = 2;
+                        contributionAmount = Nat64.fromNat(group.contributionAmount);
+                        rotationIntervalDays = 30;
+                        startDate = group.createdAt;
+                        endDate = group.completedAt;
+                        status = if (group.isActive) #active else #completed;
+                        createdAt = group.createdAt;
+                        totalPoolSize = Nat64.fromNat(group.contributionAmount * group.totalRounds);
+                        platformFeeRate = 25;
+                        yieldRate = 500;
+                        yieldStrategy = #fixed(500);
+                    },
+                    mockRotation,
+                    mockMembers,
+                    [], // Empty R tokens for legacy groups
+                    [] // Empty transactions for legacy groups
+                )
+            };
+            case null { null };
+        }
+    };
+
+    // Get user analytics for the caller
+    public shared query(msg) func getMyAnalytics() : async AnalyticsEngine.UserAnalytics {
+        let userGroups = Array.filter<Group>(groupsArray, func(g) = 
+            Utils.principalInArray(msg.caller, g.members)
+        );
+        
+        // Convert to enhanced types (simplified)
+        let enhancedGroups = Array.map<Group, Types.GroupConfig>(userGroups, func(g) = {
+            {
+                id = g.id;
+                name = g.name;
+                description = "Legacy group";
+                admin = g.creator;
+                members = g.members;
+                maxMembers = g.totalRounds;
+                minMembers = 2;
+                contributionAmount = Nat64.fromNat(g.contributionAmount);
+                rotationIntervalDays = 30;
+                startDate = g.createdAt;
+                endDate = g.completedAt;
+                status = if (g.isActive) #active else #completed;
+                createdAt = g.createdAt;
+                totalPoolSize = Nat64.fromNat(g.contributionAmount * g.totalRounds);
+                platformFeeRate = 25;
+                yieldRate = 500;
+                yieldStrategy = #fixed(500);
+            }
+        });
+        
+        // Get user data from state manager
+        let userTokens = stateManager.getHolderTokens(msg.caller);
+        let userLoans = stateManager.getBorrowerLoans(msg.caller);
+        let userTransfers = stateManager.getUserTransferHistory(msg.caller);
+        
+        // Create mock member data
+        let mockMembers = Array.map<Group, Types.Member>(userGroups, func(g) = {
+            {
+                principal = msg.caller;
+                joinedAt = g.createdAt;
+                totalContributions = Nat64.fromNat(g.contributionAmount * g.currentRound);
+                receivedPayouts = if (Principal.equal(msg.caller, g.creator)) Nat64.fromNat(g.contributionAmount * g.members.size()) else 0;
+                pendingContributions = 0;
+                status = #active;
+                lastContributionTime = ?Time.now();
+                missedContributions = 0;
+                liquidTokenBalance = Nat64.fromNat(g.contributionAmount);
+            }
+        });
+    
+        analyticsEngine.calculateUserAnalytics(
+            msg.caller,
+            enhancedGroups,
+            mockMembers,
+            userTokens,
+            userLoans,
+            [], // Empty transactions - would get from state manager in full implementation
+            userTransfers
+        )
+    };
+
+    // Get platform-wide analytics
+    public query func getPlatformAnalytics() : async AnalyticsEngine.PlatformAnalytics {
+        // Get enhanced data from state manager
+        let allGroups = stateManager.getAllGroups();
+        let allRotations = stateManager.getAllRotations();
+        let allMembers = stateManager.getAllMembers();
+        let allTokens = stateManager.getAllRTokens();
+        let allLoans = stateManager.getAllLoans();
+        let allTransfers = stateManager.getAllTransfers();
+        
+        analyticsEngine.calculatePlatformAnalytics(
+            allGroups,
+            allRotations,
+            allMembers,
+            allTokens,
+            allLoans,
+            allTransfers
+        )
+    };
+
+    // Get yield analytics across the platform
+    public query func getYieldAnalytics() : async AnalyticsEngine.YieldAnalytics {
+        let allGroups = stateManager.getAllGroups();
+        let allRotations = stateManager.getAllRotations();
+        
+        // Mock yield distributions - would calculate from actual distribution records
+        let yieldDistributions = Array.map<(Types.GroupId, Types.GroupConfig), (Types.GroupId, Types.Amount)>(
+            allGroups, 
+            func((groupId, _)) = (groupId, 1_000_000_000) // 10 ICP per group average
+        );
+        
+        analyticsEngine.calculateYieldAnalytics(allGroups, allRotations, yieldDistributions)
+    };
+
+    // Get risk analytics for the lending portfolio
+    public query func getRiskAnalytics() : async AnalyticsEngine.RiskAnalytics {
+        let allLoans = stateManager.getAllLoans();
+        let allTokens = stateManager.getAllRTokens();
+        let platformAnalytics = await getPlatformAnalytics();
+        
+        analyticsEngine.calculateRiskAnalytics(allLoans, allTokens, platformAnalytics)
+    };
+
+    // Get historical platform trends
+    public query func getPlatformTrends(days: Nat) : async [(Int, AnalyticsEngine.PlatformAnalytics)] {
+        analyticsEngine.getHistoricalTrends(days)
+    };
+
+    // Record current platform state for trend analysis (admin function)
+    public shared(msg) func recordPlatformSnapshot() : async Bool {
+        let currentAnalytics = await getPlatformAnalytics();
+        analyticsEngine.recordPlatformSnapshot(currentAnalytics);
+        
+        Debug.print("Platform snapshot recorded by: " # Principal.toText(msg.caller));
+        true
+    };
+    
     // ==================== QUERY FUNCTIONS ====================
 
     // Check account balance

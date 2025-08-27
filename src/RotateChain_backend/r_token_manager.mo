@@ -635,5 +635,25 @@ module RTokenManager {
 
             {totalTokens = totalTokens; totalValue = totalValue; totalHolders = totalHolders}
         };
+
+        // ==================== STATISTICS & ANALYTICS ====================
+
+        // Get all tokens for analytics
+        public func getAllTokens() : [RToken] {
+            let tokenList = Buffer.Buffer<RToken>(RBTree.size(tokens.share()));
+            for ((_, token) in tokens.entries()) {
+                tokenList.add(token);
+            };
+            Buffer.toArray(tokenList)
+        };
+
+        // Get all transfers for analytics
+        public func getAllTransfers() : [RTokenTransfer] {
+            let transferList = Buffer.Buffer<RTokenTransfer>(RBTree.size(transfers.share()));
+            for ((_, transfer) in transfers.entries()) {
+                transferList.add(transfer);
+            };
+            Buffer.toArray(transferList)
+        };
     }
 }

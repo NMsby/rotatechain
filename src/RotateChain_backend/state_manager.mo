@@ -836,5 +836,43 @@ module StateManager {
             
             true
         };
+
+        // ==================== ANALYTICS & QUERY FUNCTIONS ====================
+
+        // Get all groups for analytics
+        public func getAllGroups() : [(GroupId, GroupConfig)] {
+            Iter.toArray(groups.entries())
+        };
+
+        // Get all rotations for analytics
+        public func getAllRotations() : [(GroupId, RotationState)] {
+            Iter.toArray(rotations.entries())
+        };
+
+        // Get all members across all groups
+        public func getAllMembers() : [(GroupId, [Member])] {
+            let memberList = Buffer.Buffer<(GroupId, [Member])>(groups.size());
+            for ((groupId, _) in groups.entries()) {
+                let groupMembers = getGroupMembers(groupId);
+                memberList.add((groupId, groupMembers));
+            };
+            Buffer.toArray(memberList)
+        };
+
+        // Get all R Tokens for analytics
+        public func getAllRTokens() : [RToken] {
+            rTokenManager.getAllTokens() // You'll need to add this to RTokenManager
+        };
+
+        // Get all loans for analytics
+        public func getAllLoans() : [Types.Loan] {
+            lendingEngine.getAllLoans() // You'll need to add this to LendingEngine
+        };
+
+        // Get all transfers for analytics
+        public func getAllTransfers() : [Types.RTokenTransfer] {
+            rTokenManager.getAllTransfers() // You'll need to add this to RTokenManager
+        };
+
     }
 }
