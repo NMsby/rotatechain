@@ -368,7 +368,9 @@ module AnalyticsEngine {
             // Simplified calculations for complex metrics
             let activeUsersEstimate = Int.abs(Float.toInt(Float.fromInt(totalMembers) * 0.7)); // Estimate 70% active
             let platformGrowthRate = 15.5; // Placeholder - would calculate from historical data
-            let networkDensity = Float.fromInt(totalGroups) / Float.max(Float.fromInt(totalMembers), 1.0);
+            let networkDensity = if (totalMembers > 0) { 
+                Float.fromInt(totalGroups) / Float.max(Float.fromInt(totalMembers), 1.0)
+            } else { 0.0 };
             
             {
                 totalGroups = totalGroups;
