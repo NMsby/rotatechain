@@ -355,6 +355,12 @@ module Utils {
             case (#MemberSuspended) { "Member account is suspended" };
             case (#ExcessiveAmount) { "Amount exceeds maximum allowed limit" };
             case (#NetworkError) { "Network communication error" };
+            case (#LoanNotFound) { "Loan not found" };
+            case (#InsufficientCollateral) { "Insufficient collateral for this loan" };
+            case (#LoanAlreadyExists) { "Loan already exists for this request" };
+            case (#InvalidLoanTerm) { "Invalid loan term or loan not in correct status" };
+            case (#LoanNotActive) { "Loan is not in active status" };
+            case (#CollateralLocked) { "R Token is already locked as collateral" };
         }
     };
    
