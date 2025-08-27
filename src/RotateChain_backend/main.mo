@@ -941,7 +941,7 @@ actor RotateChain {
         errors: [Text];
     } {
         let errors = Buffer.Buffer<Text>(10);
-        var healthCheck = true;
+        var healthCheckResult = true;
         var groupAnalyticsTest = false;
         var userAnalyticsTest = false;
         var platformAnalyticsTest = false;
@@ -951,10 +951,10 @@ actor RotateChain {
         // Test 1: Basic health check
         try {
             let health = await healthCheck();
-            healthCheck := health;
+            healthCheckResult := health;
         } catch (e) {
             errors.add("Health check failed: " # Error.message(e));
-            healthCheck := false;
+            healthCheckResult := false;
         };
         
         // Test 2: Group analytics
@@ -1018,7 +1018,7 @@ actor RotateChain {
             errors.add("Yield system test failed: " # Error.message(e));
         };
         
-        Debug.print("System test completed - Health: " # Bool.toText(healthCheck) # 
+        Debug.print("System test completed - Health: " # Bool.toText(healthCheckResult) # 
                 ", Group: " # Bool.toText(groupAnalyticsTest) #
                 ", User: " # Bool.toText(userAnalyticsTest) #
                 ", Platform: " # Bool.toText(platformAnalyticsTest) #
@@ -1026,7 +1026,7 @@ actor RotateChain {
                 ", Yield: " # Bool.toText(yieldSystemTest));
         
         {
-            healthCheck = healthCheck;
+            healthCheck = healthCheckResult;
             groupAnalyticsTest = groupAnalyticsTest;
             userAnalyticsTest = userAnalyticsTest;
             platformAnalyticsTest = platformAnalyticsTest;
