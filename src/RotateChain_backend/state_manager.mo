@@ -550,6 +550,11 @@ module StateManager {
             lendingEngine.getLendingStatistics()
         };
 
+        // Export lending state for upgrades
+        public func exportLendingState() : ([(Types.LoanId, Types.Loan)], [(Types.TransactionId, Types.LoanPayment)]) {
+            lendingEngine.exportState()
+        };
+
         // ==================== YIELD OPERATIONS ====================
 
         // Calculate yield for a specific group over a duration

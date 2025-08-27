@@ -107,6 +107,9 @@ actor RotateChain {
             transactionCounter,
             isSystemPaused
         );
+
+        // Initialize lending state
+        stateManager.initializeLendingState(loanEntries, loanPaymentEntries);
     };
 
     // Call initialization
@@ -594,6 +597,129 @@ actor RotateChain {
         }
     };
 
+    // ==================== LENDING SYSTEM ENDPOINTS ====================
+
+    // Request a loan using R Tokens as collateral
+    public shared(msg) func requestLoan(
+        borrowerGroupId: Nat,
+        principalAmount: Types.Amount,
+        termDays: Nat,
+        collateralTokenIds: [Types.RTokenId],
+        memo: ?Text
+    ) : async Result.Result<Types.LoanId, Types.Error> {
+        
+        let loanRequest: Types.LoanRequest = {
+            principalAmount = principalAmount;
+            termDays = termDays;
+            collateralTokenIds = collateralTokenIds;
+            interestRate = null; // System will calculate
+            memo = memo;
+        };
+        
+        switch (stateManager.requestLoan(msg.caller, borrowerGroupId, loanRequest)) {
+            case (#ok(loanId)) {
+                Debug.print("Loan requested by: " # Principal.toText(msg.caller));
+                Debug.print("Loan ID: " # Nat.toText(loanId));
+                Debug.print("Amount: " # Nat64.toText(principalAmount) # " e8s");
+                #ok(loanId)
+            };
+            case (#err(error)) {
+                Debug.print("Loan request failed: " # debug_show(error));
+                #err(error)
+            };
+        }
+    };
+
+    // Approve a loan (admin function - for now, any group member can approve)
+    public shared(msg) func approveLoan(
+        loanId: Types.LoanId
+    ) : async Result.Result<Bool, Types.Error> {
+        // Note: In production, add proper admin authorization
+        switch (stateManager.approveLoan(loanId, msg.caller)) {
+            case (#ok(success)) {
+                Debug.print("Loan approved by: " # Principal.toText(msg.caller));
+                Debug.print("Loan ID: " # Nat.toText(loanId));
+                #ok(success)
+            };
+            case (#err(error)) {
+                Debug.print("Loan approval failed: " # debug_show(error));
+                #err(error)
+            };
+        }
+    };
+
+    // Disburse approved loan funds (admin function)
+    public shared(msg) func disburseLoan(
+        loanId: Types.LoanId
+    ) : async Result.Result<Bool, Types.Error> {
+        // Note: In production, integrate with actual ICP transfer
+        switch (stateManager.disburseLoan(loanId, msg.caller)) {
+            case (#ok(success)) {
+                Debug.print("Loan disbursed by: " # Principal.toText(msg.caller));
+                Debug.print("Loan ID: " # Nat.toText(loanId));
+                #ok(success)
+            };
+            case (#err(error)) {
+                Debug.print("Loan disbursement failed: " # debug_show(error));
+                #err(error)
+            };
+        }
+    };
+
+    // Make a loan payment
+    public shared(msg) func makeLoanPayment(
+        loanId: Types.LoanId,
+        amount: Types.Amount
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        // Note: In production, integrate with actual ICP payment processing
+        switch (stateManager.makeLoanPayment(loanId, msg.caller, amount)) {
+            case (#ok(paymentId)) {
+                Debug.print("Loan payment made by: " # Principal.toText(msg.caller));
+                Debug.print("Loan ID: " # Nat.toText(loanId));
+                Debug.print("Payment Amount: " # Nat64.toText(amount) # " e8s");
+                Debug.print("Payment ID: " # Nat64.toText(paymentId));
+                #ok(paymentId)
+            };
+            case (#err(error)) {
+                Debug.print("Loan payment failed: " # debug_show(error));
+                #err(error)
+            };
+        }
+    };
+
+    // Get loan details
+    public query func getLoanDetails(loanId: Types.LoanId) : async ?Types.Loan {
+        stateManager.getLoan(loanId)
+    };
+
+    // Get user's loans
+    public shared query(msg) func getMyLoans() : async [Types.Loan] {
+        stateManager.getBorrowerLoans(msg.caller)
+    };
+
+    // Get lending platform statistics
+    public query func getLendingStats() : async {
+        totalLoans: Nat;
+        activeLoans: Nat;
+        defaultedLoans: Nat;
+        totalLent: Types.Amount;
+        totalRepaid: Types.Amount;
+        averageInterestRate: Float;
+    } {
+        stateManager.getLendingStatistics()
+    };
+
+    // Check if an R Token is locked as collateral
+    public query func isRTokenLocked(tokenId: Types.RTokenId) : async ?Types.LoanId {
+        switch (stateManager.getLoan(0)) { // This is a placeholder - need to add proper function
+            case (?_) { 
+                // Would need to add isTokenLocked function to stateManager
+                null // Placeholder
+            };
+            case null { null };
+        }
+    };
+
     // ==================== QUERY FUNCTIONS ====================
 
     // Check account balance
@@ -748,6 +874,11 @@ actor RotateChain {
         groupCounter := gCounter;
         transactionCounter := tCounter;
         isSystemPaused := paused;
+
+        // Add lending state export
+        let (loanExp, paymentExp) = stateManager.exportLendingState();
+        loanEntries := loanExp;
+        loanPaymentEntries := paymentExp;
         
         Debug.print("Pre-upgrade: State exported successfully");
     };
