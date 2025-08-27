@@ -86,6 +86,14 @@ module Utils {
     
     // ==================== TIME UTILITIES ====================
     
+    // Convert optional text to string representation
+    public func textOption(opt: ?Text) : Text {
+        switch (opt) {
+            case (?text) { text };
+            case null { "none" };
+        }
+    };
+    
     // Convert days to nanoseconds
     public func daysToNanos(days: Nat) : Int {
         Int.abs(days * 24 * 60 * 60 * 1_000_000_000)
