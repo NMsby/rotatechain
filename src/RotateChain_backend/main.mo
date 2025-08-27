@@ -93,6 +93,9 @@ actor RotateChain {
     // ==================== INITIALIZE STATE MANAGER ====================
     private let stateManager = StateManager.StateManager();
 
+    // ==================== ANALYTICS ENGINE INSTANCE ====================
+    private let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
+
     // Initialize state on canister creation
     private func initializeStateManager() {
         stateManager.initializeFromState(
@@ -888,8 +891,23 @@ actor RotateChain {
     public query func getRiskAnalytics() : async AnalyticsEngine.RiskAnalytics {
         let allLoans = stateManager.getAllLoans();
         let allTokens = stateManager.getAllRTokens();
-        let platformAnalytics = await getPlatformAnalytics();
         
+        // Get platform data directly instead of calling async function
+        // let platformAnalytics = await getPlatformAnalytics();
+        let allGroups = stateManager.getAllGroups();
+        let allRotations = stateManager.getAllRotations();
+        let allMembers = stateManager.getAllMembers();
+        let allTransfers = stateManager.getAllTransfers();
+        
+        let platformAnalytics = analyticsEngine.calculatePlatformAnalytics(
+            allGroups,
+            allRotations,
+            allMembers,
+            allTokens,
+            allLoans,
+            allTransfers
+        ); 
+
         analyticsEngine.calculateRiskAnalytics(allLoans, allTokens, platformAnalytics)
     };
 
