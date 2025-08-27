@@ -457,10 +457,10 @@ module LendingEngine {
                     
                     // Calculate recovery amount (collateral value minus liquidation costs)
                     let liquidationFee = Utils.calculatePercentage(loan.collateralValue, 500); // 5% fee
-                    let recoveredAmount = if (loan.collateralValue > liquidationFee) {
+                    let recoveredAmount : Amount = if (loan.collateralValue > liquidationFee) {
                         loan.collateralValue - liquidationFee
                     } else {
-                        0
+                        0 : Nat64 // Explicitly cast 0 to Nat64
                     };
                     
                     // Update loan status
