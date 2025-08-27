@@ -81,6 +81,9 @@ actor RotateChain {
     private stable var transactionCounter: Types.TransactionId = 0;
     private stable var isSystemPaused: Bool = false;
 
+    // ==================== YIELD MANAGER INSTANCE ====================
+    private let yieldManager = YieldManager.YieldManager();
+
     // ==================== INITIALIZE STATE MANAGER ====================
     private let stateManager = StateManager.StateManager();
 
@@ -513,7 +516,9 @@ actor RotateChain {
             }) : Types.YieldStrategy)
         ];
         
-        yieldManager.compareStrategies(principal, strategies, durationDays)
+        // Create local yield manager instance for query function
+        let localYieldManager = YieldManager.YieldManager();
+        localYieldManager.compareStrategies(principal, strategies, durationDays)
     };
 
     // Get current market conditions
