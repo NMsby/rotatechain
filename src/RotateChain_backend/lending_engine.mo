@@ -269,6 +269,335 @@ module LendingEngine {
             }
         };
 
+        // ==================== LOAN DISBURSEMENT ====================
+
+        // Disburse approved loan funds
+        public func disburseLoan(
+            loanId: LoanId,
+            disburser: Principal
+        ) : Result.Result<Bool, Error> {
+            switch (loans.get(loanId)) {
+                case (?loan) {
+                    if (loan.status != #approved) {
+                        return #err(#InvalidLoanTerm);
+                    };
+                    
+                    let disbursedLoan = {
+                        loan with
+                        status = #active;
+                        disbursedAt = ?Time.now();
+                        disbursedAmount = loan.principalAmount;
+                    };
+                    
+                    loans.put(loanId, disbursedLoan);
+                    
+                    Debug.print("Loan disbursed - ID: " # Nat.toText(loanId) # 
+                            ", Amount: " # Nat64.toText(loan.principalAmount) # " e8s");
+                    
+                    #ok(true)
+                };
+                case null { #err(#LoanNotFound) };
+            }
+        };
+
+        // ==================== LOAN REPAYMENT SYSTEM ====================
+
+        // Make a loan payment
+        public func makePayment(
+            loanId: LoanId,
+            payer: Principal,
+            paymentAmount: Amount,
+            paymentType: Types.LoanPaymentType
+        ) : Result.Result<Types.TransactionId, Error> {
+            switch (loans.get(loanId)) {
+                case (?loan) {
+                    if (loan.status != #active) {
+                        return #err(#LoanNotActive);
+                    };
+                    
+                    if (not Principal.equal(payer, loan.borrower)) {
+                        return #err(#UnauthorizedAccess);
+                    };
+                    
+                    if (paymentAmount == 0 or paymentAmount > loan.remainingBalance) {
+                        return #err(#InvalidAmount);
+                    };
+                    
+                    // Calculate interest and principal portions
+                    let currentAccruedInterest = calculateAccruedInterest(loan);
+                    let interestPortion = Nat64.min(paymentAmount, currentAccruedInterest);
+                    let principalPortion = paymentAmount - interestPortion;
+                    
+                    // Update loan state
+                    let newRemainingBalance = loan.remainingBalance - paymentAmount;
+                    let newTotalPaid = loan.totalPaid + paymentAmount;
+                    let newAccruedInterest = currentAccruedInterest - interestPortion;
+                    
+                    let updatedLoan = {
+                        loan with
+                        remainingBalance = newRemainingBalance;
+                        totalPaid = newTotalPaid;
+                        accruedInterest = newAccruedInterest;
+                        lastPaymentDate = ?Time.now();
+                        status = if (newRemainingBalance == 0) #repaid else #active;
+                    };
+                    
+                    loans.put(loanId, updatedLoan);
+                    
+                    // Record payment
+                    let paymentId = paymentCounter;
+                    paymentCounter += 1;
+                    
+                    let payment: LoanPayment = {
+                        id = paymentId;
+                        loanId = loanId;
+                        payer = payer;
+                        amount = paymentAmount;
+                        principalPortion = principalPortion;
+                        interestPortion = interestPortion;
+                        timestamp = Time.now();
+                        paymentType = paymentType;
+                    };
+                    
+                    payments.put(paymentId, payment);
+                    
+                    // If loan is fully repaid, release collateral
+                    if (newRemainingBalance == 0) {
+                        releaseCollateral(loanId);
+                    };
+                    
+                    Debug.print("Loan payment processed - ID: " # Nat.toText(loanId) # 
+                            ", Amount: " # Nat64.toText(paymentAmount) # " e8s" #
+                            ", Remaining: " # Nat64.toText(newRemainingBalance) # " e8s");
+                    
+                    #ok(paymentId)
+                };
+                case null { #err(#LoanNotFound) };
+            }
+        };
+
+        // Calculate accrued interest since last payment or disbursement
+        private func calculateAccruedInterest(loan: Loan) : Amount {
+            let lastUpdateTime = switch (loan.lastPaymentDate) {
+                case (?date) { date };
+                case null {
+                    switch (loan.disbursedAt) {
+                        case (?date) { date };
+                        case null { loan.createdAt }; // Fallback
+                    }
+                };
+            };
+            
+            let daysSinceUpdate = (Time.now() - lastUpdateTime) / (24 * 60 * 60 * 1_000_000_000);
+            let daysInt = Int.abs(daysSinceUpdate);
+            
+            if (daysInt <= 0) {
+                return loan.accruedInterest;
+            };
+            
+            // Calculate additional interest
+            let dailyRate = Float.fromInt(loan.interestRate) / 10_000.0 / 365.0;
+            let newInterest = Float.fromInt64(Int64.fromNat64(loan.remainingBalance)) * 
+                            dailyRate * Float.fromInt(daysInt);
+            let additionalInterest = Nat64.fromNat(Int.abs(Float.toInt(newInterest)));
+            
+            loan.accruedInterest + additionalInterest
+        };
+
+        // ==================== LOAN DEFAULT HANDLING ====================
+
+        // Check and handle loan defaults
+        public func checkLoanDefault(loanId: LoanId) : Result.Result<Bool, Error> {
+            switch (loans.get(loanId)) {
+                case (?loan) {
+                    if (loan.status != #active) {
+                        return #ok(false); // Not active, can't default
+                    };
+                    
+                    switch (loan.dueDate) {
+                        case (?dueDate) {
+                            let currentTime = Time.now();
+                            let gracePeriodEnd = dueDate + Utils.daysToNanos(GRACE_PERIOD_DAYS);
+                            
+                            if (currentTime > gracePeriodEnd) {
+                                // Loan is in default
+                                let defaultedLoan = {
+                                    loan with
+                                    status = #defaulted;
+                                    missedPayments = loan.missedPayments + 1;
+                                };
+                                
+                                loans.put(loanId, defaultedLoan);
+                                
+                                Debug.print("Loan defaulted - ID: " # Nat.toText(loanId) # 
+                                        ", Days overdue: " # Int.toText((currentTime - dueDate) / (24 * 60 * 60 * 1_000_000_000)));
+                                
+                                #ok(true)
+                            } else {
+                                #ok(false)
+                            }
+                        };
+                        case null { #ok(false) }; // No due date set
+                    }
+                };
+                case null { #err(#LoanNotFound) };
+            }
+        };
+
+        // Liquidate collateral for defaulted loan
+        public func liquidateCollateral(
+            loanId: LoanId,
+            liquidator: Principal
+        ) : Result.Result<Types.Amount, Error> {
+            switch (loans.get(loanId)) {
+                case (?loan) {
+                    if (loan.status != #defaulted) {
+                        return #err(#InvalidLoanTerm);
+                    };
+                    
+                    // Calculate recovery amount (collateral value minus liquidation costs)
+                    let liquidationFee = Utils.calculatePercentage(loan.collateralValue, 500); // 5% fee
+                    let recoveredAmount = if (loan.collateralValue > liquidationFee) {
+                        loan.collateralValue - liquidationFee
+                    } else {
+                        0
+                    };
+                    
+                    // Update loan status
+                    let liquidatedLoan = {
+                        loan with
+                        status = #liquidated;
+                    };
+                    
+                    loans.put(loanId, liquidatedLoan);
+                    
+                    // Release collateral tokens (they would be sold/transferred)
+                    releaseCollateral(loanId);
+                    
+                    Debug.print("Collateral liquidated - Loan ID: " # Nat.toText(loanId) # 
+                            ", Recovered: " # Nat64.toText(recoveredAmount) # " e8s");
+                    
+                    #ok(recoveredAmount)
+                };
+                case null { #err(#LoanNotFound) };
+            }
+        };
+
+        // Release collateral tokens
+        private func releaseCollateral(loanId: LoanId) {
+            switch (loans.get(loanId)) {
+                case (?loan) {
+                    for (tokenId in loan.collateralTokenIds.vals()) {
+                        collateralRegistry.delete(tokenId);
+                    };
+                };
+                case null { };
+            };
+        };
+
+        // ==================== LOAN ANALYTICS ====================
+
+        // Calculate loan health score
+        public func calculateLoanHealth(loanId: LoanId) : Result.Result<Float, Error> {
+            switch (loans.get(loanId)) {
+                case (?loan) {
+                    if (loan.status != #active) {
+                        return #ok(0.0); // Non-active loans have no health score
+                    };
+                    
+                    // Factors for health calculation:
+                    // 1. Payment history (70%)
+                    // 2. Collateral ratio (20%)
+                    // 3. Time to maturity (10%)
+                    
+                    let paymentScore = if (loan.missedPayments == 0) {
+                        1.0
+                    } else {
+                        Float.max(0.0, 1.0 - (Float.fromInt(loan.missedPayments) * 0.2))
+                    };
+                    
+                    let currentCollateralRatio = Float.fromInt(loan.collateralRatio) / 10_000.0;
+                    let minRatio = Float.fromInt(MINIMUM_COLLATERAL_RATIO) / 10_000.0;
+                    let collateralScore = Float.min(1.0, currentCollateralRatio / minRatio);
+                    
+                    let timeScore = switch (loan.dueDate) {
+                        case (?dueDate) {
+                            let timeRemaining = dueDate - Time.now();
+                            if (timeRemaining <= 0) {
+                                0.0 // Overdue
+                            } else {
+                                let totalTerm = Float.fromInt(loan.termDays * 24 * 60 * 60 * 1_000_000_000);
+                                let remainingRatio = Float.fromInt64(Int64.fromInt(timeRemaining)) / totalTerm;
+                                Float.min(1.0, remainingRatio * 2.0) // Boost score for early stage
+                            }
+                        };
+                        case null { 0.5 }; // Default for unknown due date
+                    };
+                    
+                    let healthScore = (paymentScore * 0.7) + (collateralScore * 0.2) + (timeScore * 0.1);
+                    
+                    #ok(healthScore)
+                };
+                case null { #err(#LoanNotFound) };
+            }
+        };
+
+        // Get loan payment history
+        public func getLoanPayments(loanId: LoanId) : [LoanPayment] {
+            let loanPayments = Buffer.Buffer<LoanPayment>(20);
+            for ((_, payment) in payments.entries()) {
+                if (payment.loanId == loanId) {
+                    loanPayments.add(payment);
+                };
+            };
+            Buffer.toArray(loanPayments)
+        };
+
+        // Get platform lending statistics
+        public func getLendingStatistics() : {
+            totalLoans: Nat;
+            activeLoans: Nat;
+            defaultedLoans: Nat;
+            totalLent: Amount;
+            totalRepaid: Amount;
+            averageInterestRate: Float;
+        } {
+            var totalLoans = 0;
+            var activeLoans = 0;
+            var defaultedLoans = 0;
+            var totalLent: Amount = 0;
+            var totalRepaid: Amount = 0;
+            var totalInterestRate: Nat = 0;
+            
+            for ((_, loan) in loans.entries()) {
+                totalLoans += 1;
+                totalLent += loan.disbursedAmount;
+                totalRepaid += loan.totalPaid;
+                totalInterestRate += loan.interestRate;
+                
+                switch (loan.status) {
+                    case (#active) { activeLoans += 1 };
+                    case (#defaulted or #liquidated) { defaultedLoans += 1 };
+                    case (_) { };
+                };
+            };
+            
+            let averageRate = if (totalLoans > 0) {
+                Float.fromInt(totalInterestRate) / Float.fromInt(totalLoans) / 100.0 // Convert to percentage
+            } else {
+                0.0
+            };
+            
+            {
+                totalLoans = totalLoans;
+                activeLoans = activeLoans;
+                defaultedLoans = defaultedLoans;
+                totalLent = totalLent;
+                totalRepaid = totalRepaid;
+                averageInterestRate = averageRate;
+            }
+        };
+
         // ==================== LOAN VALIDATION ====================
         
         private func validateLoanRequest(

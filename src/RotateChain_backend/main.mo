@@ -77,6 +77,10 @@ actor RotateChain {
     private stable var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
     private stable var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
 
+    // Lending stable storage
+    private stable var loanEntries: [(Types.LoanId, Types.Loan)] = [];
+    private stable var loanPaymentEntries: [(Types.TransactionId, Types.LoanPayment)] = [];
+    
     // State counters
     private stable var groupCounter: Types.GroupId = 0;
     private stable var transactionCounter: Types.TransactionId = 0;
