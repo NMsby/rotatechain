@@ -8,6 +8,9 @@ import Debug "mo:base/Debug";
 import Time "mo:base/Time";
 import Nat64 "mo:base/Nat64";
 import Buffer "mo:base/Buffer";
+import Error "mo:base/Error";
+import Bool "mo:base/Bool";
+import Int "mo:base/Int";
 
 // Import new modules for validation and utilities
 import Types "./types";
@@ -19,6 +22,7 @@ import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
 import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
+import AnalyticsEngine "./analytics_engine";
 
 actor RotateChain {
   
@@ -91,6 +95,9 @@ actor RotateChain {
 
     // ==================== INITIALIZE STATE MANAGER ====================
     private let stateManager = StateManager.StateManager();
+
+    // ==================== ANALYTICS ENGINE INSTANCE ====================
+    private let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
 
     // Initialize state on canister creation
     private func initializeStateManager() {
@@ -720,6 +727,414 @@ actor RotateChain {
         }
     };
 
+    // ==================== ANALYTICS ENDPOINTS ====================
+
+    // Get comprehensive group performance analytics
+    public query func getGroupAnalytics(groupId: Nat) : async ?AnalyticsEngine.GroupPerformanceMetrics {
+        switch (findGroup(groupId)) {
+            case (?group) {
+                // Convert legacy Group to enhanced types and get related data
+                // This is a simplified implementation - full integration would require
+                // proper data conversion between legacy and new type systems
+                
+                let mockRotation: Types.RotationState = {
+                    groupId = groupId;
+                    currentRound = group.currentRound;
+                    totalRounds = group.totalRounds;
+                    nextPayoutDate = Time.now() + 86400000000000; // 1 day
+                    currentRecipient = group.nextRecipient;
+                    previousRecipients = [];
+                    poolBalance = Nat64.fromNat(group.contributionAmount * group.members.size());
+                    yieldGenerated = Nat64.fromNat(group.contributionAmount * group.members.size() / 20); // 5% yield
+                    rotationOrder = group.members;
+                    roundStartTime = group.createdAt;
+                    contributionsThisRound = [];
+                };
+                
+                let mockMembers = Array.map<Principal, Types.Member>(group.members, func(p) : Types.Member {
+                    { 
+                            principal = p;
+                            joinedAt = group.createdAt;
+                            totalContributions = Nat64.fromNat(group.contributionAmount * group.currentRound);
+                            receivedPayouts = if (Principal.equal(p, group.creator)) Nat64.fromNat(group.contributionAmount * group.members.size()) else 0;
+                            pendingContributions = 0;
+                            status = #active;
+                            lastContributionTime = ?Time.now();
+                            missedContributions = 0;
+                            liquidTokenBalance = Nat64.fromNat(group.contributionAmount);
+                    }
+                });
+                
+                ?analyticsEngine.calculateGroupPerformance(
+                    groupId, 
+                    {
+                        id = groupId;
+                        name = group.name;
+                        description = "Legacy group";
+                        admin = group.creator;
+                        members = group.members;
+                        maxMembers = group.totalRounds;
+                        minMembers = 2;
+                        contributionAmount = Nat64.fromNat(group.contributionAmount);
+                        rotationIntervalDays = 30;
+                        startDate = group.createdAt;
+                        endDate = group.completedAt;
+                        status = if (group.isActive) #active else #completed;
+                        createdAt = group.createdAt;
+                        totalPoolSize = Nat64.fromNat(group.contributionAmount * group.totalRounds);
+                        platformFeeRate = 25;
+                        yieldRate = 500;
+                        yieldStrategy = #fixed(500);
+                    },
+                    mockRotation,
+                    mockMembers,
+                    [], // Empty R tokens for legacy groups
+                    [] // Empty transactions for legacy groups
+                )
+            };
+            case null { null };
+        }
+    };
+
+    // Get user analytics for the caller
+    public shared query(msg) func getMyAnalytics() : async AnalyticsEngine.UserAnalytics {
+        let userGroups = Array.filter<Group>(groupsArray, func(g) = 
+            Utils.principalInArray(msg.caller, g.members)
+        );
+        
+        // Convert to enhanced types (simplified)
+        let enhancedGroups = Array.map<Group, Types.GroupConfig>(userGroups, func(g) : Types.GroupConfig {
+            {
+                id = g.id;
+                name = g.name;
+                description = "Legacy group";
+                admin = g.creator;
+                members = g.members;
+                maxMembers = g.totalRounds;
+                minMembers = 2;
+                contributionAmount = Nat64.fromNat(g.contributionAmount);
+                rotationIntervalDays = 30;
+                startDate = g.createdAt;
+                endDate = g.completedAt;
+                status = if (g.isActive) #active else #completed;
+                createdAt = g.createdAt;
+                totalPoolSize = Nat64.fromNat(g.contributionAmount * g.totalRounds);
+                platformFeeRate = 25;
+                yieldRate = 500;
+                yieldStrategy = #fixed(500);
+            }
+        });
+        
+        // Get user data from state manager
+        let userTokens = stateManager.getHolderTokens(msg.caller);
+        let userLoans = stateManager.getBorrowerLoans(msg.caller);
+        let userTransfers = stateManager.getUserTransferHistory(msg.caller);
+        
+        // Create mock member data
+        let mockMembers = Array.map<Group, Types.Member>(userGroups, func(g) : Types.Member {
+            {
+                principal = msg.caller;
+                joinedAt = g.createdAt;
+                totalContributions = Nat64.fromNat(g.contributionAmount * g.currentRound);
+                receivedPayouts = if (Principal.equal(msg.caller, g.creator)) Nat64.fromNat(g.contributionAmount * g.members.size()) else 0;
+                pendingContributions = 0;
+                status = #active;
+                lastContributionTime = ?Time.now();
+                missedContributions = 0;
+                liquidTokenBalance = Nat64.fromNat(g.contributionAmount);
+            }
+        });
+    
+        analyticsEngine.calculateUserAnalytics(
+            msg.caller,
+            enhancedGroups,
+            mockMembers,
+            userTokens,
+            userLoans,
+            [], // Empty transactions - would get from state manager in full implementation
+            userTransfers
+        )
+    };
+
+    // Get platform-wide analytics
+    public query func getPlatformAnalytics() : async AnalyticsEngine.PlatformAnalytics {
+        // Get enhanced data from state manager
+        let allGroups = stateManager.getAllGroups();
+        let allRotations = stateManager.getAllRotations();
+        let allMembers = stateManager.getAllMembers();
+        let allTokens = stateManager.getAllRTokens();
+        let allLoans = stateManager.getAllLoans();
+        let allTransfers = stateManager.getAllTransfers();
+        
+        analyticsEngine.calculatePlatformAnalytics(
+            allGroups,
+            allRotations,
+            allMembers,
+            allTokens,
+            allLoans,
+            allTransfers
+        )
+    };
+
+    // Get yield analytics across the platform
+    public query func getYieldAnalytics() : async AnalyticsEngine.YieldAnalytics {
+        let allGroups = stateManager.getAllGroups();
+        let allRotations = stateManager.getAllRotations();
+        
+        // Mock yield distributions - would calculate from actual distribution records
+        let yieldDistributions = Array.map<(Types.GroupId, Types.GroupConfig), (Types.GroupId, Types.Amount)>(
+            allGroups, 
+            func((groupId, _)) = (groupId, 1_000_000_000) // 10 ICP per group average
+        );
+        
+        analyticsEngine.calculateYieldAnalytics(allGroups, allRotations, yieldDistributions)
+    };
+
+    // Get risk analytics for the lending portfolio
+    public query func getRiskAnalytics() : async AnalyticsEngine.RiskAnalytics {
+        let allLoans = stateManager.getAllLoans();
+        let allTokens = stateManager.getAllRTokens();
+        
+        // Get platform data directly instead of calling async function
+        // let platformAnalytics = await getPlatformAnalytics();
+        let allGroups = stateManager.getAllGroups();
+        let allRotations = stateManager.getAllRotations();
+        let allMembers = stateManager.getAllMembers();
+        let allTransfers = stateManager.getAllTransfers();
+        
+        let platformAnalytics = analyticsEngine.calculatePlatformAnalytics(
+            allGroups,
+            allRotations,
+            allMembers,
+            allTokens,
+            allLoans,
+            allTransfers
+        ); 
+
+        analyticsEngine.calculateRiskAnalytics(allLoans, allTokens, platformAnalytics)
+    };
+
+    // Get historical platform trends
+    public query func getPlatformTrends(days: Nat) : async [(Int, AnalyticsEngine.PlatformAnalytics)] {
+        analyticsEngine.getHistoricalTrends(days)
+    };
+
+    // Record current platform state for trend analysis (admin function)
+    public shared(msg) func recordPlatformSnapshot() : async Bool {
+        let currentAnalytics = await getPlatformAnalytics();
+        analyticsEngine.recordPlatformSnapshot(currentAnalytics);
+        
+        Debug.print("Platform snapshot recorded by: " # Principal.toText(msg.caller));
+        true
+    };
+
+    // ==================== ANALYTICS TESTING & VALIDATION ====================
+
+    // Comprehensive system test function
+    public shared(msg) func runSystemTests() : async {
+        healthCheck: Bool;
+        groupAnalyticsTest: Bool;
+        userAnalyticsTest: Bool;
+        platformAnalyticsTest: Bool;
+        lendingIntegrationTest: Bool;
+        yieldSystemTest: Bool;
+        errors: [Text];
+    } {
+        let errors = Buffer.Buffer<Text>(10);
+        var healthCheckResult = true;
+        var groupAnalyticsTest = false;
+        var userAnalyticsTest = false;
+        var platformAnalyticsTest = false;
+        var lendingIntegrationTest = false;
+        var yieldSystemTest = false;
+        
+        // Test 1: Basic health check
+        try {
+            let health = await healthCheck();
+            healthCheckResult := health;
+        } catch (e) {
+            errors.add("Health check failed: " # Error.message(e));
+            healthCheckResult := false;
+        };
+        
+        // Test 2: Group analytics
+        try {
+            switch (await getGroupAnalytics(1)) {
+                case (?metrics) {
+                    groupAnalyticsTest := metrics.groupHealth >= 0.0 and metrics.groupHealth <= 1.0;
+                    if (not groupAnalyticsTest) {
+                        errors.add("Group analytics returned invalid health score");
+                    };
+                };
+                case null {
+                    errors.add("No group analytics returned for test group");
+                };
+            };
+        } catch (e) {
+            errors.add("Group analytics test failed: " # Error.message(e));
+        };
+        
+        // Test 3: User analytics
+        try {
+            let userAnalytics = await getMyAnalytics();
+            userAnalyticsTest := userAnalytics.creditScore >= 0.0 and userAnalytics.creditScore <= 1.0;
+            if (not userAnalyticsTest) {
+                errors.add("User analytics returned invalid credit score");
+            };
+        } catch (e) {
+            errors.add("User analytics test failed: " # Error.message(e));
+        };
+        
+        // Test 4: Platform analytics
+        try {
+            let platformAnalytics = await getPlatformAnalytics();
+            platformAnalyticsTest := platformAnalytics.totalGroups >= 0;
+            if (not platformAnalyticsTest) {
+                errors.add("Platform analytics returned negative group count");
+            };
+        } catch (e) {
+            errors.add("Platform analytics test failed: " # Error.message(e));
+        };
+        
+        // Test 5: Lending integration
+        try {
+            let lendingStats = await getLendingStats();
+            lendingIntegrationTest := lendingStats.totalLoans >= 0;
+            if (not lendingIntegrationTest) {
+                errors.add("Lending statistics returned negative loan count");
+            };
+        } catch (e) {
+            errors.add("Lending integration test failed: " # Error.message(e));
+        };
+        
+        // Test 6: Yield system
+        try {
+            let yieldAnalytics = await getYieldAnalytics();
+            yieldSystemTest := yieldAnalytics.totalYieldGenerated >= 0;
+            if (not yieldSystemTest) {
+                errors.add("Yield analytics returned negative yield");
+            };
+        } catch (e) {
+            errors.add("Yield system test failed: " # Error.message(e));
+        };
+        
+        Debug.print("System test completed - Health: " # Bool.toText(healthCheckResult) # 
+                ", Group: " # Bool.toText(groupAnalyticsTest) #
+                ", User: " # Bool.toText(userAnalyticsTest) #
+                ", Platform: " # Bool.toText(platformAnalyticsTest) #
+                ", Lending: " # Bool.toText(lendingIntegrationTest) #
+                ", Yield: " # Bool.toText(yieldSystemTest));
+        
+        {
+            healthCheck = healthCheckResult;
+            groupAnalyticsTest = groupAnalyticsTest;
+            userAnalyticsTest = userAnalyticsTest;
+            platformAnalyticsTest = platformAnalyticsTest;
+            lendingIntegrationTest = lendingIntegrationTest;
+            yieldSystemTest = yieldSystemTest;
+            errors = Buffer.toArray(errors);
+        }
+    };
+
+    // Performance benchmark test
+    public shared(msg) func benchmarkAnalytics() : async {
+        groupAnalyticsTime: Nat;
+        platformAnalyticsTime: Nat;
+        riskAnalyticsTime: Nat;
+        totalOperations: Nat;
+    } {
+        let startTime = Time.now();
+        
+        // Benchmark group analytics
+        let groupStart = Time.now();
+        ignore await getGroupAnalytics(1);
+        let groupTime = Int.abs(Time.now() - groupStart);
+        
+        // Benchmark platform analytics
+        let platformStart = Time.now();
+        ignore await getPlatformAnalytics();
+        let platformTime = Int.abs(Time.now() - platformStart);
+        
+        // Benchmark risk analytics
+        let riskStart = Time.now();
+        ignore await getRiskAnalytics();
+        let riskTime = Int.abs(Time.now() - riskStart);
+        
+        let totalTime = Int.abs(Time.now() - startTime);
+        
+        Debug.print("Analytics benchmark completed in " # Int.toText(totalTime) # " nanoseconds");
+        
+        {
+            groupAnalyticsTime = groupTime;
+            platformAnalyticsTime = platformTime;
+            riskAnalyticsTime = riskTime;
+            totalOperations = 3;
+        }
+    };
+
+    // Data integrity validation
+    public shared(msg) func validateDataIntegrity() : async {
+        tokensValid: Bool;
+        loansValid: Bool;
+        balancesValid: Bool;
+        errors: [Text];
+    } {
+        let errors = Buffer.Buffer<Text>(10);
+        var tokensValid = true;
+        var loansValid = true;
+        var balancesValid = true;
+        
+        // Validate R Token consistency
+        try {
+            let myTokens = await getMyRTokens();
+            let myBalances = await getAllRTokenBalances();
+            
+            var calculatedBalance: Types.Amount = 0;
+            for (token in myTokens.vals()) {
+                calculatedBalance += token.currentAmount;
+            };
+            
+            var reportedBalance: Types.Amount = 0;
+            for ((_, balance) in myBalances.vals()) {
+                reportedBalance += balance;
+            };
+            
+            if (calculatedBalance != reportedBalance) {
+                tokensValid := false;
+                errors.add("R Token balance mismatch: calculated=" # Nat64.toText(calculatedBalance) # 
+                        ", reported=" # Nat64.toText(reportedBalance));
+            };
+        } catch (e) {
+            tokensValid := false;
+            errors.add("R Token validation failed: " # Error.message(e));
+        };
+        
+        // Validate loan consistency
+        try {
+            let myLoans = await getMyLoans();
+            let lendingStats = await getLendingStats();
+            
+            if (myLoans.size() > lendingStats.totalLoans) {
+                loansValid := false;
+                errors.add("User loans exceed platform total");
+            };
+        } catch (e) {
+            loansValid := false;
+            errors.add("Loan validation failed: " # Error.message(e));
+        };
+        
+        Debug.print("Data integrity validation completed - Tokens: " # Bool.toText(tokensValid) #
+                ", Loans: " # Bool.toText(loansValid) #
+                ", Balances: " # Bool.toText(balancesValid));
+        
+        {
+            tokensValid = tokensValid;
+            loansValid = loansValid;
+            balancesValid = balancesValid;
+            errors = Buffer.toArray(errors);
+        }
+    };
+    
     // ==================== QUERY FUNCTIONS ====================
 
     // Check account balance

@@ -733,6 +733,15 @@ module LendingEngine {
                 case null { [] };
             }
         };
+
+        // Get all loans for analytics
+        public func getAllLoans() : [Loan] {
+            let loanList = Buffer.Buffer<Loan>(RBTree.size(loans.share()));
+            for ((_, loan) in loans.entries()) {
+                loanList.add(loan);
+            };
+            Buffer.toArray(loanList)
+        };
         
         // Check if R Token is locked as collateral
         public func isTokenLocked(tokenId: RTokenId) : ?LoanId {

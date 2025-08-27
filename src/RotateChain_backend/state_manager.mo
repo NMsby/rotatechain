@@ -16,6 +16,7 @@ import RTokenManager "./r_token_manager";
 import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
 import LendingEngine "./lending_engine";
+import AnalyticsEngine "./analytics_engine";
 
 module StateManager {
     public type GroupId = Types.GroupId;
@@ -39,22 +40,25 @@ module StateManager {
         private var transactionCounter: TransactionId = 0;
         private var isSystemPaused: Bool = false;
 
-        // ==================== R TOKEN INTEGRATION ====================
+        // ==================== R TOKEN INTEGRATION =============================
         // Initialize R Token manager as part of state management
         private let rTokenManager = RTokenManager.RTokenManager();
 
-        // ==================== YIELD INTEGRATION ====================
+        // ==================== YIELD INTEGRATION ===============================
 
         // Initialize Yield manager as part of state management
         private let yieldManager = YieldManager.YieldManager();
 
-        // ==================== LENDING INTEGRATION ====================
+        // ==================== LENDING INTEGRATION =============================
         private let lendingEngine = LendingEngine.LendingEngine();
+
+        // ==================== ANALYTICS ENGINE INTEGRATION ====================
+        private let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
 
         // Initialize Yield distributor as part of state management
         private let yieldDistributor = YieldDistributor.YieldDistributor();
         
-        // ==================== RUNTIME STATE ====================
+        // ==================== RUNTIME STATE ===================================
         // Rebuilt from stable storage on canister start
         
         private var groups = RBTree.RBTree<GroupId, GroupConfig>(Nat.compare);
@@ -334,6 +338,9 @@ module StateManager {
                 case (#ok(_tokenId)) {
                     let currentBalance = rTokenManager.getRTokenBalance(recipient, groupId);
                     updateMemberLiquidTokenBalance(groupId, recipient, currentBalance);
+
+                    // Trigger analytics update
+                    ignore updateGroupAnalytics(groupId);
                 };
                 case (#err(_)) { };
             };
@@ -673,6 +680,10 @@ module StateManager {
                                     ", Amount: " # Nat64.toText(totalYield) # " e8s" #
                                     ", Members: " # Nat.toText(distributedCount));
                             
+                            // After successful distribution, update analytics
+                            ignore updateGroupAnalytics(groupId);
+                            recordAnalyticsSnapshot();
+
                             #ok(transactionId)
                         };
                         case (#err(error)) { #err(error) };
@@ -835,6 +846,80 @@ module StateManager {
             };
             
             true
+        };
+
+        // ==================== ANALYTICS & QUERY FUNCTIONS ====================
+
+        // Get all rotations for analytics
+        public func getAllRotations() : [(GroupId, RotationState)] {
+            Iter.toArray(rotations.entries())
+        };
+
+        // Get all members across all groups
+        public func getAllMembers() : [(GroupId, [Member])] {
+            let memberList = Buffer.Buffer<(GroupId, [Member])>(RBTree.size(groups.share()));
+            for ((groupId, _) in groups.entries()) {
+                let groupMembers = getGroupMembers(groupId);
+                memberList.add((groupId, groupMembers));
+            };
+            Buffer.toArray(memberList)
+        };
+
+        // Get all R Tokens for analytics
+        public func getAllRTokens() : [RToken] {
+            rTokenManager.getAllTokens() // You'll need to add this to RTokenManager
+        };
+
+        // Get all loans for analytics
+        public func getAllLoans() : [Types.Loan] {
+            lendingEngine.getAllLoans() // You'll need to add this to LendingEngine
+        };
+
+        // Get all transfers for analytics
+        public func getAllTransfers() : [Types.RTokenTransfer] {
+            rTokenManager.getAllTransfers() // You'll need to add this to RTokenManager
+        };
+
+        // Add real-time analytics update functions
+        public func updateGroupAnalytics(groupId: GroupId) : Result.Result<Bool, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    // Trigger analytics recalculation when group data changes
+                    switch (rotations.get(groupId)) {
+                        case (?rotation) {
+                            let groupMembers = getGroupMembers(groupId);
+                            let groupTokens = rTokenManager.getGroupTokens(groupId);
+                            let groupTransactions = getGroupTransactions(groupId);
+                            
+                            let metrics = analyticsEngine.calculateGroupPerformance(
+                                groupId, group, rotation, groupMembers, groupTokens, groupTransactions
+                            );
+                            
+                            Debug.print("Group analytics updated - Health: " # Float.toText(metrics.groupHealth));
+                            #ok(true)
+                        };
+                        case null { #err(#GroupNotFound) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Auto-record platform snapshots on significant events
+        public func recordAnalyticsSnapshot() {
+            let allGroups = getAllGroups();
+            let allRotations = getAllRotations();
+            let allMembers = getAllMembers();
+            let allTokens = rTokenManager.getAllTokens();
+            let allLoans = lendingEngine.getAllLoans();
+            let allTransfers = rTokenManager.getAllTransfers();
+            
+            let platformAnalytics = analyticsEngine.calculatePlatformAnalytics(
+                allGroups, allRotations, allMembers, allTokens, allLoans, allTransfers
+            );
+            
+            analyticsEngine.recordPlatformSnapshot(platformAnalytics);
+            Debug.print("Analytics snapshot recorded - TVL: " # Nat64.toText(platformAnalytics.totalValueLocked) # " e8s");
         };
     }
 }
