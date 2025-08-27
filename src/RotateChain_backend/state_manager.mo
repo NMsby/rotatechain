@@ -839,11 +839,6 @@ module StateManager {
 
         // ==================== ANALYTICS & QUERY FUNCTIONS ====================
 
-        // Get all groups for analytics
-        public func getAllGroups() : [(GroupId, GroupConfig)] {
-            Iter.toArray(groups.entries())
-        };
-
         // Get all rotations for analytics
         public func getAllRotations() : [(GroupId, RotationState)] {
             Iter.toArray(rotations.entries())
