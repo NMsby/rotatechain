@@ -14,7 +14,8 @@ import Debug "mo:base/Debug";
 import Types "./types";
 import RTokenManager "./r_token_manager";
 import YieldManager "./yield_manager";
-import YieldDistributor "yield_distributor";
+import YieldDistributor "./yield_distributor";
+import LendingEngine "./lending_engine";
 
 module StateManager {
     public type GroupId = Types.GroupId;
@@ -46,6 +47,9 @@ module StateManager {
 
         // Initialize Yield manager as part of state management
         private let yieldManager = YieldManager.YieldManager();
+
+        // ==================== LENDING INTEGRATION ====================
+        private let lendingEngine = LendingEngine.LendingEngine();
 
         // Initialize Yield distributor as part of state management
         private let yieldDistributor = YieldDistributor.YieldDistributor();
@@ -464,6 +468,91 @@ module StateManager {
         // Get platform-wide R Token statistics
         public func getPlatformTokenStats() : {totalTokens: Nat; totalValue: Types.Amount; totalHolders: Nat} {
             rTokenManager.getPlatformTokenStats()
+        };
+
+        // ==================== LENDING OPERATIONS ====================
+
+        // Initialize lending engine with stored state
+        public func initializeLendingState(
+            loanEntries: [(Types.LoanId, Types.Loan)],
+            paymentEntries: [(Types.TransactionId, Types.LoanPayment)]
+        ) {
+            lendingEngine.initializeFromState(loanEntries, paymentEntries);
+        };
+
+        // Request a loan using R Tokens as collateral
+        public func requestLoan(
+            borrower: Principal,
+            borrowerGroupId: Types.GroupId,
+            request: Types.LoanRequest
+        ) : Result.Result<Types.LoanId, Types.Error> {
+            // Get current values of collateral R Tokens
+            let tokenValues = Buffer.Buffer<(Types.RTokenId, Types.Amount)>(request.collateralTokenIds.size());
+            
+            for (tokenId in request.collateralTokenIds.vals()) {
+                switch (rTokenManager.getRToken(tokenId)) {
+                    case (?token) {
+                        // Verify token ownership
+                        if (not Principal.equal(token.holder, borrower)) {
+                            return #err(#UnauthorizedAccess);
+                        };
+                        // Verify token is not already locked
+                        switch (lendingEngine.isTokenLocked(tokenId)) {
+                            case (?_) { return #err(#CollateralLocked) };
+                            case null { tokenValues.add((tokenId, token.currentAmount)) };
+                        };
+                    };
+                    case null { return #err(#GroupNotFound) }; // Token not found
+                };
+            };
+            
+            lendingEngine.requestLoan(borrower, borrowerGroupId, request, Buffer.toArray(tokenValues))
+        };
+
+        // Approve loan (admin function)
+        public func approveLoan(loanId: Types.LoanId, approver: Principal) : Result.Result<Bool, Types.Error> {
+            lendingEngine.approveLoan(loanId, approver)
+        };
+
+        // Disburse loan funds
+        public func disburseLoan(loanId: Types.LoanId, disburser: Principal) : Result.Result<Bool, Types.Error> {
+            lendingEngine.disburseLoan(loanId, disburser)
+        };
+
+        // Make loan payment
+        public func makeLoanPayment(
+            loanId: Types.LoanId,
+            payer: Principal,
+            amount: Types.Amount
+        ) : Result.Result<Types.TransactionId, Types.Error> {
+            lendingEngine.makePayment(loanId, payer, amount, #regular)
+        };
+
+        // Get loan details
+        public func getLoan(loanId: Types.LoanId) : ?Types.Loan {
+            lendingEngine.getLoan(loanId)
+        };
+
+        // Get borrower's loans
+        public func getBorrowerLoans(borrower: Principal) : [Types.Loan] {
+            lendingEngine.getBorrowerLoans(borrower)
+        };
+
+        // Get lending statistics
+        public func getLendingStatistics() : {
+            totalLoans: Nat;
+            activeLoans: Nat;
+            defaultedLoans: Nat;
+            totalLent: Types.Amount;
+            totalRepaid: Types.Amount;
+            averageInterestRate: Float;
+        } {
+            lendingEngine.getLendingStatistics()
+        };
+
+        // Export lending state for upgrades
+        public func exportLendingState() : ([(Types.LoanId, Types.Loan)], [(Types.TransactionId, Types.LoanPayment)]) {
+            lendingEngine.exportState()
         };
 
         // ==================== YIELD OPERATIONS ====================

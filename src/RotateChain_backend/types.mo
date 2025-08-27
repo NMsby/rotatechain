@@ -46,6 +46,101 @@ module Types {
         memo: ?Text;
     };
 
+    // ==================== LENDING SYSTEM TYPES ====================
+
+    public type LoanId = Nat;
+
+    // Loan status lifecycle
+    public type LoanStatus = {
+        #pending;       // Loan requested, awaiting approval
+        #approved;      // Loan approved, funds can be disbursed
+        #active;        // Loan disbursed, repayment in progress
+        #repaid;        // Loan fully repaid
+        #defaulted;     // Loan in default (missed payments)
+        #liquidated;    // Collateral liquidated due to default
+    };
+
+    // Main loan record
+    public type Loan = {
+        id: LoanId;
+        borrower: Principal;
+        lender: ?Principal;             // None for platform lending pool
+        borrowerGroupId: GroupId;       // Borrower's primary group
+        lenderGroupId: ?GroupId;        // Lender's group (for cross-group loans)
+        
+        // Financial terms
+        principalAmount: Amount;        // Requested loan amount
+        interestRate: Nat;             // Annual interest rate in basis points
+        termDays: Nat;                 // Loan term in days
+        
+        // Collateral details
+        collateralTokenIds: [RTokenId]; // R Tokens used as collateral
+        collateralValue: Amount;        // Total collateral value at loan creation
+        collateralRatio: Nat;          // Required collateral ratio (basis points)
+        
+        // Current state
+        status: LoanStatus;
+        disbursedAmount: Amount;        // Amount actually disbursed
+        remainingBalance: Amount;       // Outstanding principal + interest
+        accruedInterest: Amount;        // Interest accumulated to date
+        
+        // Timeline
+        createdAt: Timestamp;
+        approvedAt: ?Timestamp;
+        disbursedAt: ?Timestamp;
+        dueDate: ?Timestamp;
+        lastPaymentDate: ?Timestamp;
+        
+        // Repayment tracking
+        totalPaid: Amount;
+        missedPayments: Nat;
+        
+        memo: ?Text;
+    };
+
+    // Loan application parameters
+    public type LoanRequest = {
+        principalAmount: Amount;
+        termDays: Nat;
+        collateralTokenIds: [RTokenId];
+        interestRate: ?Nat;            // Optional - system can suggest rate
+        memo: ?Text;
+    };
+
+    // Loan repayment record
+    public type LoanPayment = {
+        id: TransactionId;
+        loanId: LoanId;
+        payer: Principal;
+        amount: Amount;
+        principalPortion: Amount;
+        interestPortion: Amount;
+        timestamp: Timestamp;
+        paymentType: LoanPaymentType;
+    };
+
+    public type LoanPaymentType = {
+        #regular;       // Scheduled payment
+        #early;         // Early payment
+        #final;         // Final payment (loan completion)
+        #penalty;       // Penalty payment
+    };
+
+    // Collateral liquidation record
+    public type CollateralLiquidation = {
+        loanId: LoanId;
+        liquidatedTokens: [RTokenId];
+        recoveredAmount: Amount;
+        timestamp: Timestamp;
+        liquidationType: LiquidationType;
+    };
+
+    public type LiquidationType = {
+        #voluntary;     // Borrower initiated
+        #automatic;     // System triggered due to default
+        #manual;        // Admin intervention
+    };
+
     // ==================== YIELD SYSTEM TYPES ====================
 
     // Yield calculation strategies
@@ -209,6 +304,12 @@ module Types {
         #MemberSuspended;
         #ExcessiveAmount;
         #NetworkError;
+        #LoanNotFound;
+        #InsufficientCollateral;
+        #LoanAlreadyExists;
+        #InvalidLoanTerm;
+        #LoanNotActive;
+        #CollateralLocked;
     };
 
     // ==================== RESPONSE TYPES ====================
