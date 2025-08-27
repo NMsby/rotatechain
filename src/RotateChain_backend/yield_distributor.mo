@@ -4,8 +4,11 @@ import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
 import Result "mo:base/Result";
 import Debug "mo:base/Debug";
+import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Principal "mo:base/Principal";
+import Int "mo:base/Int";
+import Int64 "mo:base/Int64";
 import Float "mo:base/Float";
 
 import Types "./types";
@@ -351,7 +354,7 @@ module YieldDistributor {
             
             // Calculate variance for standard deviation
             let variance = Array.foldLeft<(Principal, Types.Amount), Float>(
-                distributions, 0.0, func(acc, (_, amount)) = {
+                distributions, 0.0, func(acc, (_, amount)) : Float {
                     let diff = Float.fromInt64(Int64.fromNat64(amount)) - Float.fromInt64(Int64.fromNat64(average));
                     acc + (diff * diff)
                 }

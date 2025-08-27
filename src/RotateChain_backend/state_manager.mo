@@ -9,11 +9,12 @@ import Buffer "mo:base/Buffer";
 import Float "mo:base/Float";
 import Result "mo:base/Result";
 import Time "mo:base/Time";
+import Debug "mo:base/Debug";
 
 import Types "./types";
 import RTokenManager "./r_token_manager";
 import YieldManager "./yield_manager";
-import YielDistributor "./yield_distributor";
+import YieldDistributor "yield_distributor";
 
 module StateManager {
     public type GroupId = Types.GroupId;
