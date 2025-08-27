@@ -1,268 +1,199 @@
-# RotateChain - Decentralized Rotational Savings & Crypto Lending Platform
+# RotateChain - Decentralized Rotational Savings & Crypto Lending Platform (Social DeFi)
 
 ![RotateChain](https://img.shields.io/badge/Built%20on-Internet%20Computer-blue)
 ![WCHL 2025](https://img.shields.io/badge/WCHL%202025-Bitcoin%20DeFi%20Track-orange)
 ![Team](https://img.shields.io/badge/Team-ICP%20Kenya-green)
 
-**🏆 WCHL 2025 Submission - Bitcoin DeFi Track**  
-**Team:** Nelson Masbayi ([@NMsby](https://github.com/NMsby)) & Ronny Ogeta ([@Rogetz](https://github.com/Rogetz))  
-**Hub:** ICP Kenya Hub  
-**Repository:** https://github.com/Rogetz/rotatechain_improvized
-
-## 🌟 Executive Summary
-
-RotateChain revolutionizes traditional rotational savings (chama/tanda) by combining it with DeFi liquidity pools on the Internet Computer. Our platform enables groups to pool crypto assets, rotate payouts automatically via smart contracts, while earning yield through IC Lighthouse integration.
-
-**Problem:** 2.5B people lack access to formal financial services, relying on informal savings groups that lack transparency, automation, and yield generation.
-
-**Solution:** Trustless, automated rotational savings with built-in DeFi yield farming and liquid token generation for risk-free trading.
-
-## 🎯 Value Proposition
-
-- **Financial Inclusion:** Democratize access to structured savings for the unbanked
-- **Transparency:** All transactions recorded on-chain with group voting mechanisms  
-- **Yield Generation:** Funds earn interest through IC Lighthouse liquidity pools
-- **Liquid Assets:** Receive tradeable tokens during non-payout rounds
-- **Global Access:** Participate from anywhere with crypto wallet
+A revolutionary platform combining existing rotational savings groups with modern DeFi capabilities, featuring liquid contribution tokens (R Tokens) and cross-group lending.
 
 ## 🏗️ Architecture Overview
 
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Frontend UI    │    │  Core Backend   │    │  IC Lighthouse  │
-│  (React/TS)     │───▶│  (Motoko)       │───▶│  Integration    │
-│                 │    │                 │    │                 │
-│  - Group Mgmt   │    │  - Groups       │    │  - Yield Farms  │
-│  - Rotation UI  │    │  - Rotations    │    │  - LP Tokens    │
-│  - Dashboard    │    │  - Scheduling   │    │  - Swaps        │
-│  - Wallet Mgmt  │    │  - Payments     │    │  - Liquidity    │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-        │                       │                       │
-        │                       │                       │
-        ▼                       ▼                       ▼
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Authentication │    │  Event System   │    │  Bitcoin Layer  │
-│  (Internet ID)  │    │  (Notifications)│    │  (Future)       │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-```
+RotateChain transforms existing rotating savings and credit associations (ROSCAs) through blockchain innovation:
 
-## 🔧 Key Features
+- **Social Trust Foundation**: Groups based on existing social relationships
+- **Liquid Contribution Tokens**: R Tokens representing member contributions
+- **Cross-Group Lending**: Borrow against R Token collateral across groups
+- **Automated Yield Generation**: Enhanced returns through DeFi integration
+- **Comprehensive Analytics**: Risk assessment and performance tracking
 
-### 1. **User & Group Management**
-- **Smart Group Creation:** Customizable group parameters (size, contribution, frequency)
-- **Automated Vetting:** System validates member ability to contribute
-- **Flexible Membership:** Join existing groups or create private ones
-- **Role Management:** Group admin, member, and observer permissions
+## ⚙️ Technical Implementation
 
-### 2. **Rotation Engine**
-- **Smart Scheduling:** Automated round progression with configurable intervals
-- **Fair Distribution:** Randomized or sequential payout ordering
-- **Emergency Exits:** Early withdrawal with calculated penalties
-- **Dispute Resolution:** On-chain voting for conflict resolution
+### Backend System (Internet Computer - Motoko) 💻
 
-### 3. **Liquidity Integration**
-- **Auto-Deposit:** Incoming funds automatically enter yield-generating pools
-- **Dynamic Rebalancing:** Smart allocation across multiple IC Lighthouse pools
-- **Compound Interest:** Reinvest yields to maximize returns
-- **Trade Mode:** Option to keep funds in pools during your payout round
+**Core Modules:**
+- `main.mo`: Primary actor with all public endpoints
+- `state_manager.mo`: Centralized state management with upgrade safety
+- `types.mo`: Comprehensive type system for all platform operations
 
-### 4. **Liquid Token System**
-- **rToken Generation:** Receive liquid tokens equivalent to your contribution
-- **Risk-Free Trading:** Trade without affecting your rotation position
-- **Yield Bearing:** Liquid tokens also generate returns
-- **Redemption Rights:** Convert back to underlying assets anytime
+**Financial Systems:**
+- `r_token_manager.mo`: Liquid contribution token management
+- `lending_engine.mo`: Cross-group lending with R Token collateral
+- `yield_manager.mo`: Multi-strategy yield calculation engine
+- `yield_distributor.mo`: Fair yield distribution algorithms
+- `payment_handler.mo`: ICP payment processing integration
 
-### 5. **Transparency Layer**
-- **Transaction Logs:** Complete audit trail of all group activities
-- **Real-time Analytics:** Group performance, yield tracking, member statistics
-- **Governance Dashboard:** Vote on group changes, dispute resolution
-- **Notification System:** Real-time updates on rotations, yields, events
-
-## 🛠️ Technical Stack
-
-**Frontend:**
-- React 19 + TypeScript
-- Tailwind CSS for styling
-- Framer Motion for animations
-- React Router for navigation
-- Chart.js & Recharts for analytics visualization
-
-**Backend:**
-- Motoko smart contracts on Internet Computer
-- ICP Ledger integration for payments
-- IC Lighthouse for liquidity pools
-- Event-driven architecture for notifications
-
-**Authentication:**
-- Internet Identity for seamless Web3 login
-- Plug Wallet integration
-- Principal-based access control
+**Business Logic:**
+- `group_management.mo`: Group lifecycle and member management
+- `rotation_engine.mo`: Automated rotation and payout processing
+- `analytics_engine.mo`: Comprehensive platform analytics
 
 **Infrastructure:**
-- Internet Computer Protocol (ICP)
-- Asset canister for frontend hosting
-- Multiple canister architecture for scalability
+- `utils.mo`: Utility functions and validation
+- `icp_payment_service.mo`: Ledger integration for real ICP payments
 
-## 📊 Business Model
+### Key Features ✨
 
-**Revenue Streams:**
-1. **Transaction Fees:** 0.25% on all group contributions and payouts
-2. **Yield Sharing:** 15% of DeFi yields generated through liquidity pools  
-3. **Premium Features:** Advanced analytics, larger groups, custom scheduling
-4. **Liquid Token Trading:** Small spread on rToken conversions
-5. **API Access:** Third-party integrations and white-label solutions
+**R Token System:**
+- Automatic issuance on contribution payments
+- Secure peer-to-peer transfers within groups
+- Yield accumulation and redemption capabilities
+- Collateral functionality for lending
 
-**Market Opportunity:**
-- $2.4T informal savings market globally
-- 100M+ DeFi users seeking yield opportunities
-- Growing crypto adoption in developing markets
+**Advanced Analytics:**
+- Group performance metrics and health scoring
+- Individual credit assessment based on participation
+- Platform-wide risk analytics and stress testing
+- Real-time yield tracking and distribution analysis
 
-## 🎮 How It Works
+**Cross-Group Lending:**
+- R Token collateral-based loan system
+- Dynamic interest rate calculation
+- Automated default detection and liquidation
+- Comprehensive loan lifecycle management
 
-### For Savers:
-1. **Create/Join Group:** Set contribution amount and frequency
-2. **Regular Contributions:** Automated deposits from your wallet
-3. **Earn Yields:** Funds generate returns in liquidity pools
-4. **Receive Payouts:** Get your turn with accumulated interest
-5. **Trade Liquid Tokens:** Access liquidity without breaking savings
+## 🚀 Deployment
 
-### For Groups:
-1. **Group Formation:** 3-12 members with shared savings goals
-2. **Smart Contracts:** Automated rotation management
-3. **Collective Yields:** Shared returns from DeFi pools
-4. **Transparent Operations:** All activities recorded on-chain
-5. **Governance:** Vote on changes and resolve disputes
-
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js >= 16.0.0
-- npm >= 7.0.0
-- DFX SDK >= 0.14.0
-- Internet Computer wallet (Internet Identity or Plug)
-
-
-# Releases link
-![Releases](https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false)
-
-### Installation
+### Local Development 🛠️
 
 ```bash
-# Clone the repository
-git clone https://github.com/Rogetz/rotatechain_improvized.git
-cd rotatechain_improvized
+# Start IC replica
+dfx start --background
 
-# Install dependencies
-npm install
-
-
-
-# generate a new identity that will act as the minting account
-
-dfx identity new minter
-dfx identity use minter
-echo $(dfx ledger account-id)
-
-# switch back to your primary developer identity and record its ledger accountId for use as the developer identity\
-
-dfx identity use MyIdentity
-echo $(dfx ledger account-id)
-
-# Go to the releases overview in the releases link on top or simply paste this url:- https://github.com/dfinity/ic/releases?q=%22ledger-suite-icp%22&expanded=false and obtain the latest ICP ledger release version. Then, replace <RELEASE> in the following github URLs with that release version:
-# open the dfx.json file in the root project directory for editing of the candid and wasm fields. point the candid and the wasm fields to the following github urls respectively,replacing the release with the actual release from the github repo
-
-- https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger.did
-- https://github.com/dfinity/ic/releases/download/<RELEASE>/ledger-canister_notify-method.wasm.gz
-
-
-# in the dfx.json file in your project's directory. in the icp_ledger_canister field, replace or edit the existing content with the following, updating the values of MINTER_ACCOUNT_ID and DEVELOPER_ACCOUNT_ID with the values obtained in the previous steps.
-
-# Start local IC replica
-dfx start --clean --background
-
-# Deploy canisters locally
+# Deploy canisters
 dfx deploy
 
-# Start frontend development server
-npm run start
+# Test system health
+dfx canister call rotatechain_backend healthCheck
+dfx canister call rotatechain_backend runSystemTests
 ```
 
-### dfx.json configuration to replace
-- replace the MINTER_ACCOUNT_ID with your minter identity you generated
-- replace the DEVELOPER_ACCOUNT_ID with your default identity you're using
-
-### Environment Setup
+### Mainnet Deployment 🌐
 
 ```bash
-# The project includes environment configuration
-# For local development, the .env is pre-configured
-# Edit the VITE_REACT_APP_PAYMENT_CANISTER_ID environment variable to match the ledger canister as your whitelisted canister for the plug wallet.
+# Deploy to IC mainnet
+dfx deploy --network ic --with-cycles 1000000000000
 
+# Verify deployment
+dfx canister status rotatechain_backend --network ic
 ```
 
-### Project Structure
+## 📖 API Reference
 
-```
-rotatechain_improvized/
-├── src/
-│   ├── RotateChain_backend/
-│   │   ├── main.mo                 # Main smart contract
-│   │   ├── icp_integration.mo      # ICP payment processing
-│   │   └── bitcoin_integration.mo  # Bitcoin functionality (planned)
-│   └── RotateChain_frontend/
-│       ├── src/
-│       │   ├── components/         # React components
-│       │   ├── services/          # API integrations
-│       │   ├── pages/             # Main application pages
-│       │   └── assets/            # Static assets
-├── docs/                          # Documentation
-├── dfx.json                       # IC canister configuration
-└── package.json                   # Project dependencies
+### Group Management 👥
+
+```motoko
+// Create new group
+createGroup(name: Text, contributionAmount: Nat, maxMembers: Nat, roundDurationDays: Nat) : async Result<Nat, Text>
+
+// Join existing group  
+joinGroup(groupId: Nat) : async Result<Bool, Text>
+
+// Make contribution with automatic R Token issuance
+recordContribution(groupId: Nat) : async Result<Bool, Text>
 ```
 
-## 🎥 Demo & Presentation
+### R Token Operations 🔗 
 
-**Repository:** [https://github.com/Rogetz/rotatechain_improvized](https://github.com/Rogetz/rotatechain_improvized)
-**Demo Video:** [To be added after recording]
-**Live Demo:** [Coming post-hackathon deployment]
+```motoko
+// Transfer R Tokens to group members
+transferRTokens(tokenId: RTokenId, to: Principal, amount: Amount, memo: ?Text) : async Result<TransactionId, Error>
 
-## 🤝 Team
+// Redeem R Tokens for ICP
+redeemRTokens(tokenId: RTokenId, amount: Amount) : async Result<Amount, Error>
 
-**Nelson Masbayi** - Co-Developer
-- Email: nmsby.dev@gmail.com
-- GitHub: [@NMsby](https://github.com/NMsby)
+// Query R Token balance
+getRTokenBalance(groupId: Nat) : async Amount
+```
 
-**Ronny Ogeta** - Co-Developer
-- Email: ronnyogetaz@gmail.com
-- GitHub: [@Rogetz](https://github.com/Rogetz)
+### Lending System 💳
 
-## 🏆 WCHL 2025 Submission Details
+```motoko
+// Request loan using R Token collateral
+requestLoan(borrowerGroupId: Nat, principalAmount: Amount, termDays: Nat, collateralTokenIds: [RTokenId], memo: ?Text) : async Result<LoanId, Error>
 
-**Track:** Bitcoin DeFi - Financial Innovation
-**Innovation Focus:** Combining traditional African finance patterns with modern DeFi
+// Make loan payment
+makeLoanPayment(loanId: LoanId, amount: Amount) : async Result<TransactionId, Error>
+```
 
-## 📚 Documentation
+### Analytics Dashboard 📊
 
-- [Technical Architecture](./docs/architecture.md)
-- [Smart Contract Documentation](./docs/smart-contracts.md)
-- [API Reference](./docs/api.md)
-- [User Guide](./docs/user-guide.md)
-- [Contributing Guidelines](./CONTRIBUTING.md)
+```motoko
+// Get group performance metrics
+getGroupAnalytics(groupId: Nat) : async ?GroupPerformanceMetrics
+
+// Get personal analytics
+getMyAnalytics() : async UserAnalytics
+
+// Get platform-wide statistics
+getPlatformAnalytics() : async PlatformAnalytics
+```
+
+## 🧪 Testing
+
+The platform includes comprehensive testing capabilities:
+
+```bash
+# Run complete system tests
+dfx canister call rotatechain_backend runSystemTests
+
+# Benchmark analytics performance
+dfx canister call rotatechain_backend benchmarkAnalytics
+
+# Validate data integrity across systems
+dfx canister call rotatechain_backend validateDataIntegrity
+```
+
+## 🌟 Innovation Highlights
+
+**Social Credit Assessment**: Credit scoring based on group participation history rather than traditional financial metrics.
+
+**Liquid Savings Tokens**: R Tokens provide liquidity to traditionally illiquid savings commitments while maintaining social accountability.
+
+**Network Effects**: Cross-group lending creates interconnected financial networks that strengthen with platform growth.
+
+**Risk-Aware Yield**: Sophisticated yield strategies adapt to group characteristics and risk profiles.
+
+## 📐 Technical Specifications
+
+- **Blockchain**: Internet Computer Protocol (ICP)
+- **Language**: Motoko with dfx 0.28.0
+- **Architecture**: Modular canister design with upgrade-safe state management
+- **Storage**: RBTree-based efficient data structures
+- **Security**: Principal-based authentication with comprehensive input validation
+
+## 📌 Development Status
+
+**Phase 1 Complete**: Core rotational savings with ICP integration  
+**Phase 2 Complete**: R Token system, lending engine, advanced analytics  
+**Production Ready**: Comprehensive testing and validation frameworks implemented
 
 ## 🤝 Contributing
 
 We welcome contributions! Please see our [Contributing Guidelines](./CONTRIBUTING.md) for details.
 
-## 📄 License
+## 📜 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## 📞 Contact & Support
+## 📬 Contact & Support
 
-**Primary Contact:** Nelson Masbayi (nmsby.dev@gmail.com)
-**Secondary Contact:** Ronny Ogeta (ronnyogetaz@gmail.com)
-**Project Repository:** https://github.com/Rogetz/rotatechain_improvized
-**Issues & Discussion:** [GitHub Issues](https://github.com/Rogetz/rotatechain_improvized/issues)
+| Role              | Name           | Email                   | Link |
+|-------------------|----------------|-------------------------|------|
+| **Software Engineer**   | Nelson Masbayi | nmsby.dev@gmail.com     | - |
+| **Software Developer** | Ronny Ogeta   | ronnyogetaz@gmail.com   | - |
+| **Repository**        | RotateChain   | -                       | [GitHub Repo](https://github.com/Rogetz/rotatechain) |
+| **Issues & Discussion** | -          | -                       | [GitHub Issues](https://github.com/Rogetz/rotatechain/issues) |
+
 
 ---
 
