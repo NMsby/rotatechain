@@ -745,17 +745,17 @@ actor RotateChain {
                     contributionsThisRound = [];
                 };
                 
-                let mockMembers = Array.map<Principal, Types.Member>(group.members, func(p) = {
-                    {
-                        principal = p;
-                        joinedAt = group.createdAt;
-                        totalContributions = Nat64.fromNat(group.contributionAmount * group.currentRound);
-                        receivedPayouts = if (Principal.equal(p, group.creator)) Nat64.fromNat(group.contributionAmount * group.members.size()) else 0;
-                        pendingContributions = 0;
-                        status = #active;
-                        lastContributionTime = ?Time.now();
-                        missedContributions = 0;
-                        liquidTokenBalance = Nat64.fromNat(group.contributionAmount);
+                let mockMembers = Array.map<Principal, Types.Member>(group.members, func(p) : Types.Member {
+                    { 
+                            principal = p;
+                            joinedAt = group.createdAt;
+                            totalContributions = Nat64.fromNat(group.contributionAmount * group.currentRound);
+                            receivedPayouts = if (Principal.equal(p, group.creator)) Nat64.fromNat(group.contributionAmount * group.members.size()) else 0;
+                            pendingContributions = 0;
+                            status = #active;
+                            lastContributionTime = ?Time.now();
+                            missedContributions = 0;
+                            liquidTokenBalance = Nat64.fromNat(group.contributionAmount);
                     }
                 });
                 
@@ -797,7 +797,7 @@ actor RotateChain {
         );
         
         // Convert to enhanced types (simplified)
-        let enhancedGroups = Array.map<Group, Types.GroupConfig>(userGroups, func(g) = {
+        let enhancedGroups = Array.map<Group, Types.GroupConfig>(userGroups, func(g) : Types.GroupConfig {
             {
                 id = g.id;
                 name = g.name;
@@ -825,7 +825,7 @@ actor RotateChain {
         let userTransfers = stateManager.getUserTransferHistory(msg.caller);
         
         // Create mock member data
-        let mockMembers = Array.map<Group, Types.Member>(userGroups, func(g) = {
+        let mockMembers = Array.map<Group, Types.Member>(userGroups, func(g) : Types.Member {
             {
                 principal = msg.caller;
                 joinedAt = g.createdAt;
