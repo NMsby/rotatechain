@@ -163,7 +163,9 @@ module AnalyticsEngine {
             
             let complianceRate = if (totalMembers * rotation.currentRound > 0) {
                 let expectedContributions = totalMembers * rotation.currentRound;
-                let actualContributions = expectedContributions - totalMissedContributions;
+                let actualContributions = if (expectedContributions >= totalMissedContributions) {
+                    expectedContributions - totalMissedContributions
+                } else { 0 };
                 Float.fromInt(actualContributions) / Float.fromInt(expectedContributions)
             } else { 1.0 };
             
@@ -364,7 +366,7 @@ module AnalyticsEngine {
             };
             
             // Simplified calculations for complex metrics
-            let activeUsersEstimate = Float.toInt(Float.fromInt(totalMembers) * 0.7); // Estimate 70% active
+            let activeUsersEstimate = Int.abs(Float.toInt(Float.fromInt(totalMembers) * 0.7)); // Estimate 70% active
             let platformGrowthRate = 15.5; // Placeholder - would calculate from historical data
             let networkDensity = Float.fromInt(totalGroups) / Float.max(Float.fromInt(totalMembers), 1.0);
             
@@ -533,7 +535,8 @@ module AnalyticsEngine {
             // Keep only last 100 snapshots to manage memory
             if (historicalMetrics.size() > 100) {
                 let newBuffer = Buffer.Buffer<(Int, PlatformAnalytics)>(100);
-                let start = historicalMetrics.size() - 100;
+                let currentSize = historicalMetrics.size();
+                let start = if (currentSize >= 100) { currentSize - 100 } else { 0 };
                 for (i in Iter.range(start, historicalMetrics.size() - 1)) {
                     newBuffer.add(historicalMetrics.get(i));
                 };
