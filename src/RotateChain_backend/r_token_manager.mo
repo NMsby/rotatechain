@@ -400,6 +400,45 @@ module RTokenManager {
             }
         };
 
+        // ==================== YIELD FUNCTIONS ====================
+
+        // Update R Token with accumulated yield
+        public func updateTokenYield(tokenId: RTokenId, yieldAmount: Amount) : Result.Result<Bool, Error> {
+            switch (tokens.get(tokenId)) {
+                case (?token) {
+                    if (token.status != #active) {
+                        return #err(#InvalidAmount); // Cannot update inactive tokens
+                    };
+
+                    let updatedToken: RToken = {
+                        id = token.id;
+                        groupId = token.groupId;
+                        holder = token.holder;
+                        originalAmount = token.originalAmount;
+                        currentAmount = token.currentAmount + yieldAmount;
+                        issuedAt = token.issuedAt;
+                        lastYieldUpdate = Time.now();
+                        accumulatedYield = token.accumulatedYield + yieldAmount;
+                        status = token.status;
+                        memo = token.memo;
+                    };
+
+                    // Update token in storage
+                    tokens.put(tokenId, updatedToken);
+                    
+                    // Update holder balance
+                    updateHolderBalance(token.holder, token.groupId, yieldAmount, true);
+
+                    Debug.print("R Token yield updated - ID: " # Nat.toText(tokenId) # 
+                            ", Yield: " # Nat64.toText(yieldAmount) # " e8s" #
+                            ", New Total: " # Nat64.toText(updatedToken.currentAmount) # " e8s");
+                    
+                    #ok(true)
+                };
+                case null { #err(#InvalidAmount) }; // Token not found
+            }
+        };
+
         // ==================== BALANCE & QUERY FUNCTIONS ====================
 
         // Get R Token balance for user in specific group

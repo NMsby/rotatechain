@@ -9,9 +9,12 @@ import Buffer "mo:base/Buffer";
 import Float "mo:base/Float";
 import Result "mo:base/Result";
 import Time "mo:base/Time";
+import Debug "mo:base/Debug";
 
 import Types "./types";
 import RTokenManager "./r_token_manager";
+import YieldManager "./yield_manager";
+import YieldDistributor "yield_distributor";
 
 module StateManager {
     public type GroupId = Types.GroupId;
@@ -38,6 +41,14 @@ module StateManager {
         // ==================== R TOKEN INTEGRATION ====================
         // Initialize R Token manager as part of state management
         private let rTokenManager = RTokenManager.RTokenManager();
+
+        // ==================== YIELD INTEGRATION ====================
+
+        // Initialize Yield manager as part of state management
+        private let yieldManager = YieldManager.YieldManager();
+
+        // Initialize Yield distributor as part of state management
+        private let yieldDistributor = YieldDistributor.YieldDistributor();
         
         // ==================== RUNTIME STATE ====================
         // Rebuilt from stable storage on canister start
@@ -453,6 +464,162 @@ module StateManager {
         // Get platform-wide R Token statistics
         public func getPlatformTokenStats() : {totalTokens: Nat; totalValue: Types.Amount; totalHolders: Nat} {
             rTokenManager.getPlatformTokenStats()
+        };
+
+        // ==================== YIELD OPERATIONS ====================
+
+        // Calculate yield for a specific group over a duration
+        public func calculateGroupYield(
+            groupId: GroupId,
+            durationDays: Nat
+        ) : Result.Result<Types.YieldCalculation, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    switch (rotations.get(groupId)) {
+                        case (?rotation) {
+                            let strategy = yieldManager.createDefaultStrategy(
+                                group.members.size(), 
+                                group.contributionAmount
+                            );
+                            yieldManager.calculateYield(
+                                rotation.poolBalance,
+                                strategy,
+                                durationDays,
+                                ?rotation.poolBalance,
+                                null
+                            )
+                        };
+                        case null { #err(#GroupNotFound) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Update R Token yields
+        public func updateRTokenYields(groupId: GroupId) : Result.Result<Nat, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    let strategy = yieldManager.createDefaultStrategy(
+                        group.members.size(),
+                        group.contributionAmount
+                    );
+                    
+                    let tokens = rTokenManager.getGroupTokens(groupId);
+                    var updatedCount = 0;
+                    
+                    for (token in tokens.vals()) {
+                        switch (yieldManager.calculateRTokenYieldUpdate(token, strategy)) {
+                            case (#ok(yieldAmount)) {
+                                if (yieldAmount > 0) {
+                                    ignore rTokenManager.updateTokenYield(token.id, yieldAmount);
+                                    updatedCount += 1;
+                                };
+                            };
+                            case (#err(_)) { /* Continue with other tokens */ };
+                        };
+                    };
+                    
+                    #ok(updatedCount)
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Distribute yield to group members
+        public func distributeGroupYield(
+            groupId: GroupId,
+            totalYield: Types.Amount
+        ) : Result.Result<Types.TransactionId, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    let groupMembers = getGroupMembers(groupId);
+                    if (groupMembers.size() == 0) {
+                        return #err(#NotMember);
+                    };
+                    
+                    // Create distribution strategy
+                    let strategy = yieldDistributor.createDefaultDistributionStrategy(
+                        groupMembers.size(),
+                        group.totalPoolSize
+                    );
+                    
+                    // Calculate distribution
+                    switch (yieldDistributor.calculateDistribution(groupId, totalYield, groupMembers, strategy)) {
+                        case (#ok(distribution)) {
+                            // Execute distribution to members
+                            var distributedCount = 0;
+                            for ((principal, yieldAmount) in distribution.distributions.vals()) {
+                                // Update member balance (simulate yield payment)
+                                switch (getMember(groupId, principal)) {
+                                    case (?member) {
+                                        let updatedMember = { 
+                                            member with 
+                                            receivedPayouts = member.receivedPayouts + yieldAmount;
+                                            liquidTokenBalance = member.liquidTokenBalance + yieldAmount;
+                                        };
+                                        putMember(groupId, principal, updatedMember);
+                                        distributedCount += 1;
+                                    };
+                                    case null { /* Skip non-existent members */ };
+                                };
+                            };
+                            
+                            // Create transaction record
+                            let transactionId = nextTransactionId();
+                            let transaction: Types.Transaction = {
+                                id = transactionId;
+                                groupId = groupId;
+                                from = Principal.fromText("2vxsx-fae"); // System principal
+                                to = null; // Multiple recipients
+                                amount = totalYield;
+                                timestamp = Time.now();
+                                transactionType = #yield;
+                                memo = ?("Yield distribution to " # Nat.toText(distributedCount) # " members");
+                                blockHeight = ?distribution.distributionId;
+                            };
+                            putTransaction(transaction);
+                            
+                            Debug.print("Yield distributed - Group: " # Nat.toText(groupId) # 
+                                    ", Amount: " # Nat64.toText(totalYield) # " e8s" #
+                                    ", Members: " # Nat.toText(distributedCount));
+                            
+                            #ok(transactionId)
+                        };
+                        case (#err(error)) { #err(error) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Distribute yield to R Token holders in a group
+        public func distributeRTokenYield(
+            groupId: GroupId,
+            totalYield: Types.Amount
+        ) : Result.Result<Nat, Types.Error> {
+            let groupTokens = rTokenManager.getGroupTokens(groupId);
+            
+            if (groupTokens.size() == 0) {
+                return #ok(0);
+            };
+            
+            let distributions = yieldDistributor.distributeRTokenYield(groupTokens, totalYield);
+            var updatedCount = 0;
+            
+            for ((tokenId, yieldAmount) in distributions.vals()) {
+                switch (rTokenManager.updateTokenYield(tokenId, yieldAmount)) {
+                    case (#ok(_)) {
+                        updatedCount += 1;
+                    };
+                    case (#err(_)) { /* Continue with other tokens */ };
+                };
+            };
+            
+            Debug.print("R Token yield distributed - Group: " # Nat.toText(groupId) # 
+                    ", Updated tokens: " # Nat.toText(updatedCount));
+            
+            #ok(updatedCount)
         };
 
         // ==================== TRANSACTION OPERATIONS ====================

@@ -17,6 +17,8 @@ import Utils "./utils";
 import Ledger "canister:icp_ledger_canister";
 import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
+import YieldManager "./yield_manager";
+import YieldDistributor "./yield_distributor";
 
 actor RotateChain {
   
@@ -79,6 +81,9 @@ actor RotateChain {
     private stable var groupCounter: Types.GroupId = 0;
     private stable var transactionCounter: Types.TransactionId = 0;
     private stable var isSystemPaused: Bool = false;
+
+    // ==================== YIELD MANAGER INSTANCE ====================
+    private let yieldManager = YieldManager.YieldManager();
 
     // ==================== INITIALIZE STATE MANAGER ====================
     private let stateManager = StateManager.StateManager();
@@ -473,6 +478,116 @@ actor RotateChain {
     // Get R Token statistics for a group
     public query func getGroupRTokenStats(groupId: Nat) : async {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
         stateManager.getGroupTokenStats(groupId)
+    };
+
+    // ==================== YIELD FUNCTIONS ====================
+    
+    // Get projected yield for a group
+    public query func getProjectedYield(
+        groupId: Nat,
+        durationDays: Nat
+    ) : async Result.Result<Types.YieldCalculation, Types.Error> {
+        stateManager.calculateGroupYield(groupId, durationDays)
+    };
+
+    // Update all R Token yields for a group (admin function)
+    public shared(msg) func updateGroupRTokenYields(
+        groupId: Nat
+    ) : async Result.Result<Nat, Types.Error> {
+        // Add admin check if needed
+        stateManager.updateRTokenYields(groupId)
+    };
+
+    // Get yield comparison for different strategies
+    public query func compareYieldStrategies(
+        principal: Types.Amount,
+        durationDays: Nat
+    ) : async [(Types.YieldStrategy, Types.YieldCalculation)] {
+        let strategies = [
+            (#fixed(500) : Types.YieldStrategy), // 5% fixed
+            (#variable({
+                baseRate = 500;
+                minRate = 300;
+                maxRate = 800;
+                marketFactor = 1.0;
+            }) : Types.YieldStrategy),
+            (#compound({
+                rate = 550;
+                compoundFrequency = 12;
+            }) : Types.YieldStrategy)
+        ];
+        
+        // Create local yield manager instance for query function
+        let localYieldManager = YieldManager.YieldManager();
+        localYieldManager.compareStrategies(principal, strategies, durationDays)
+    };
+
+    // Get current market conditions
+    public query func getMarketConditions() : async {volatility: Float; liquidity: Float; riskFactor: Float} {
+        yieldManager.getCurrentMarketConditions()
+    };
+
+    // Distribute yield to group members (admin function)
+    public shared(msg) func distributeYield(
+        groupId: Nat,
+        totalYield: Types.Amount
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        // Add admin authorization check if needed
+        stateManager.distributeGroupYield(groupId, totalYield)
+    };
+
+    // Auto-distribute yield based on calculated returns
+    public shared(msg) func autoDistributeYield(
+        groupId: Nat,
+        durationDays: Nat
+    ) : async Result.Result<{memberDistribution: Types.TransactionId; rTokenUpdates: Nat}, Types.Error> {
+        // Calculate yield for the period
+        switch (stateManager.calculateGroupYield(groupId, durationDays)) {
+            case (#ok(yieldCalculation)) {
+                let totalYield = yieldCalculation.yieldAmount;
+                
+                if (totalYield > 0) {
+                    // Distribute 80% to members, 20% to R Token holders
+                    let memberYield = (totalYield * 80) / 100;
+                    let rTokenYield = totalYield - memberYield;
+                    
+                    // Distribute to members
+                    switch (stateManager.distributeGroupYield(groupId, memberYield)) {
+                        case (#ok(transactionId)) {
+                            // Distribute to R Token holders
+                            switch (stateManager.distributeRTokenYield(groupId, rTokenYield)) {
+                                case (#ok(updatedTokens)) {
+                                    #ok({
+                                        memberDistribution = transactionId;
+                                        rTokenUpdates = updatedTokens;
+                                    })
+                                };
+                                case (#err(error)) { #err(error) };
+                            };
+                        };
+                        case (#err(error)) { #err(error) };
+                    };
+                } else {
+                    #err(#InvalidAmount);
+                }
+            };
+            case (#err(error)) { #err(error) };
+        }
+    };
+
+    // Get yield distribution preview
+    public query func previewYieldDistribution(
+        groupId: Nat,
+        totalYield: Types.Amount
+    ) : async Result.Result<[(Principal, Types.Amount)], Types.Error> {
+        switch (findGroup(groupId)) {
+            case (?group) {
+                // This would require additional helper functions to convert Group to [Member]
+                // For now, return placeholder implementation
+                #ok([]);
+            };
+            case null { #err(#GroupNotFound) };
+        }
     };
 
     // ==================== QUERY FUNCTIONS ====================
