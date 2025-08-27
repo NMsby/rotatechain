@@ -846,7 +846,7 @@ module StateManager {
 
         // Get all members across all groups
         public func getAllMembers() : [(GroupId, [Member])] {
-            let memberList = Buffer.Buffer<(GroupId, [Member])>(groups.size());
+            let memberList = Buffer.Buffer<(GroupId, [Member])>(RBTree.size(groups.share()));
             for ((groupId, _) in groups.entries()) {
                 let groupMembers = getGroupMembers(groupId);
                 memberList.add((groupId, groupMembers));
