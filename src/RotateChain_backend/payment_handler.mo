@@ -5,6 +5,7 @@ import Ledger "canister:icp_ledger_canister";
 import ICPPaymentService "./icp_payment_service";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
+import Int "mo:base/Int";
 import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Time "mo:base/Time";
@@ -133,7 +134,8 @@ module PaymentHandler {
         
         // In production, this would process actual ICP transfer from lending pool to borrower
         // For now, simulate successful disbursement
-        let simulatedBlockIndex = Nat64.fromNat(Time.now() % 1000000);
+        let timeNanos = Int.abs(Time.now()); // Convert to absolute value
+        let simulatedBlockIndex = Nat64.fromNat(timeNanos % 1000000);
         
         Debug.print("Loan disbursement simulated - Loan ID: " # Nat.toText(loanId) # 
                 ", Amount: " # Nat64.toText(amount) # " e8s" #
@@ -161,7 +163,8 @@ module PaymentHandler {
         
         // In production, this would process actual ICP transfer from borrower to lending pool
         // For now, simulate successful repayment
-        let simulatedBlockIndex = Nat64.fromNat(Time.now() % 1000000);
+        let timeNanos = Int.abs(Time.now()); // Convert to absolute value
+        let simulatedBlockIndex = Nat64.fromNat(timeNanos % 1000000);
         
         Debug.print("Loan repayment simulated - Loan ID: " # Nat.toText(loanId) # 
                 ", Amount: " # Nat64.toText(amount) # " e8s" #
