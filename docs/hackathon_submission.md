@@ -8,7 +8,7 @@
 
 ## Innovation Summary
 
-RotateChain transforms traditional rotating savings and credit associations (ROSCAs) through blockchain innovation, introducing liquid contribution tokens (R Tokens) that enable cross-group lending while preserving social trust mechanisms.
+RotateChain transforms existing rotating savings and credit associations (ROSCAs) through blockchain innovation, introducing liquid contribution tokens (R Tokens) that enable cross-group lending while preserving social trust mechanisms.
 
 ## Revenue Model
 
@@ -71,17 +71,17 @@ RotateChain transforms traditional rotating savings and credit associations (ROS
 - Cross-border remittance integration
 
 **Long-term Vision:**
-Transform RotateChain into the primary financial infrastructure for emerging market communities, bridging traditional social finance with global DeFi opportunities.
+Transform RotateChain into the primary financial infrastructure for emerging market communities, bridging existing social finance with global DeFi opportunities.
 
 ## Deployment Information
 
-**Mainnet Canister ID**: [Will be provided after Task 3.1 deployment]  
+**Mainnet Canister ID**: https://cv2zh-syaaa-aaaah-arixa-cai.icp0.io/
 **Local Testing**: dfx start --background && dfx deploy  
 **Test Suite**: dfx canister call rotatechain_backend runSystemTests
 
 ## Demo Video
 
-[Video demonstrating key user flows and technical architecture - to be created]
+https://www.youtube.com/watch?v=0rv1k8vrt3I
 
 ## Architecture Diagram
 
