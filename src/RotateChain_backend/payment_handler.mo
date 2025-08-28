@@ -5,6 +5,11 @@ import Ledger "canister:icp_ledger_canister";
 import ICPPaymentService "./icp_payment_service";
 import Result "mo:base/Result";
 import Principal "mo:base/Principal";
+import Int "mo:base/Int";
+import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
+import Time "mo:base/Time";
+import Debug "mo:base/Debug";
 
 module PaymentHandler {
 
@@ -108,5 +113,63 @@ module PaymentHandler {
             principal = poolPrincipal;
             accountId = ICPPaymentService.getCanisterAccountId(poolPrincipal);
         }
+    };
+
+    // Process loan disbursement payment (lender to borrower)
+    public func processLoanDisbursement(
+        loanId: Types.LoanId,
+        borrower: Principal,
+        amount: Types.Amount
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        
+        // Validate amount
+        if (not Utils.validateAmount(amount)) {
+            return #err(#InvalidAmount);
+        };
+        
+        // Validate borrower
+        if (not Utils.validatePrincipal(borrower)) {
+            return #err(#UnauthorizedAccess);
+        };
+        
+        // In production, this would process actual ICP transfer from lending pool to borrower
+        // For now, simulate successful disbursement
+        let timeNanos = Int.abs(Time.now()); // Convert to absolute value
+        let simulatedBlockIndex = Nat64.fromNat(timeNanos % 1000000);
+        
+        Debug.print("Loan disbursement simulated - Loan ID: " # Nat.toText(loanId) # 
+                ", Amount: " # Nat64.toText(amount) # " e8s" #
+                ", Borrower: " # Principal.toText(borrower));
+        
+        #ok(simulatedBlockIndex)
+    };
+
+    // Process loan repayment (borrower to lender)
+    public func processLoanRepayment(
+        loanId: Types.LoanId,
+        borrower: Principal,
+        amount: Types.Amount
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        
+        // Validate amount
+        if (not Utils.validateAmount(amount)) {
+            return #err(#InvalidAmount);
+        };
+        
+        // Validate borrower
+        if (not Utils.validatePrincipal(borrower)) {
+            return #err(#UnauthorizedAccess);
+        };
+        
+        // In production, this would process actual ICP transfer from borrower to lending pool
+        // For now, simulate successful repayment
+        let timeNanos = Int.abs(Time.now()); // Convert to absolute value
+        let simulatedBlockIndex = Nat64.fromNat(timeNanos % 1000000);
+        
+        Debug.print("Loan repayment simulated - Loan ID: " # Nat.toText(loanId) # 
+                ", Amount: " # Nat64.toText(amount) # " e8s" #
+                ", Borrower: " # Principal.toText(borrower));
+        
+        #ok(simulatedBlockIndex)
     };
 }

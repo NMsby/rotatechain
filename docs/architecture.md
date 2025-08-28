@@ -1,282 +1,197 @@
 # RotateChain Technical Architecture
 
-## Overview
+## System Overview
 
-RotateChain is built as a multi-canister application on the Internet Computer, designed for scalability, security, and seamless user experience. The architecture follows a modular approach with clear separation of concerns.
+RotateChain implements a sophisticated DeFi platform that bridges existing financial practices with modern blockchain capabilities through innovative token mechanics and cross-group lending.
 
-## System Architecture
+## System Architecture Diagram
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend Layer                           │
-├─────────────────────────────────────────────────────────────────┤
-│  React 19 + TypeScript + Tailwind CSS + Framer Motion           │
-│                                                                 │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │   Landing   │ │ Dashboard   │ │   Groups    │ │   Wallet    ││
-│  │   Pages     │ │ Analytics   │ │ Management  │ │Integration  ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      API Gateway Layer                          │
-├─────────────────────────────────────────────────────────────────┤
-│           Internet Computer Agent + Actor Framework             │
-│                                                                 │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │ Auth Client │ │HTTP Outcalls│ │Event System │ │ State Mgmt  ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Canister Layer                             │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │    Main     │ │    ICP      │ │   Event     │ │   Asset     ││
-│  │  Backend    │ │Integration  │ │  Service    │ │  Canister   ││
-│  │  (Motoko)   │ │ (Motoko)    │ │ (Motoko)    │ │             ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   External Integration Layer                    │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐│
-│  │ICP Ledger   │ │IC Lighthouse│ │Internet ID  │ │   Bitcoin   ││
-│  │ Canister    │ │   Pools     │ │   Service   │ │Integration  ││
-│  │             │ │             │ │             │ │  (Planned)  ││
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘│
-└─────────────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────────────┐
+│                         Frontend Layer                            │
+│                      (Future Development)                         │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │    Group    │ │   R Token   │ │   Lending   │ │  Analytics  │  │
+│  │  Management │ │  Operations │ │  Dashboard  │ │   Portal    │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                        Main Actor (main.mo)                       │
+├───────────────────────────────────────────────────────────────────┤
+│             Public API Layer - All External Endpoints             │
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │    Group    │ │   R Token   │ │   Lending   │ │  Analytics  │  │
+│  │  Endpoints  │ │  Endpoints  │ │  Endpoints  │ │  Endpoints  │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                  State Manager (state_manager.mo)                 │
+├───────────────────────────────────────────────────────────────────┤
+│                Centralized State Coordination Layer               │
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │ R Token Mgr │ │ Lending Eng │ │  Yield Mgr  │ │Analytics Eng│  │
+│  │ Integration │ │ Integration │ │ Integration │ │ Integration │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                       Business Logic Layer                        │
+├───────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │  Group Mgmt │ │Rotation Eng │ │Payment Hand │ │ ICP Service │  │
+│  │   (groups)  │ │ (rotations) │ │  (payments) │ │   (ledger)  │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                     Infrastructure & Utilities                    │
+├───────────────────────────────────────────────────────────────────┤
+│         ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
+│         │Types System │ │ Utils & Val │ │ RBTree Data │           │
+│         │ (50+ types) │ │(validation) │ │  (storage)  │           │
+│         └─────────────┘ └─────────────┘ └─────────────┘           │
+└───────────────────────────────────────────────────────────────────┘
 ```
 
-## Core Components
+## User Flow Diagram - R Token Lifecycle
 
-### 1. Frontend Application (Asset Canister)
-
-**Technology Stack:**
-- React 19 with TypeScript for type safety
-- Tailwind CSS for responsive styling
-- Framer Motion for smooth animations
-- React Router for client-side navigation
-- Recharts & Chart.js for data visualization
-
-**Key Components:**
-```typescript
-src/RotateChain_frontend/src/
-├── components/
-│   ├── auth/                   # Authentication components
-│   ├── dashboard/              # Main dashboard interface
-│   ├── groups/                 # Group management UI
-│   ├── rotation/               # Rotation visualization
-│   ├── wallet/                 # Wallet integration
-│   └── common/                 # Shared UI components
-├── pages/
-│   ├── Landing.tsx             # Marketing landing page
-│   ├── Dashboard.tsx           # User dashboard
-│   ├── Groups.tsx              # Group management
-│   └── Analytics.tsx           # Performance analytics
-├── services/
-│   ├── auth.ts                 # Authentication service
-│   ├── groups.ts               # Group management API
-│   ├── payments.ts             # Payment processing
-│   └── analytics.ts            # Analytics service
-└── hooks/
-    ├── useAuth.ts              # Authentication hook
-    ├── useGroups.ts            # Group management hook
-    └── useWallet.ts            # Wallet integration hook
+```
+┌──────────────┐       ┌─────────────┐       ┌─────────────┐       ┌──────────────┐
+│   Group      │       │    ICP      │       │   R Token   │       │   Yield      │
+│ Contribution │ ───▶ │   Payment    │ ───▶ │  Issuance   │ ───▶ │ Accumulation │
+│              │       │ Validation  │       │             │       │              │
+└──────────────┘       └─────────────┘       └─────────────┘       └──────────────┘
+       │                     │                      │                      │
+       ▼                     ▼                      ▼                      ▼
+┌─────────────┐        ┌─────────────┐       ┌─────────────┐         ┌─────────────┐
+│   Member    │        │   Pool      │       │   Balance   │         │   Member    │
+│  Balance    │        │  Balance    │       │  Tracking   │         │  Rewards    │
+│   Update    │        │   Update    │       │             │         │             │
+└─────────────┘        └─────────────┘       └─────────────┘         └─────────────┘
 ```
 
-### 2. Main Backend Canister (Motoko)
+## Core Architecture Principles
 
-**Core Responsibilities:**
-- Group creation and management
-- Rotation scheduling and execution
-- Member authentication and authorization
-- Business logic enforcement
+**Modular Design**: 13 specialized modules with clear separation of concerns    
+**Upgrade Safety**: Comprehensive stable variable management across all components     
+**Type Safety**: Exhaustive type system covering all platform operations   
+**Data Integrity**: Automated validation and consistency checks    
+**Performance**: Efficient RBTree-based data structures throughout      
 
-**Data Structures:**
-```motoko
-// Core types
-type Principal = Principal;
-type GroupId = Nat;
-type Timestamp = Int;
+## Module Architecture
 
-// Group configuration
-type GroupConfig = {
-    id: GroupId;
-    name: Text;
-    admin: Principal;
-    members: [Principal];
-    maxMembers: Nat;
-    contributionAmount: Nat64;
-    rotationInterval: Nat; // Days
-    createdAt: Timestamp;
-    status: GroupStatus;
-};
+### State Management Layer
 
-// Rotation state
-type RotationState = {
-    groupId: GroupId;
-    currentRound: Nat;
-    totalRounds: Nat;
-    nextPayoutTime: Timestamp;
-    currentRecipient: ?Principal;
-    poolBalance: Nat64;
-    yieldGenerated: Nat64;
-};
-```
+**`state_manager.mo`**: Centralized state coordination
+- Stable variable orchestration across all modules
+- Upgrade-safe data persistence and restoration
+- Cross-module data consistency validation
+- Real-time analytics integration
 
-### 3. ICP Integration Canister (Motoko)
+**`types.mo`**: Comprehensive type system
+- 50+ specialized types covering all platform operations
+- Yield strategy definitions and loan lifecycle types
+- Analytics metrics and risk assessment structures
+- Comprehensive error handling enumeration
 
-**Responsibilities:**
-- ICP Ledger integration for payments
-- Balance tracking and management
-- Transaction history
-- Yield calculation and distribution
+### Financial Systems Layer
 
-**Key Functions:**
-```motoko
-public func processContribution(groupId: GroupId, amount: Nat64) : async Result<TransactionId, Error>
-public func executeRotationPayout(groupId: GroupId, recipient: Principal) : async Result<TransactionId, Error>
-public func calculateYield(groupId: GroupId, duration: Nat) : async Nat64
-public func getGroupBalance(groupId: GroupId) : async Nat64
-```
+**`r_token_manager.mo`**: Liquid contribution tokens
+- Automatic issuance linked to ICP contributions
+- Secure peer-to-peer transfer validation
+- Yield accumulation and compound growth tracking
+- Collateral integration with lending system
 
-### 4. Event Service Canister (Planned)
+**`lending_engine.mo`**: Cross-group lending infrastructure
+- R Token collateral validation and management
+- Dynamic interest rate calculation based on risk profiles
+- Automated default detection and liquidation procedures
+- Comprehensive loan lifecycle tracking
 
-**Purpose:**
-- Real-time notifications
-- Event streaming for frontend updates
-- Audit trail maintenance
-- Integration with external services
+**`yield_manager.mo`**: Multi-strategy yield optimization
+- Fixed, variable, tiered, and compound yield strategies
+- Market condition simulation and risk adjustment
+- Strategy selection based on group characteristics
+- Performance tracking and optimization
+
+### Business Logic Layer
+
+**`group_management.mo`**: Social group coordination
+- Member lifecycle and status management
+- Group formation and activation procedures
+- Participation tracking and compliance monitoring
+- Social trust validation mechanisms
+
+**`rotation_engine.mo`**: Automated rotation processing
+- Fair rotation order generation and management
+- Automated payout calculation and distribution
+- Yield integration with rotation cycles
+- Performance analytics and optimization
+
+### Analytics Intelligence Layer
+
+**`analytics_engine.mo`**: Comprehensive platform intelligence
+- Group performance metrics and health scoring
+- Individual credit assessment and risk profiling  
+- Platform-wide analytics and trend analysis
+- Risk assessment and stress testing capabilities
 
 ## Data Flow Architecture
 
-### 1. Group Creation Flow
+### Contribution Processing Flow
+
 ```
-User Input → Frontend Validation → Authentication Check → 
-Backend Canister → Group Creation → State Update → 
-Event Emission → Frontend Update
+User Payment → ICP Validation → Group Pool Update → 
+R Token Issuance → Member Balance Update → Analytics Update → 
+Yield Calculation → Performance Tracking
 ```
 
-### 2. Contribution Flow
+### Lending Process Flow
+
 ```
-Wallet Connection → Amount Input → ICP Transfer → 
-Ledger Confirmation → Pool Update → Yield Calculation → 
-State Update → Notification
+Loan Request → Collateral Validation → Risk Assessment → 
+Approval Process → Fund Disbursement → Repayment Tracking → 
+Default Management → Analytics Integration
 ```
 
-### 3. Rotation Flow
+### Analytics Processing Flow
+
 ```
-Timer Trigger → Eligibility Check → Recipient Selection → 
-Yield Calculation → Payout Execution → Balance Update → 
-Next Round Setup → Event Notification
+Real-time Data Collection → Metric Calculation → 
+Risk Assessment → Trend Analysis → Performance Optimization → 
+Historical Tracking → Predictive Analytics
 ```
 
 ## Security Architecture
 
-### 1. Authentication & Authorization
-- Internet Identity for primary authentication
-- Principal-based access control
-- Multi-signature requirements for admin actions
-- Session management with secure tokens
+**Principal-based Authentication**: All operations validate caller identity    
+**Collateral Management**: R Tokens locked during loan terms   
+**Input Validation**: Comprehensive validation on all public functions    
+**Error Propagation**: Consistent Result type usage for error handling    
+**Access Control**: Role-based permissions for administrative functions  
 
-### 2. Smart Contract Security
-- Input validation on all public functions
-- Overflow protection for numerical operations
-- Access control modifiers
-- Emergency pause mechanisms
+## Performance Characteristics
 
-### 3. Financial Security
-- Escrow-based fund management
-- Multi-signature wallet integration
-- Automated liquidation protection
-- Audit trail for all transactions
+**Analytics Processing**: Sub-millisecond calculation times   
+**Data Retrieval**: Efficient RBTree lookups with O(log n) complexity   
+**Memory Management**: Bounded data structures with automatic cleanup   
+**Upgrade Process**: Zero-downtime state migration capability   
 
-## Scalability Considerations
+## Integration Patterns
 
-### 1. Horizontal Scaling
-- Multiple canister architecture
-- Load balancing across canisters
-- State partitioning by group ID
-- Efficient data structures for large datasets
+**Modular Composition**: Clean interfaces between all components   
+**Event-driven Updates**: Automatic analytics refresh on state changes   
+**Lazy Evaluation**: Expensive calculations only when required    
+**Caching Strategy**: Intelligent data caching for frequently accessed metrics   
 
-### 2. Performance Optimization
-- Stable memory for large data sets
-- Efficient query patterns
-- Caching strategies for frequently accessed data
-- Lazy loading for frontend components
-
-## Integration Points
-
-### 1. IC Lighthouse Integration
-```motoko
-// Liquidity pool interaction
-public func depositToPool(amount: Nat64, poolId: Text) : async Result<PoolPosition, Error>
-public func withdrawFromPool(position: PoolPosition) : async Result<Nat64, Error>
-public func getPoolYield(position: PoolPosition) : async Nat64
-```
-
-### 2. Bitcoin Integration (Planned)
-```motoko
-// Bitcoin wallet functionality
-public func generateBitcoinAddress(network: Network) : async Text
-public func getBitcoinBalance(address: Text) : async Satoshi
-public func sendBitcoin(to: Text, amount: Satoshi) : async TransactionId
-```
-
-## Deployment Architecture
-
-### 1. Local Development
-```bash
-dfx start --background
-dfx deploy
-npm start
-```
-
-### 2. IC Mainnet Deployment
-```bash
-dfx deploy --network ic --with-cycles 1000000000000
-```
-
-### 3. Continuous Integration
-- GitHub Actions for automated testing
-- Automated deployment on merge to main
-- Security scanning and code quality checks
-
-## Monitoring & Analytics
-
-### 1. Application Metrics
-- Transaction volume and frequency
-- User engagement metrics
-- Group performance analytics
-- Yield generation tracking
-
-### 2. System Metrics
-- Canister cycle usage
-- Memory consumption
-- Response time monitoring
-- Error rate tracking
-
-## Future Architecture Enhancements
-
-### 1. Cross-Chain Integration
-- Bitcoin Layer 2 solutions
-- Ethereum bridge integration
-- Multi-chain liquidity aggregation
-
-### 2. Advanced Features
-- AI-powered yield optimization
-- Decentralized governance implementation
-- Mobile app development
-- Advanced analytics and ML insights
-
----
-
-*Last Updated: July 26, 2025*
-*Version: 1.0*
+This architecture supports the platform's mission of combining social trust with financial innovation through comprehensive technical excellence.
