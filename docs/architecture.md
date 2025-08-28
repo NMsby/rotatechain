@@ -2,15 +2,91 @@
 
 ## System Overview
 
-RotateChain implements a sophisticated DeFi platform that bridges traditional financial practices with modern blockchain capabilities through innovative token mechanics and cross-group lending.
+RotateChain implements a sophisticated DeFi platform that bridges existing financial practices with modern blockchain capabilities through innovative token mechanics and cross-group lending.
+
+## System Architecture Diagram
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│                         Frontend Layer                            │
+│                      (Future Development)                         │
+├───────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │    Group    │ │   R Token   │ │   Lending   │ │  Analytics  │  │
+│  │  Management │ │  Operations │ │  Dashboard  │ │   Portal    │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                        Main Actor (main.mo)                       │
+├───────────────────────────────────────────────────────────────────┤
+│             Public API Layer - All External Endpoints             │
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │    Group    │ │   R Token   │ │   Lending   │ │  Analytics  │  │
+│  │  Endpoints  │ │  Endpoints  │ │  Endpoints  │ │  Endpoints  │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                  State Manager (state_manager.mo)                 │
+├───────────────────────────────────────────────────────────────────┤
+│                Centralized State Coordination Layer               │
+│                                                                   │
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │ R Token Mgr │ │ Lending Eng │ │  Yield Mgr  │ │Analytics Eng│  │
+│  │ Integration │ │ Integration │ │ Integration │ │ Integration │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                       Business Logic Layer                        │
+├───────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐  │
+│  │  Group Mgmt │ │Rotation Eng │ │Payment Hand │ │ ICP Service │  │
+│  │   (groups)  │ │ (rotations) │ │  (payments) │ │   (ledger)  │  │
+│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘  │
+└───────────────────────────────────────────────────────────────────┘
+                                  │
+                                  ▼
+┌───────────────────────────────────────────────────────────────────┐
+│                     Infrastructure & Utilities                    │
+├───────────────────────────────────────────────────────────────────┤
+│         ┌─────────────┐ ┌─────────────┐ ┌─────────────┐           │
+│         │Types System │ │ Utils & Val │ │ RBTree Data │           │
+│         │ (50+ types) │ │(validation) │ │  (storage)  │           │
+│         └─────────────┘ └─────────────┘ └─────────────┘           │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+## User Flow Diagram - R Token Lifecycle
+
+```
+┌──────────────┐       ┌─────────────┐       ┌─────────────┐       ┌──────────────┐
+│   Group      │       │    ICP      │       │   R Token   │       │   Yield      │
+│ Contribution │ ───▶ │   Payment    │ ───▶ │  Issuance   │ ───▶ │ Accumulation │
+│              │       │ Validation  │       │             │       │              │
+└──────────────┘       └─────────────┘       └─────────────┘       └──────────────┘
+       │                     │                      │                      │
+       ▼                     ▼                      ▼                      ▼
+┌─────────────┐        ┌─────────────┐       ┌─────────────┐         ┌─────────────┐
+│   Member    │        │   Pool      │       │   Balance   │         │   Member    │
+│  Balance    │        │  Balance    │       │  Tracking   │         │  Rewards    │
+│   Update    │        │   Update    │       │             │         │             │
+└─────────────┘        └─────────────┘       └─────────────┘         └─────────────┘
+```
 
 ## Core Architecture Principles
 
-**Modular Design**: 13 specialized modules with clear separation of concerns
-**Upgrade Safety**: Comprehensive stable variable management across all components  
-**Type Safety**: Exhaustive type system covering all platform operations
-**Data Integrity**: Automated validation and consistency checks
-**Performance**: Efficient RBTree-based data structures throughout
+**Modular Design**: 13 specialized modules with clear separation of concerns    
+**Upgrade Safety**: Comprehensive stable variable management across all components     
+**Type Safety**: Exhaustive type system covering all platform operations   
+**Data Integrity**: Automated validation and consistency checks    
+**Performance**: Efficient RBTree-based data structures throughout      
 
 ## Module Architecture
 
@@ -98,24 +174,24 @@ Historical Tracking → Predictive Analytics
 
 ## Security Architecture
 
-**Principal-based Authentication**: All operations validate caller identity
-**Collateral Management**: R Tokens locked during loan terms
-**Input Validation**: Comprehensive validation on all public functions
-**Error Propagation**: Consistent Result type usage for error handling
-**Access Control**: Role-based permissions for administrative functions
+**Principal-based Authentication**: All operations validate caller identity    
+**Collateral Management**: R Tokens locked during loan terms   
+**Input Validation**: Comprehensive validation on all public functions    
+**Error Propagation**: Consistent Result type usage for error handling    
+**Access Control**: Role-based permissions for administrative functions  
 
 ## Performance Characteristics
 
-**Analytics Processing**: Sub-millisecond calculation times
-**Data Retrieval**: Efficient RBTree lookups with O(log n) complexity
-**Memory Management**: Bounded data structures with automatic cleanup
-**Upgrade Process**: Zero-downtime state migration capability
+**Analytics Processing**: Sub-millisecond calculation times   
+**Data Retrieval**: Efficient RBTree lookups with O(log n) complexity   
+**Memory Management**: Bounded data structures with automatic cleanup   
+**Upgrade Process**: Zero-downtime state migration capability   
 
 ## Integration Patterns
 
-**Modular Composition**: Clean interfaces between all components
-**Event-driven Updates**: Automatic analytics refresh on state changes
-**Lazy Evaluation**: Expensive calculations only when required
-**Caching Strategy**: Intelligent data caching for frequently accessed metrics
+**Modular Composition**: Clean interfaces between all components   
+**Event-driven Updates**: Automatic analytics refresh on state changes   
+**Lazy Evaluation**: Expensive calculations only when required    
+**Caching Strategy**: Intelligent data caching for frequently accessed metrics   
 
 This architecture supports the platform's mission of combining social trust with financial innovation through comprehensive technical excellence.
