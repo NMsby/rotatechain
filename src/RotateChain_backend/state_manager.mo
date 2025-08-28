@@ -1,12 +1,22 @@
 // state_manager.mo - Centralized state management with upgrade support
-import HashMap "mo:base/HashMap";
+import RBTree "mo:base/RBTree";
 import Iter "mo:base/Iter";
 import Principal "mo:base/Principal";
 import Nat "mo:base/Nat";
+import Nat64 "mo:base/Nat64";
 import Array "mo:base/Array";
 import Buffer "mo:base/Buffer";
+import Float "mo:base/Float";
+import Result "mo:base/Result";
 import Time "mo:base/Time";
+import Debug "mo:base/Debug";
+
 import Types "./types";
+import RTokenManager "./r_token_manager";
+import YieldManager "./yield_manager";
+import YieldDistributor "./yield_distributor";
+import LendingEngine "./lending_engine";
+import AnalyticsEngine "./analytics_engine";
 
 module StateManager {
     public type GroupId = Types.GroupId;
@@ -16,70 +26,141 @@ module StateManager {
     public type Transaction = Types.Transaction;
     public type TransactionId = Types.TransactionId;
 
+    // R Token types
+    public type RTokenId = Types.RTokenId;
+    public type RToken = Types.RToken;
+    public type RTokenTransfer = Types.RTokenTransfer;
+
     public class StateManager() {
         
-        // ==================== STABLE VARIABLES ====================
-        // These persist across canister upgrades
+        // ==================== NON-STABLE VARIABLES ====================
+        // State persistence handled at actor level
         
-        private stable var groupCounter: GroupId = 0;
-        private stable var transactionCounter: TransactionId = 0;
-        private stable var isSystemPaused: Bool = false;
-        
-        // Stable storage for complex data structures
-        private stable var groupEntries: [(GroupId, GroupConfig)] = [];
-        private stable var rotationEntries: [(GroupId, RotationState)] = [];
-        private stable var memberEntries: [(GroupId, [(Principal, Member)])] = [];
-        private stable var transactionEntries: [(TransactionId, Transaction)] = [];
-        private stable var groupMembershipEntries: [(Principal, [GroupId])] = [];
+        private var groupCounter: GroupId = 0;
+        private var transactionCounter: TransactionId = 0;
+        private var isSystemPaused: Bool = false;
 
-        // ==================== RUNTIME STATE ====================
+        // ==================== R TOKEN INTEGRATION =============================
+        // Initialize R Token manager as part of state management
+        private let rTokenManager = RTokenManager.RTokenManager();
+
+        // ==================== YIELD INTEGRATION ===============================
+
+        // Initialize Yield manager as part of state management
+        private let yieldManager = YieldManager.YieldManager();
+
+        // ==================== LENDING INTEGRATION =============================
+        private let lendingEngine = LendingEngine.LendingEngine();
+
+        // ==================== ANALYTICS ENGINE INTEGRATION ====================
+        private let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
+
+        // Initialize Yield distributor as part of state management
+        private let yieldDistributor = YieldDistributor.YieldDistributor();
+        
+        // ==================== RUNTIME STATE ===================================
         // Rebuilt from stable storage on canister start
         
-        private var groups = HashMap.HashMap<GroupId, GroupConfig>(10, Nat.equal, Nat.hash);
-        private var rotations = HashMap.HashMap<GroupId, RotationState>(10, Nat.equal, Nat.hash);
-        private var transactions = HashMap.HashMap<TransactionId, Transaction>(100, Nat.equal, Nat.hash);
-        private var groupMemberships = HashMap.HashMap<Principal, [GroupId]>(50, Principal.equal, Principal.hash);
+        private var groups = RBTree.RBTree<GroupId, GroupConfig>(Nat.compare);
+        private var rotations = RBTree.RBTree<GroupId, RotationState>(Nat.compare);
+        private var transactions = RBTree.RBTree<TransactionId, Transaction>(Nat64.compare);
+        private var groupMemberships = RBTree.RBTree<Principal, [GroupId]>(Principal.compare);
         
         // Member data: GroupId -> (Principal -> Member)
-        private var members = HashMap.HashMap<GroupId, HashMap.HashMap<Principal, Member>>(
-            10, Nat.equal, Nat.hash
-        );
+        private var members = RBTree.RBTree<GroupId, RBTree.RBTree<Principal, Member>>(Nat.compare);
 
-        // ==================== INITIALIZATION ====================
-        
+        // ==================== STATE INITIALIZATION ====================
+
         // Restore state from stable storage
-        private func initializeState() {
-            // Restore groups
-            groups := HashMap.fromIter<GroupId, GroupConfig>(
-                groupEntries.vals(), 10, Nat.equal, Nat.hash
-            );
-            
-            // Restore rotations
-            rotations := HashMap.fromIter<GroupId, RotationState>(
-                rotationEntries.vals(), 10, Nat.equal, Nat.hash
-            );
-            
-            // Restore transactions
-            transactions := HashMap.fromIter<TransactionId, Transaction>(
-                transactionEntries.vals(), 100, Nat.equal, Nat.hash
-            );
-            
-            // Restore group memberships
-            groupMemberships := HashMap.fromIter<Principal, [GroupId]>(
-                groupMembershipEntries.vals(), 50, Principal.equal, Principal.hash
-            );
-            
-            // Restore members (more complex due to nested structure)
-            for ((groupId, memberList) in memberEntries.vals()) {
-                let memberMap = HashMap.fromIter<Principal, Member>(
-                    memberList.vals(), 10, Principal.equal, Principal.hash
-                );
-                members.put(groupId, memberMap);
+        public func initializeFromState(
+            groupEntries: [(GroupId, GroupConfig)],
+            rotationEntries: [(GroupId, RotationState)],
+            memberEntries: [(GroupId, [(Principal, Member)])],
+            transactionEntries: [(TransactionId, Transaction)],
+            groupMembershipEntries: [(Principal, [GroupId])],
+            rTokenEntries: [(Types.RTokenId, Types.RToken)],
+            rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)],
+            rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])],
+            gCounter: GroupId,
+            tCounter: TransactionId,
+            paused: Bool
+        ) {
+            // Initialize counters and flags
+            groupCounter := gCounter;
+            transactionCounter := tCounter;
+            isSystemPaused := paused;
+
+            // Initialize groups
+            for ((id, group) in groupEntries.vals()) {
+                groups.put(id, group);
+                if (id >= groupCounter) {
+                    groupCounter := id + 1;
+                };
             };
+            
+            // Initialize rotations
+            for ((id, rotation) in rotationEntries.vals()) {
+                rotations.put(id, rotation);
+            };
+            
+            // Initialize transactions
+            for ((id, transaction) in transactionEntries.vals()) {
+                transactions.put(id, transaction);
+                if (id >= transactionCounter) {
+                    transactionCounter := id + 1;
+                };
+            };
+            
+            // Initialize group memberships
+            for ((principal, groupIds) in groupMembershipEntries.vals()) {
+                groupMemberships.put(principal, groupIds);
+            };
+            
+            // Initialize members (nested structure)
+            for ((groupId, memberList) in memberEntries.vals()) {
+                let memberTree = RBTree.RBTree<Principal, Member>(Principal.compare);
+                for ((principal, member) in memberList.vals()) {
+                    memberTree.put(principal, member);
+                };
+                members.put(groupId, memberTree);
+            };
+            
+            // Initialize R Token manager with stored state
+            rTokenManager.initializeFromState(rTokenEntries, rTokenTransferEntries, rTokenHolderEntries);
         };
 
-        // Call initialization
-        initializeState();
+        public func exportState() : (
+            [(GroupId, GroupConfig)],
+            [(GroupId, RotationState)],
+            [(GroupId, [(Principal, Member)])],
+            [(TransactionId, Transaction)],
+            [(Principal, [GroupId])],
+            [(Types.RTokenId, Types.RToken)],
+            [(Types.TransactionId, Types.RTokenTransfer)],
+            [(Principal, [(Types.GroupId, Types.Amount)])],
+            GroupId,
+            TransactionId,
+            Bool
+        ) {
+            let groupEntries = Iter.toArray(groups.entries());
+            let rotationEntries = Iter.toArray(rotations.entries());
+            let transactionEntries = Iter.toArray(transactions.entries());
+            let groupMembershipEntries = Iter.toArray(groupMemberships.entries());
+            
+            // Export nested member structure
+            let memberBuffer = Buffer.Buffer<(GroupId, [(Principal, Member)])>(RBTree.size(members.share()));
+            for ((groupId, memberTree) in members.entries()) {
+                let memberArray = Iter.toArray(memberTree.entries());
+                memberBuffer.add((groupId, memberArray));
+            };
+            let memberEntries = Buffer.toArray(memberBuffer);
+            
+            // Export R Token state
+            let (rTokenEntries, rTokenTransferEntries, rTokenHolderEntries) = rTokenManager.exportState();
+            
+            (groupEntries, rotationEntries, memberEntries, transactionEntries, groupMembershipEntries, 
+             rTokenEntries, rTokenTransferEntries, rTokenHolderEntries, groupCounter, transactionCounter, isSystemPaused)
+        };
 
         // ==================== GROUP OPERATIONS ====================
         
@@ -95,6 +176,7 @@ module StateManager {
             groups.delete(groupId);
             rotations.delete(groupId);
             members.delete(groupId);
+            // Note: R Token cleanup is handled by the R Token manager
         };
 
         public func getAllGroups() : [(GroupId, GroupConfig)] {
@@ -102,7 +184,7 @@ module StateManager {
         };
 
         public func getActiveGroups() : [(GroupId, GroupConfig)] {
-            let activeGroups = Buffer.Buffer<(GroupId, GroupConfig)>(groups.size());
+            let activeGroups = Buffer.Buffer<(GroupId, GroupConfig)>(RBTree.size(groups.share()));
             for ((id, group) in groups.entries()) {
                 if (group.status == #active) {
                     activeGroups.add((id, group));
@@ -129,56 +211,79 @@ module StateManager {
         
         public func getMember(groupId: GroupId, principal: Principal) : ?Member {
             switch (members.get(groupId)) {
-                case (?memberMap) { memberMap.get(principal) };
+                case (?memberTree) { memberTree.get(principal) };
                 case null { null };
             }
         };
 
         public func putMember(groupId: GroupId, principal: Principal, member: Member) {
-            switch (members.get(groupId)) {
-                case (?memberMap) { 
-                    memberMap.put(principal, member);
-                };
+            let memberTree = switch (members.get(groupId)) {
+                case (?tree) { tree };
                 case null {
-                    let newMap = HashMap.HashMap<Principal, Member>(10, Principal.equal, Principal.hash);
-                    newMap.put(principal, member);
-                    members.put(groupId, newMap);
+                    let newTree = RBTree.RBTree<Principal, Member>(Principal.compare);
+                    members.put(groupId, newTree);
+                    newTree
                 };
             };
             
-            // Update membership index
-            updateMembershipIndex(principal, groupId);
+            memberTree.put(principal, member);
+            addMembershipIndex(principal, groupId);
         };
 
         public func removeMember(groupId: GroupId, principal: Principal) {
             switch (members.get(groupId)) {
-                case (?memberMap) { 
-                    memberMap.delete(principal);
+                case (?memberTree) {
+                    memberTree.delete(principal);
                 };
                 case null { };
             };
             
-            // Update membership index
+            // Remove group membership index
             removeMembershipIndex(principal, groupId);
         };
 
-        public func getGroupMembers(groupId: GroupId) : [(Principal, Member)] {
+        public func getGroupMembers(groupId: GroupId) : [Member] {
             switch (members.get(groupId)) {
-                case (?memberMap) { Iter.toArray(memberMap.entries()) };
+                case (?memberTree) {
+                    let memberBuffer = Buffer.Buffer<Member>(RBTree.size(memberTree.share()));
+                    for ((_, member) in memberTree.entries()) {
+                        memberBuffer.add(member);
+                    };
+                    Buffer.toArray(memberBuffer)
+                };
                 case null { [] };
             }
         };
 
+        // Update member's liquid token balance (integrated with R Token system)
+        public func updateMemberLiquidTokenBalance(groupId: GroupId, principal: Principal, newBalance: Types.Amount) {
+            switch (members.get(groupId)) {
+                case (?memberMap) {
+                    switch (memberMap.get(principal)) {
+                        case (?member) {
+                            let updatedMember = { member with liquidTokenBalance = newBalance };
+                            memberMap.put(principal, updatedMember);
+                        };
+                        case null { };
+                    };
+                };
+                case null { };
+            };
+        };
+
         // ==================== MEMBERSHIP INDEX ====================
         
-        private func updateMembershipIndex(principal: Principal, groupId: GroupId) {
+        private func addMembershipIndex(principal: Principal, groupId: GroupId) {
             switch (groupMemberships.get(principal)) {
                 case (?currentGroups) {
-                    // Check if already in list
+                    // Check if already exists to avoid duplicates
                     let exists = Array.find<GroupId>(currentGroups, func(id) = id == groupId);
-                    if (exists == null) {
-                        let updatedGroups = Array.append(currentGroups, [groupId]);
-                        groupMemberships.put(principal, updatedGroups);
+                    switch (exists) {
+                        case null {
+                            let updatedGroups = Array.append<GroupId>(currentGroups, [groupId]);
+                            groupMemberships.put(principal, updatedGroups);
+                        };
+                        case (?_) { }; // Already exists
                     };
                 };
                 case null {
@@ -215,6 +320,406 @@ module StateManager {
                 };
                 case null { [] };
             }
+        };
+
+        // ==================== R TOKEN DELEGATED OPERATIONS ====================
+        
+        // Issue R Tokens when contribution is made
+        public func issueRTokensForContribution(
+            groupId: GroupId,
+            recipient: Principal,
+            contributionAmount: Types.Amount,
+            memo: ?Text
+        ) : Result.Result<RTokenId, Types.Error> {
+            let result = rTokenManager.issueRTokens(groupId, recipient, contributionAmount, memo);
+            
+            // Update member's liquid token balance
+            switch (result) {
+                case (#ok(_tokenId)) {
+                    let currentBalance = rTokenManager.getRTokenBalance(recipient, groupId);
+                    updateMemberLiquidTokenBalance(groupId, recipient, currentBalance);
+
+                    // Trigger analytics update
+                    ignore updateGroupAnalytics(groupId);
+                };
+                case (#err(_)) { };
+            };
+            
+            result
+        };
+
+        // Transfer R Tokens between members
+        public func transferRTokensWithValidation(
+            tokenId: RTokenId,
+            from: Principal,
+            to: Principal,
+            amount: Types.Amount,
+            memo: ?Text
+        ) : Result.Result<Types.TransactionId, Types.Error> { 
+
+            // Get token to determine group
+            switch (rTokenManager.getRToken(tokenId)) {
+                case (?token) {
+                    // Get group to validate membership
+                    switch (groups.get(token.groupId)) {
+                        case (?group) {
+                            // Call enhanced transfer with group member validation
+                            let result = rTokenManager.transferRTokens(
+                                tokenId, from, to, amount, memo, group.members
+                            );
+
+                            // Update both members' liquid token balances on success
+                            switch (result) {
+                                case (#ok(transferId)) {
+                                    let fromBalance = rTokenManager.getRTokenBalance(from, token.groupId);
+                                    let toBalance = rTokenManager.getRTokenBalance(to, token.groupId);
+                                    updateMemberLiquidTokenBalance(token.groupId, from, fromBalance);
+                                    updateMemberLiquidTokenBalance(token.groupId, to, toBalance);
+                                    
+                                    // Create transaction record
+                                    let transaction: Types.Transaction = {
+                                        id = nextTransactionId();
+                                        groupId = token.groupId;
+                                        from = from;
+                                        to = ?to;
+                                        amount = amount;
+                                        timestamp = Time.now();
+                                        transactionType = #yield; // Using yield type for R Token transfers
+                                        memo = ?("R Token transfer: " # Nat64.toText(transferId));
+                                        blockHeight = ?transferId;
+                                    };
+                                    putTransaction(transaction);
+                                    
+                                    #ok(transferId)
+                                };
+                                case (#err(error)) { #err(error) };
+                            };
+                        };
+                        case null { #err(#GroupNotFound) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            };
+        };
+
+        // Get transfer history for a specific user
+        public func getUserTransferHistory(user: Principal) : [Types.RTokenTransfer] {
+            rTokenManager.getUserTransferHistory(user)
+        };
+
+        // Get transfer details
+        public func getTransferDetails(transferId: Types.TransactionId) : ?Types.RTokenTransfer {
+            rTokenManager.getTransferDetails(transferId)
+        };
+
+        // Get all transfers for a specific token
+        public func getTokenTransferHistory(tokenId: Types.RTokenId) : [Types.RTokenTransfer] {
+            rTokenManager.getTokenTransferHistory(tokenId)
+        };
+
+        // Redeem R Tokens for ICP
+        public func redeemRTokens(
+            tokenId: RTokenId,
+            holder: Principal,
+            amount: Types.Amount
+        ) : Result.Result<Types.Amount, Types.Error> {
+            let result = rTokenManager.redeemRTokens(tokenId, holder, amount);
+            
+            // Update member's liquid token balance
+            switch (result) {
+                case (#ok(_)) {
+                    switch (rTokenManager.getRToken(tokenId)) {
+                        case (?token) {
+                            let newBalance = rTokenManager.getRTokenBalance(holder, token.groupId);
+                            updateMemberLiquidTokenBalance(token.groupId, holder, newBalance);
+                        };
+                        case null { };
+                    };
+                };
+                case (#err(_)) { };
+            };
+            
+            result
+        };
+
+        // Get R Token balance for user in specific group
+        public func getRTokenBalance(holder: Principal, groupId: GroupId) : Types.Amount {
+            rTokenManager.getRTokenBalance(holder, groupId)
+        };
+
+        // Get all R Token balances for a user
+        public func getAllRTokenBalances(holder: Principal) : [(GroupId, Types.Amount)] {
+            rTokenManager.getAllRTokenBalances(holder)
+        };
+
+        // Get specific R Token details
+        public func getRToken(tokenId: RTokenId) : ?RToken {
+            rTokenManager.getRToken(tokenId)
+        };
+
+        // Get all R Tokens for a holder
+        public func getHolderTokens(holder: Principal) : [RToken] {
+            rTokenManager.getHolderTokens(holder)
+        };
+
+        // Get all R Tokens in a group
+        public func getGroupTokens(groupId: GroupId) : [RToken] {
+            rTokenManager.getGroupTokens(groupId)
+        };
+
+        // Get R Token statistics for a group
+        public func getGroupTokenStats(groupId: GroupId) : {totalTokens: Nat; totalValue: Types.Amount; activeTokens: Nat} {
+            rTokenManager.getGroupTokenStats(groupId)
+        };
+
+        // Get platform-wide R Token statistics
+        public func getPlatformTokenStats() : {totalTokens: Nat; totalValue: Types.Amount; totalHolders: Nat} {
+            rTokenManager.getPlatformTokenStats()
+        };
+
+        // ==================== LENDING OPERATIONS ====================
+
+        // Initialize lending engine with stored state
+        public func initializeLendingState(
+            loanEntries: [(Types.LoanId, Types.Loan)],
+            paymentEntries: [(Types.TransactionId, Types.LoanPayment)]
+        ) {
+            lendingEngine.initializeFromState(loanEntries, paymentEntries);
+        };
+
+        // Request a loan using R Tokens as collateral
+        public func requestLoan(
+            borrower: Principal,
+            borrowerGroupId: Types.GroupId,
+            request: Types.LoanRequest
+        ) : Result.Result<Types.LoanId, Types.Error> {
+            // Get current values of collateral R Tokens
+            let tokenValues = Buffer.Buffer<(Types.RTokenId, Types.Amount)>(request.collateralTokenIds.size());
+            
+            for (tokenId in request.collateralTokenIds.vals()) {
+                switch (rTokenManager.getRToken(tokenId)) {
+                    case (?token) {
+                        // Verify token ownership
+                        if (not Principal.equal(token.holder, borrower)) {
+                            return #err(#UnauthorizedAccess);
+                        };
+                        // Verify token is not already locked
+                        switch (lendingEngine.isTokenLocked(tokenId)) {
+                            case (?_) { return #err(#CollateralLocked) };
+                            case null { tokenValues.add((tokenId, token.currentAmount)) };
+                        };
+                    };
+                    case null { return #err(#GroupNotFound) }; // Token not found
+                };
+            };
+            
+            lendingEngine.requestLoan(borrower, borrowerGroupId, request, Buffer.toArray(tokenValues))
+        };
+
+        // Approve loan (admin function)
+        public func approveLoan(loanId: Types.LoanId, approver: Principal) : Result.Result<Bool, Types.Error> {
+            lendingEngine.approveLoan(loanId, approver)
+        };
+
+        // Disburse loan funds
+        public func disburseLoan(loanId: Types.LoanId, disburser: Principal) : Result.Result<Bool, Types.Error> {
+            lendingEngine.disburseLoan(loanId, disburser)
+        };
+
+        // Make loan payment
+        public func makeLoanPayment(
+            loanId: Types.LoanId,
+            payer: Principal,
+            amount: Types.Amount
+        ) : Result.Result<Types.TransactionId, Types.Error> {
+            lendingEngine.makePayment(loanId, payer, amount, #regular)
+        };
+
+        // Get loan details
+        public func getLoan(loanId: Types.LoanId) : ?Types.Loan {
+            lendingEngine.getLoan(loanId)
+        };
+
+        // Get borrower's loans
+        public func getBorrowerLoans(borrower: Principal) : [Types.Loan] {
+            lendingEngine.getBorrowerLoans(borrower)
+        };
+
+        // Get lending statistics
+        public func getLendingStatistics() : {
+            totalLoans: Nat;
+            activeLoans: Nat;
+            defaultedLoans: Nat;
+            totalLent: Types.Amount;
+            totalRepaid: Types.Amount;
+            averageInterestRate: Float;
+        } {
+            lendingEngine.getLendingStatistics()
+        };
+
+        // Export lending state for upgrades
+        public func exportLendingState() : ([(Types.LoanId, Types.Loan)], [(Types.TransactionId, Types.LoanPayment)]) {
+            lendingEngine.exportState()
+        };
+
+        // ==================== YIELD OPERATIONS ====================
+
+        // Calculate yield for a specific group over a duration
+        public func calculateGroupYield(
+            groupId: GroupId,
+            durationDays: Nat
+        ) : Result.Result<Types.YieldCalculation, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    switch (rotations.get(groupId)) {
+                        case (?rotation) {
+                            let strategy = yieldManager.createDefaultStrategy(
+                                group.members.size(), 
+                                group.contributionAmount
+                            );
+                            yieldManager.calculateYield(
+                                rotation.poolBalance,
+                                strategy,
+                                durationDays,
+                                ?rotation.poolBalance,
+                                null
+                            )
+                        };
+                        case null { #err(#GroupNotFound) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Update R Token yields
+        public func updateRTokenYields(groupId: GroupId) : Result.Result<Nat, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    let strategy = yieldManager.createDefaultStrategy(
+                        group.members.size(),
+                        group.contributionAmount
+                    );
+                    
+                    let tokens = rTokenManager.getGroupTokens(groupId);
+                    var updatedCount = 0;
+                    
+                    for (token in tokens.vals()) {
+                        switch (yieldManager.calculateRTokenYieldUpdate(token, strategy)) {
+                            case (#ok(yieldAmount)) {
+                                if (yieldAmount > 0) {
+                                    ignore rTokenManager.updateTokenYield(token.id, yieldAmount);
+                                    updatedCount += 1;
+                                };
+                            };
+                            case (#err(_)) { /* Continue with other tokens */ };
+                        };
+                    };
+                    
+                    #ok(updatedCount)
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Distribute yield to group members
+        public func distributeGroupYield(
+            groupId: GroupId,
+            totalYield: Types.Amount
+        ) : Result.Result<Types.TransactionId, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    let groupMembers = getGroupMembers(groupId);
+                    if (groupMembers.size() == 0) {
+                        return #err(#NotMember);
+                    };
+                    
+                    // Create distribution strategy
+                    let strategy = yieldDistributor.createDefaultDistributionStrategy(
+                        groupMembers.size(),
+                        group.totalPoolSize
+                    );
+                    
+                    // Calculate distribution
+                    switch (yieldDistributor.calculateDistribution(groupId, totalYield, groupMembers, strategy)) {
+                        case (#ok(distribution)) {
+                            // Execute distribution to members
+                            var distributedCount = 0;
+                            for ((principal, yieldAmount) in distribution.distributions.vals()) {
+                                // Update member balance (simulate yield payment)
+                                switch (getMember(groupId, principal)) {
+                                    case (?member) {
+                                        let updatedMember = { 
+                                            member with 
+                                            receivedPayouts = member.receivedPayouts + yieldAmount;
+                                            liquidTokenBalance = member.liquidTokenBalance + yieldAmount;
+                                        };
+                                        putMember(groupId, principal, updatedMember);
+                                        distributedCount += 1;
+                                    };
+                                    case null { /* Skip non-existent members */ };
+                                };
+                            };
+                            
+                            // Create transaction record
+                            let transactionId = nextTransactionId();
+                            let transaction: Types.Transaction = {
+                                id = transactionId;
+                                groupId = groupId;
+                                from = Principal.fromText("2vxsx-fae"); // System principal
+                                to = null; // Multiple recipients
+                                amount = totalYield;
+                                timestamp = Time.now();
+                                transactionType = #yield;
+                                memo = ?("Yield distribution to " # Nat.toText(distributedCount) # " members");
+                                blockHeight = ?distribution.distributionId;
+                            };
+                            putTransaction(transaction);
+                            
+                            Debug.print("Yield distributed - Group: " # Nat.toText(groupId) # 
+                                    ", Amount: " # Nat64.toText(totalYield) # " e8s" #
+                                    ", Members: " # Nat.toText(distributedCount));
+                            
+                            // After successful distribution, update analytics
+                            ignore updateGroupAnalytics(groupId);
+                            recordAnalyticsSnapshot();
+
+                            #ok(transactionId)
+                        };
+                        case (#err(error)) { #err(error) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Distribute yield to R Token holders in a group
+        public func distributeRTokenYield(
+            groupId: GroupId,
+            totalYield: Types.Amount
+        ) : Result.Result<Nat, Types.Error> {
+            let groupTokens = rTokenManager.getGroupTokens(groupId);
+            
+            if (groupTokens.size() == 0) {
+                return #ok(0);
+            };
+            
+            let distributions = yieldDistributor.distributeRTokenYield(groupTokens, totalYield);
+            var updatedCount = 0;
+            
+            for ((tokenId, yieldAmount) in distributions.vals()) {
+                switch (rTokenManager.updateTokenYield(tokenId, yieldAmount)) {
+                    case (#ok(_)) {
+                        updatedCount += 1;
+                    };
+                    case (#err(_)) { /* Continue with other tokens */ };
+                };
+            };
+            
+            Debug.print("R Token yield distributed - Group: " # Nat.toText(groupId) # 
+                    ", Updated tokens: " # Nat.toText(updatedCount));
+            
+            #ok(updatedCount)
         };
 
         // ==================== TRANSACTION OPERATIONS ====================
@@ -281,11 +786,15 @@ module StateManager {
             
             var totalMembers = 0;
             var totalValueLocked : Types.Amount = 0;
+            var totalYieldGenerated : Types.Amount = 0;
             
             for ((_, group) in allGroups.vals()) {
                 totalMembers += group.members.size();
                 switch (rotations.get(group.id)) {
-                    case (?rotation) { totalValueLocked += rotation.poolBalance };
+                    case (?rotation) { 
+                        totalValueLocked += rotation.poolBalance;
+                        totalYieldGenerated += rotation.yieldGenerated;
+                    };
                     case null { };
                 };
             };
@@ -294,47 +803,18 @@ module StateManager {
                 Float.fromInt(totalMembers) / Float.fromInt(allGroups.size())
             } else { 0.0 };
 
+            // Get R Token statistics
+            let rTokenStats = rTokenManager.getPlatformTokenStats();
+
             {
                 totalGroups = allGroups.size();
                 activeGroups = activeGroups.size();
                 totalMembers = totalMembers;
-                totalValueLocked = totalValueLocked;
-                totalTransactions = transactions.size();
+                totalValueLocked = totalValueLocked + rTokenStats.totalValue;
+                totalTransactions = RBTree.size(transactions.share());
                 averageGroupSize = averageGroupSize;
-                totalYieldGenerated = 0; // TODO: Calculate from transactions
+                totalYieldGenerated = totalYieldGenerated;
             }
-        };
-
-        // ==================== UPGRADE HOOKS ====================
-        
-        public func preUpgrade() {
-            // Save groups
-            groupEntries := Iter.toArray(groups.entries());
-            
-            // Save rotations
-            rotationEntries := Iter.toArray(rotations.entries());
-            
-            // Save members (flatten nested structure)
-            let memberEntriesBuffer = Buffer.Buffer<(GroupId, [(Principal, Member)])>(members.size());
-            for ((groupId, memberMap) in members.entries()) {
-                memberEntriesBuffer.add((groupId, Iter.toArray(memberMap.entries())));
-            };
-            memberEntries := Buffer.toArray(memberEntriesBuffer);
-            
-            // Save transactions
-            transactionEntries := Iter.toArray(transactions.entries());
-            
-            // Save group memberships
-            groupMembershipEntries := Iter.toArray(groupMemberships.entries());
-        };
-
-        public func postUpgrade() {
-            // Clear stable storage to save space
-            groupEntries := [];
-            rotationEntries := [];
-            memberEntries := [];
-            transactionEntries := [];
-            groupMembershipEntries := [];
         };
 
         // ==================== VALIDATION & INTEGRITY ====================
@@ -366,6 +846,80 @@ module StateManager {
             };
             
             true
+        };
+
+        // ==================== ANALYTICS & QUERY FUNCTIONS ====================
+
+        // Get all rotations for analytics
+        public func getAllRotations() : [(GroupId, RotationState)] {
+            Iter.toArray(rotations.entries())
+        };
+
+        // Get all members across all groups
+        public func getAllMembers() : [(GroupId, [Member])] {
+            let memberList = Buffer.Buffer<(GroupId, [Member])>(RBTree.size(groups.share()));
+            for ((groupId, _) in groups.entries()) {
+                let groupMembers = getGroupMembers(groupId);
+                memberList.add((groupId, groupMembers));
+            };
+            Buffer.toArray(memberList)
+        };
+
+        // Get all R Tokens for analytics
+        public func getAllRTokens() : [RToken] {
+            rTokenManager.getAllTokens() // You'll need to add this to RTokenManager
+        };
+
+        // Get all loans for analytics
+        public func getAllLoans() : [Types.Loan] {
+            lendingEngine.getAllLoans() // You'll need to add this to LendingEngine
+        };
+
+        // Get all transfers for analytics
+        public func getAllTransfers() : [Types.RTokenTransfer] {
+            rTokenManager.getAllTransfers() // You'll need to add this to RTokenManager
+        };
+
+        // Add real-time analytics update functions
+        public func updateGroupAnalytics(groupId: GroupId) : Result.Result<Bool, Types.Error> {
+            switch (groups.get(groupId)) {
+                case (?group) {
+                    // Trigger analytics recalculation when group data changes
+                    switch (rotations.get(groupId)) {
+                        case (?rotation) {
+                            let groupMembers = getGroupMembers(groupId);
+                            let groupTokens = rTokenManager.getGroupTokens(groupId);
+                            let groupTransactions = getGroupTransactions(groupId);
+                            
+                            let metrics = analyticsEngine.calculateGroupPerformance(
+                                groupId, group, rotation, groupMembers, groupTokens, groupTransactions
+                            );
+                            
+                            Debug.print("Group analytics updated - Health: " # Float.toText(metrics.groupHealth));
+                            #ok(true)
+                        };
+                        case null { #err(#GroupNotFound) };
+                    };
+                };
+                case null { #err(#GroupNotFound) };
+            }
+        };
+
+        // Auto-record platform snapshots on significant events
+        public func recordAnalyticsSnapshot() {
+            let allGroups = getAllGroups();
+            let allRotations = getAllRotations();
+            let allMembers = getAllMembers();
+            let allTokens = rTokenManager.getAllTokens();
+            let allLoans = lendingEngine.getAllLoans();
+            let allTransfers = rTokenManager.getAllTransfers();
+            
+            let platformAnalytics = analyticsEngine.calculatePlatformAnalytics(
+                allGroups, allRotations, allMembers, allTokens, allLoans, allTransfers
+            );
+            
+            analyticsEngine.recordPlatformSnapshot(platformAnalytics);
+            Debug.print("Analytics snapshot recorded - TVL: " # Nat64.toText(platformAnalytics.totalValueLocked) # " e8s");
         };
     }
 }

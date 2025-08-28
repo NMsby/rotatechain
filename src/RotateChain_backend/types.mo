@@ -1,5 +1,4 @@
 // types.mo - Complete type system for RotateChain
-import Time "mo:base/Time";
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 
@@ -11,6 +10,166 @@ module Types {
     public type Timestamp = Int;
     public type TransactionId = Nat64;
     public type RoundNumber = Nat;
+
+    // ==================== R TOKEN SYSTEM ====================
+    public type RTokenId = Nat;
+
+    // R Token status lifecycle
+    public type RTokenStatus = {
+        #active;       // Can be transferred and redeemed
+        #redeemed;     // Already converted back to ICP
+        #locked;       // Locked as collateral or during rotation
+    };
+
+    // R Token record - represents liquid contribution tokens
+    public type RToken = {
+        id: RTokenId;
+        groupId: GroupId;
+        holder: Principal;
+        originalAmount: Amount;         // Original ICP contribution amount
+        currentAmount: Amount;          // Current value (including yield)
+        issuedAt: Timestamp;
+        lastYieldUpdate: Timestamp;
+        accumulatedYield: Amount;       // Total yield earned
+        status: RTokenStatus;
+        memo: ?Text;                    // Optional issuance memo
+    };
+
+    // R Token transfer record
+    public type RTokenTransfer = {
+        id: TransactionId;
+        tokenId: RTokenId;
+        from: Principal;
+        to: Principal;
+        amount: Amount;
+        timestamp: Timestamp;
+        memo: ?Text;
+    };
+
+    // ==================== LENDING SYSTEM TYPES ====================
+
+    public type LoanId = Nat;
+
+    // Loan status lifecycle
+    public type LoanStatus = {
+        #pending;       // Loan requested, awaiting approval
+        #approved;      // Loan approved, funds can be disbursed
+        #active;        // Loan disbursed, repayment in progress
+        #repaid;        // Loan fully repaid
+        #defaulted;     // Loan in default (missed payments)
+        #liquidated;    // Collateral liquidated due to default
+    };
+
+    // Main loan record
+    public type Loan = {
+        id: LoanId;
+        borrower: Principal;
+        lender: ?Principal;             // None for platform lending pool
+        borrowerGroupId: GroupId;       // Borrower's primary group
+        lenderGroupId: ?GroupId;        // Lender's group (for cross-group loans)
+        
+        // Financial terms
+        principalAmount: Amount;        // Requested loan amount
+        interestRate: Nat;             // Annual interest rate in basis points
+        termDays: Nat;                 // Loan term in days
+        
+        // Collateral details
+        collateralTokenIds: [RTokenId]; // R Tokens used as collateral
+        collateralValue: Amount;        // Total collateral value at loan creation
+        collateralRatio: Nat;          // Required collateral ratio (basis points)
+        
+        // Current state
+        status: LoanStatus;
+        disbursedAmount: Amount;        // Amount actually disbursed
+        remainingBalance: Amount;       // Outstanding principal + interest
+        accruedInterest: Amount;        // Interest accumulated to date
+        
+        // Timeline
+        createdAt: Timestamp;
+        approvedAt: ?Timestamp;
+        disbursedAt: ?Timestamp;
+        dueDate: ?Timestamp;
+        lastPaymentDate: ?Timestamp;
+        
+        // Repayment tracking
+        totalPaid: Amount;
+        missedPayments: Nat;
+        
+        memo: ?Text;
+    };
+
+    // Loan application parameters
+    public type LoanRequest = {
+        principalAmount: Amount;
+        termDays: Nat;
+        collateralTokenIds: [RTokenId];
+        interestRate: ?Nat;            // Optional - system can suggest rate
+        memo: ?Text;
+    };
+
+    // Loan repayment record
+    public type LoanPayment = {
+        id: TransactionId;
+        loanId: LoanId;
+        payer: Principal;
+        amount: Amount;
+        principalPortion: Amount;
+        interestPortion: Amount;
+        timestamp: Timestamp;
+        paymentType: LoanPaymentType;
+    };
+
+    public type LoanPaymentType = {
+        #regular;       // Scheduled payment
+        #early;         // Early payment
+        #final;         // Final payment (loan completion)
+        #penalty;       // Penalty payment
+    };
+
+    // Collateral liquidation record
+    public type CollateralLiquidation = {
+        loanId: LoanId;
+        liquidatedTokens: [RTokenId];
+        recoveredAmount: Amount;
+        timestamp: Timestamp;
+        liquidationType: LiquidationType;
+    };
+
+    public type LiquidationType = {
+        #voluntary;     // Borrower initiated
+        #automatic;     // System triggered due to default
+        #manual;        // Admin intervention
+    };
+
+    // ==================== YIELD SYSTEM TYPES ====================
+
+    // Yield calculation strategies
+    public type YieldStrategy = {
+        #fixed: Nat;           // Fixed annual rate in basis points
+        #variable: {           // Variable rate with bounds
+            baseRate: Nat;     // Base rate in basis points
+            minRate: Nat;      // Minimum rate cap
+            maxRate: Nat;      // Maximum rate cap
+            marketFactor: Float; // Market adjustment multiplier
+        };
+        #tiered: {             // Tiered rates based on pool size
+            tiers: [(Amount, Nat)]; // (threshold, rate) pairs
+        };
+        #compound: {           // Compound interest strategy
+            rate: Nat;         // Annual rate
+            compoundFrequency: Nat; // Times per year
+        };
+    };
+
+    // Yield calculation result
+    public type YieldCalculation = {
+        baseAmount: Amount;
+        yieldAmount: Amount;
+        effectiveRate: Float;
+        calculationMethod: Text;
+        timestamp: Timestamp;
+        durationDays: Nat;
+    };
 
     // ==================== ENUMERATIONS ====================
     
@@ -60,6 +219,7 @@ module Types {
         totalPoolSize: Amount;           // Total expected pool size
         platformFeeRate: Nat;            // Fee rate in basis points (e.g., 25 = 0.25%)
         yieldRate: Nat;                  // Expected annual yield rate in basis points
+        yieldStrategy: YieldStrategy;
     };
 
     // Individual member information
@@ -144,6 +304,12 @@ module Types {
         #MemberSuspended;
         #ExcessiveAmount;
         #NetworkError;
+        #LoanNotFound;
+        #InsufficientCollateral;
+        #LoanAlreadyExists;
+        #InvalidLoanTerm;
+        #LoanNotActive;
+        #CollateralLocked;
     };
 
     // ==================== RESPONSE TYPES ====================
