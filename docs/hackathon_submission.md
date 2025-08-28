@@ -4,7 +4,7 @@
 
 **Team**: ICP Kenya (Nelson Masbayi, Ronny Ogeta)  
 **Track**: Bitcoin DeFi  
-**Canister ID**: [To be deployed on mainnet]
+**Canister ID**: trmuc-riaaa-aaaan-qz6dq-cai
 
 ## Innovation Summary
 
@@ -75,9 +75,13 @@ Transform RotateChain into the primary financial infrastructure for emerging mar
 
 ## Deployment Information
 
-**Mainnet Canister ID**: https://cv2zh-syaaa-aaaah-arixa-cai.icp0.io/
-**Local Testing**: dfx start --background && dfx deploy  
-**Test Suite**: dfx canister call rotatechain_backend runSystemTests
+**Mainnet Canister ID**: trmuc-riaaa-aaaan-qz6dq-cai | cv2zh-syaaa-aaaah-arixa-cai     
+**Demo URL**: [Backend](https://trmuc-riaaa-aaaan-qz6dq-cai.icp0.io) | [Frontend](https://cv2zh-syaaa-aaaah-arixa-cai.icp0.io/)    
+**Candid Interface**: [Backend](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=trmuc-riaaa-aaaan-qz6dq-cai) | [Frontend](https://cv2zh-syaaa-aaaah-arixa-cai.icp0.io/)  
+**System Status**: Operational with 100% test pass rate    
+**Cycles Balance**: 13.000 TC remaining for extended operations      
+**Local Testing**: dfx start --background && dfx deploy     
+**Test Suite**: dfx canister call rotatechain_backend runSystemTests     
 
 ## Demo Video
 
@@ -86,3 +90,11 @@ https://www.youtube.com/watch?v=0rv1k8vrt3I
 ## Architecture Diagram
 
 See `docs/architecture.md` for comprehensive technical architecture and data flow diagrams.
+
+## System Verification Results
+
+**Health Check**: Passing   
+**System Tests**: 6/6 tests passing (100% success rate)    
+**Platform Analytics**: Operational    
+**Mainnet Performance**: Sub-second response times    
+**Deployment Date**: *28th August 2025*   

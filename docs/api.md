@@ -4,6 +4,23 @@
 
 RotateChain provides comprehensive REST-like API through Internet Computer canister calls. All endpoints support both query (read-only) and update (state-changing) operations.
 
+## Mainnet API Access
+
+**Production Endpoint**: https://trmuc-riaaa-aaaan-qz6dq-cai.icp0.io    
+**Candid Interface**: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=trmuc-riaaa-aaaan-qz6dq-cai    
+**Network**: Internet Computer Protocol Mainnet
+
+### Testing Mainnet API
+
+```bash
+# Test core functionality
+dfx canister --network ic call trmuc-riaaa-aaaan-qz6dq-cai healthCheck
+dfx canister --network ic call trmuc-riaaa-aaaan-qz6dq-cai getPlatformAnalytics
+
+# Verify system status
+dfx canister --network ic status trmuc-riaaa-aaaan-qz6dq-cai
+```
+
 ## Authentication
 
 All API calls require Internet Identity authentication. The caller's Principal is automatically validated and used for authorization.
