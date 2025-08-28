@@ -1,0 +1,9 @@
+Mainnet Principal: i7tjb-3kujf-ppqmy-ulqbq-hfdoi-riypa-sho2k-p7rv2-g6eak-yw6gy-4qe
+Internet Identity Principal: i7tjb-3kujf-ppqmy-ulqbq-hfdoi-riypa-sho2k-p7rv2-g6eak-yw6gy-4qe
+
+=== ROTATECHAIN MAINNET DEPLOYMENT SUCCESS ===
+Backend Canister ID: trmuc-riaaa-aaaan-qz6dq-cai
+ICP Ledger ID: s4cqm-6aaaa-aaaan-qz6ea-cai
+Demo URL: https://trmuc-riaaa-aaaan-qz6dq-cai.icp0.io
+Candid Interface: https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=trmuc-riaaa-aaaan-qz6dq-cai
+Deployment Date: Thu Aug 28 09:15:40 EAT 2025
