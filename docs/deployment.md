@@ -166,4 +166,29 @@ dfx canister status rotatechain_backend --network ic
 dfx canister call rotatechain_backend runSystemTests
 ```
 
+## Verified Mainnet Deployment
+
+**Successful Production Deployment**:
+- Canister ID: trmuc-riaaa-aaaan-qz6dq-cai
+- Deployment Cost: 7.000 TC consumed
+- Operational Balance: 13.000 TC remaining
+- System Status: All core functions operational
+
+**Deployment Verification Commands**:
+```bash
+# Test live mainnet deployment
+dfx canister --network ic status trmuc-riaaa-aaaan-qz6dq-cai
+dfx canister --network ic call trmuc-riaaa-aaaan-qz6dq-cai healthCheck
+dfx canister --network ic call trmuc-riaaa-aaanan-qz6dq-cai runSystemTests
+```
+
+**Production Monitoring**:
+```bash
+# Monitor cycles usage
+dfx cycles --network ic balance
+
+# Check canister performance
+dfx canister --network ic call trmuc-riaaa-aaaan-qz6dq-cai getPlatformAnalytics
+```
+
 This deployment guide ensures reliable setup and maintenance of RotateChain across development and production environments.

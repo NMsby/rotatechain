@@ -79,8 +79,8 @@ dfx canister call rotatechain_backend validateDataIntegrity
 ## Deployment Status
 
 **Local Development**: Fully functional with comprehensive test suite   
-**Mainnet Deployment**: Production-ready implementation     
-**Canister ID**: https://cv2zh-syaaa-aaaah-arixa-cai.icp0.io/     
+**Mainnet Deployment**: Successfully deployed and operational     
+**Canister ID**: [Backend](https://a4gq6-oaaaa-aaaab-qaa4q-cai.raw.icp0.io/?id=trmuc-riaaa-aaaan-qz6dq-cai) | [Frontend](https://cv2zh-syaaa-aaaah-arixa-cai.icp0.io/)     
 **Demo Video**: https://www.youtube.com/watch?v=0rv1k8vrt3I
 
 ## Technical Specifications

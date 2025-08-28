@@ -1,89 +1,66 @@
-# Various IDEs and Editors
+# IDE and Editor files
 .vscode/
 .idea/
 **/*~
+*.swp
+*.swo
 
-# Mac OSX temporary files
+# Operating System files
 .DS_Store
 **/.DS_Store
+Thumbs.db
 
-# dfx temporary files
+# dfx generated files
 .dfx/
-
-# generated files
 **/declarations/
+.vessel/
 
-# rust
-target/
+# Environment variables - SECURITY CRITICAL
+.env
+.env.*
+!.env.example
 
-# frontend code
+# Node.js and frontend
 node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
 dist/
+build/
 .svelte-kit/
 
-# environment variables
-# let them be pushed
+# Rust
+target/
+Cargo.lock
 
-#accidental repos
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+env/
+venv/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+
+# Development artifacts (your specific files)
 http_whitelist.json
-landing.tsx
-landingNew.tsx
-landingNewest.tsx
-testDisplay.tsx
-mockDashboard.tsx
-walletContext.ts
-chain_management.mo
-brutalLayout.tsx
-saasyNav.tsx
-test.tsx
-services/walletContext.tsx
-services/authContext.tsx
-onboarding.tsx
-sassyNav.tsx
-onboarding_loan_interest_added.txt
-onboarding_join.tsx
-landingNew.tsx
-landingNewest.tsx
-App.jsx
-19.0.0
-.env.local
-InstructionPallete.tsx
-icp_app.tsx
-test.
-loginsOnboarding.tsx
-liquidity_pool.tsx
-liquidity_graph_alone.tsx
-rotate_dashboard_liquidity_graph.tsx
-roitate_dashboard_new.tsx
-onboarding_newest.tsx
-bitcoin_wallet.tsx
-poolAnalyticsCard.tsx
-priceOracle2.ts
-pricesOracle.ts
-ledger-ref
-ledger-ref/
 dfx_json.txt
-internetIdentityButton.tsx
-transactionService.ts
-blockchain.ts
-authContext.ts
-email
 email/
-hooks
 hooks/
-bitcoin_canister.tsx
-eventService.ts
-bitcoin_app.tsx
-plug_connect.tsx
-bitcoin_canister.tsx
-onboarding_newest.tsx
-bitcoin_two
-ledger-ref
-bitcoin_two/
-tujiinue/
-tujiinue
-ledger-ref/
-full_folder
 full_folder/
 cycles-ledger/
-RotateChain_backend/cycles-ledger/
+tujiinue/
+bitcoin_two/
+ledger-ref/
+
+# Compiled binaries
+*.wasm
+*.wasm.gz
