@@ -25,8 +25,8 @@ const formSchema = z.object({
   contributionAmount: z.number().min(10, 'Minimum contribution is $10').max(10000, 'Maximum contribution is $10,000'),
   rotationPeriod: z.number().min(1, 'Minimum rotation period is 1 day').max(365, 'Maximum rotation period is 365 days'),
   maxMembers: z.number().min(3, 'Minimum 3 members required').max(50, 'Maximum 50 members allowed'),
-  chainType: z.enum(['standard', 'premium', 'enterprise']).optional().refine(
-    (value) => value !== undefined,
+  chainType: z.enum(['standard', 'premium', 'enterprise']).refine(
+    (val) => ['standard', 'premium', 'enterprise'].includes(val),
     { message: 'Please select a chain type' }
   ),
 })
