@@ -269,7 +269,7 @@ export function Dashboard() {
                         tickFormatter={(value) => `${value}%`}
                       />
                       <Tooltip 
-                        formatter={(value) => [`${value.toFixed(2)}%`, 'Uptime']}
+                        formatter={(value) => [`${Number(value).toFixed(2)}%`, 'Uptime']}
                         labelFormatter={(label) => `Time: ${label}`}
                       />
                       <Line 
