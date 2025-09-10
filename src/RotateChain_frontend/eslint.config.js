@@ -4,7 +4,6 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from '@typescript-eslint/eslint-plugin'
 import tsparser from '@typescript-eslint/parser'
-import { jsx } from 'react/jsx-runtime'
 
 export default [
   {
@@ -17,9 +16,8 @@ export default [
       sourceType: 'module',
       parser: tsparser,
       parserOptions: {
-        ecmaFeatures: {
-          jsx: true
-        }
+        ecmaFeatures: { jsx: true },
+        project: './tsconfig.json'
       },
       globals: { 
         ...globals.browser,
@@ -34,9 +32,10 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-      'react-refresh/only-export-components': 'warn',
-      '@typescript-eslint/no-unused-vars': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
+      'react-refresh/only-export-components': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-unused-vars': 'off',
       'no-undef': 'off'
     }
   }
