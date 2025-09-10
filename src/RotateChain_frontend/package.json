@@ -5,8 +5,13 @@
     "type": "module",
     "scripts": {
         "dev": "vite",
-        "build": "vite build",
-        "preview": "vite preview"
+        "build": "tsc && vite build",
+        "preview": "vite preview",
+        "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
+        "lint:fix": "eslint . --ext ts,tsx --fix",
+        "type-check": "tsc --noEmit",
+        "clean": "rm -rf dist node_modules/.vite",
+        "test": "echo \"Tests not yet configured\" && exit 0"
     },
     "dependencies": {
         "react": "^18.3.1",
