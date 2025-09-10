@@ -7,10 +7,10 @@
         "dev": "vite",
         "build": "vite build",
         "preview": "vite preview",
-        "lint": "eslint . --ext ts,tsx",
-        "lint:fix": "eslint . --ext ts,tsx --fix",
-        "type-check": "tsc --noEmit",
-        "clean": "rm -rf dist node_modules/.vite",
+        "lint": "eslint src --ext ts,tsx",
+        "lint:fix": "eslint src --ext ts,tsx --fix",
+        "type-check": "tsc --noEmit --skipLibCheck",
+        "clean": "rm -rf dist build node_modules/.vite",
         "test": "echo \"Tests not yet configured\" && exit 0"
     },
     "dependencies": {

@@ -3,21 +3,27 @@ import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from '@typescript-eslint/eslint-plugin'
+import tsparser from '@typescript-eslint/parser'
+import { jsx } from 'react/jsx-runtime'
 
 export default [
   {
-    ignores: ['dist', 'build', 'node_modules', '**/*.js', '**/*.cjs']
+    ignores: ['dist/**', 'build/**', 'node_modules/**', '**/*.js', '**/*.cjs']
   },
   {
-    files: ['**/*.{ts,tsx}'],
+    files: ['src/**/*.{ts,tsx}'],
     languageOptions: {
       ecmaVersion: 2022,
+      sourceType: 'module',
+      parser: tsparser,
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true
+        }
+      },
       globals: { 
         ...globals.browser,
-        ...globals.node,
-        process: 'readonly',
-        __dirname: 'readonly',
-        NodeJS: 'readonly'
+        ...globals.node
       }
     },
     plugins: {
@@ -27,12 +33,11 @@ export default [
     },
     rules: {
       ...js.configs.recommended.rules,
-      'no-undef': 'off',
-      '@typescript-eslint/no-unused-vars': 'off',
-      '@typescript-eslint/no-explicit-any': 'off',
-      'react-refresh/only-export-components': 'off',
       ...reactHooks.configs.recommended.rules,
-      'react-hooks/exhaustive-deps': 'warn'
+      'react-refresh/only-export-components': 'warn',
+      '@typescript-eslint/no-unused-vars': 'warn',
+      '@typescript-eslint/no-explicit-any': 'warn',
+      'no-undef': 'off'
     }
   }
 ]
