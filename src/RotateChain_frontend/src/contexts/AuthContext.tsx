@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
 import { User, AuthState } from '../types'
 import { authService, authEventEmitter } from '../lib/auth'
+import { icpService } from '../lib/icp/actor'
 
 interface AuthContextType extends AuthState {
   login: () => Promise<void>
   logout: () => Promise<void>
+  // ICP-specific methods
+  getActor: () => any
+  callBackend: <T>(method: string, args?: any[]) => Promise<T | null>
+  principal: string | null
+
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -16,12 +22,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
     error: null
   })
+  const [principal, setPrincipal] = useState<string | null>(null)
 
   useEffect(() => {
     // Initialize authentication state
     const initAuth = async () => {
       try {
+        // Initialize ICP Service in parallel
+        if (process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+          await icpService.initialize()
+        }
+
         const user = await authService.getCurrentUser()
+
+        // If using Internet Identity, also get the principal
+        if (user && process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+          const principalId = await icpService.getPrincipal()
+          setPrincipal(principalId)
+        }
+
         setState({
           user,
           isAuthenticated: !!user,
@@ -50,6 +69,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isAuthenticated: !!event.user,
             error: null
           }))
+          // Update principal if using Internet Identity
+          if (process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+            icpService.getPrincipal().then(setPrincipal)
+          }
           break
         case 'logout':
           setState(prev => ({
@@ -58,6 +81,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isAuthenticated: false,
             error: null
           }))
+          setPrincipal(null)
           break
         case 'user_updated':
           setState(prev => ({
@@ -83,6 +107,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error: null
       })
       
+      // Update principal if using Internet Identity
+      if (process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+        const principalId = await icpService.getPrincipal()
+        setPrincipal(principalId)
+      }
+      
       authEventEmitter.emit({ type: 'login', user })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed'
@@ -106,6 +136,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null
       })
+      setPrincipal(null)
       
       authEventEmitter.emit({ type: 'logout' })
     } catch (error) {
@@ -117,10 +148,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // ICP-specific methods
+  const getActor = () => {
+    return icpService.getActor()
+  }
+
+  const callBackend = async <T,>(method: string, args: any[] = []): Promise<T | null> => {
+    try {
+      return await icpService.callBackend<T>(method, args)
+    } catch (error) {
+      console.error(`Backend call failed for ${method}:`, error)
+      return null
+    }
+  }
+
   const value: AuthContextType = {
     ...state,
     login,
-    logout
+    logout,
+    getActor,
+    callBackend,
+    principal
   }
 
   return (

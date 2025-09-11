@@ -1,4 +1,5 @@
 import { User } from '../types'
+import { icpService } from './icp/actor'
 
 // Mock Internet Identity authentication
 // In production, this would integrate with DFINITY's Internet Identity
@@ -67,33 +68,99 @@ class MockAuthService implements AuthService {
   }
 }
 
-// Production Internet Identity service (placeholder)
+// Production Internet Identity service with ICP integration
 class InternetIdentityService implements AuthService {
+  private user: User | null = null;
+
   async login(): Promise<User> {
-    // TODO: Implement actual Internet Identity integration
-    // This would use @dfinity/auth-client
-    throw new Error('Internet Identity not implemented. Please use mock authentication.')
+    try {
+      // Initialize ICP service
+      await icpService.initialize();
+
+      // Attempt Internet Identity login
+      const success = await icpService.login();
+      if (!success) {
+        throw new Error('Internet Identity login failed');
+      }
+
+      // Get principal and create user object
+      const principal = await icpService.getPrincipal();
+      if (!principal) {
+        throw new Error('Failed to get principal after login');
+      }
+
+      // Create user object from Internet Identity
+      this.user = {
+        id: principal,
+        name: `User ${principal.slice(0, 8)}...`,
+        email: `${principal.slice(0, 8)}@ic.app`,
+        avatar: `https://ui-avatars.com/api/?name=${principal.slice(0, 2)}&background=random`,
+        walletAddress: principal,
+        internetIdentityPrincipal: principal,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+
+      // Store in localStorage
+      localStorage.setItem('rotatechain_user', JSON.stringify(this.user))
+      localStorage.setItem('rotatechain_authenticated', 'true')
+      localStorage.setItem('rotatechain_auth_method', 'internet_identity')
+
+      return this.user;
+    } catch (error) {
+      console.error('Internet Identity login error:', error);
+      throw new Error('Internet Identity authentication failed');
+    }
   }
 
   async logout(): Promise<void> {
-    // TODO: Implement Internet Identity logout
-    throw new Error('Internet Identity not implemented.')
+    try {
+      await icpService.logout();
+    } catch (error) {
+      console.error('Internet Identity logout error:', error);
+    }
+    
+    this.user = null;
+    localStorage.removeItem('rotatechain_user')
+    localStorage.removeItem('rotatechain_authenticated')
+    localStorage.removeItem('rotatechain_auth_method')
   }
 
   async getCurrentUser(): Promise<User | null> {
-    // TODO: Get user from Internet Identity
-    throw new Error('Internet Identity not implemented.')
+    if (this.user) return this.user;
+
+    // Check if we have an existing Internet Identity session
+    const storedUser = localStorage.getItem('rotatechain_user')
+    const isAuthenticated = localStorage.getItem('rotatechain_authenticated')
+    const authMethod = localStorage.getItem('rotatechain_auth_method')
+    
+    if (storedUser && isAuthenticated === 'true' && authMethod === 'internet_identity') {
+      // Verify the session is still valid
+      await icpService.initialize();
+      const stillAuthenticated = await icpService.isAuthenticated();
+      
+      if (stillAuthenticated) {
+        this.user = JSON.parse(storedUser);
+        return this.user;
+      } else {
+        // Session expired, clear storage
+        await this.logout();
+      }
+    }
+    
+    return null;
   }
 
   isAuthenticated(): boolean {
-    // TODO: Check Internet Identity authentication status
-    return false
+    const isAuth = localStorage.getItem('rotatechain_authenticated') === 'true';
+    const authMethod = localStorage.getItem('rotatechain_auth_method');
+    return isAuth && authMethod === 'internet_identity';
   }
 }
 
 // Export the appropriate service based on environment
 export const authService: AuthService = 
-  process.env.NODE_ENV === 'production' && process.env.VITE_USE_INTERNET_IDENTITY === 'true'
+  process.env.VITE_USE_INTERNET_IDENTITY === 'true'
     ? new InternetIdentityService()
     : new MockAuthService()
 
