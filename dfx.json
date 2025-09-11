@@ -6,12 +6,8 @@
       "dependencies": ["icp_ledger_canister", "internet_identity"]
     },
     "rotatechain_frontend": {
-      "dependencies": [
-        "rotatechain_backend"
-      ],
-      "source": [
-        "src/RotateChain_frontend/dist"
-      ],
+      "dependencies": ["rotatechain_backend"],
+      "source": ["src/RotateChain_frontend/build"],
       "type": "assets",
       "workspace": "RotateChain_frontend"
     },
@@ -22,15 +18,15 @@
       "init_arg" : "(variant { Init = record { minting_account = \"c571e55d926f0a9dda0b3820338649a980fbdee36915476add1a7944f53f6b1d\"; initial_values = vec { record {\"b2f6fd9f822ff1ca2ae79b04f24f8d184495d906f0b1e3e4990017830f2fd6c9\"; record { e8s = 10_000_000_000 : nat64; }; }; }; send_whitelist = vec {}; transfer_fee = opt record { e8s = 10_000 : nat64; }; token_symbol = opt \"LICP\"; token_name = opt \"Local ICP\"; } })"
     },
     "internet_identity": {
-      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
       "type": "custom",
+      "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
+      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz",
       "specified_id": "rdmx6-jaaaa-aaaaa-aaadq-cai",
       "remote": {
         "id": {
           "ic": "rdmx6-jaaaa-aaaaa-aaadq-cai"
         }
-      },
-      "wasm": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity_dev.wasm.gz"
+      }
     }
   },
   "networks": {

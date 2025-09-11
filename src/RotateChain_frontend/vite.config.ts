@@ -13,6 +13,12 @@ export default defineConfig({
   server: {
     port: 3000,
     host: true,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:4943',
+        changeOrigin: true,
+      },
+    }
   },
   build: {
     outDir: 'build',
@@ -20,5 +26,13 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
+    'process.env': process.env,
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      define: {
+        global: 'globalThis',
+      },
+    },
   },
 })
