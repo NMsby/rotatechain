@@ -18,6 +18,9 @@ import YieldDistributor "./yield_distributor";
 import LendingEngine "./lending_engine";
 import AnalyticsEngine "./analytics_engine";
 
+import HashMap "mo:base/HashMap";
+import Nat32 "mo:base/Nat32";
+
 module StateManager {
     public type GroupId = Types.GroupId;
     public type GroupConfig = Types.GroupConfig;
@@ -26,6 +29,17 @@ module StateManager {
     public type Transaction = Types.Transaction;
     public type TransactionId = Types.TransactionId;
 
+    // Converts an RBTree<GroupId, GroupConfig> to a HashMap<GroupId, GroupConfig>
+    private func rbTreeToHashMap(tree: RBTree.RBTree<GroupId, GroupConfig>): HashMap.HashMap<GroupId, GroupConfig> {
+        let map = HashMap.HashMap<GroupId, GroupConfig>(0, Nat.equal, Nat32.fromNat);
+        for ((k, v) in tree.entries()){
+            map.put(k, v);
+        };
+        /*let mappedPut = tree.entries(func(k: GroupId, v: GroupConfig) {
+            map.put(k, v);
+        });*/
+        return map;
+    };
     // R Token types
     public type RTokenId = Types.RTokenId;
     public type RToken = Types.RToken;
@@ -182,6 +196,13 @@ module StateManager {
         public func getAllGroups() : [(GroupId, GroupConfig)] {
             Iter.toArray(groups.entries())
         };
+
+        //ticker getAll
+        public func getAllTickerGroups() : HashMap.HashMap<GroupId,GroupConfig> {   
+            let hashGroups = rbTreeToHashMap(groups);
+            hashGroups
+        };
+
 
         public func getActiveGroups() : [(GroupId, GroupConfig)] {
             let activeGroups = Buffer.Buffer<(GroupId, GroupConfig)>(RBTree.size(groups.share()));
@@ -365,7 +386,9 @@ module StateManager {
                         case (?group) {
                             // Call enhanced transfer with group member validation
                             let result = rTokenManager.transferRTokens(
-                                tokenId, from, to, amount, memo, group.members
+                                tokenId, from, to, amount, memo, Array.map<Member, Principal>(group.members, func (member : Member) : Principal {
+                    return member.principal;
+                })
                             );
 
                             // Update both members' liquid token balances on success
@@ -822,10 +845,12 @@ module StateManager {
         public func validateSystemIntegrity() : Bool {
             // Check that all group members exist in member maps
             for ((groupId, group) in groups.entries()) {
-                switch (members.get(groupId)) {
+                switch (
+                members.get(groupId)
+                ) {
                     case (?memberMap) {
                         for (principal in group.members.vals()) {
-                            switch (memberMap.get(principal)) {
+                            switch (memberMap.get(principal.principal)) {
                                 case null { return false }; // Member not found
                                 case (?_) { };
                             };

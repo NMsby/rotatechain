@@ -6,11 +6,13 @@ import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
 import Time "mo:base/Time";
+import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
 import Buffer "mo:base/Buffer";
 import Error "mo:base/Error";
 import Bool "mo:base/Bool";
-import Int "mo:base/Int";
+import Blob "mo:base/Blob";
+import Prim "mo:prim";
 
 // Import new modules for validation and utilities
 import Types "./types";
@@ -22,23 +24,36 @@ import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
 import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
+import groupManagement "group_management";
 import AnalyticsEngine "./analytics_engine";
 
 actor RotateChain {
   
+    // heartbeat variables
+    var lastTick: Int = 0;
+    let interval: Nat = 1_000_000_000; // 1 second in nanoseconds
+
     // Complete types for rotational savings
+    // add account identifier property and the lastDisbursedAt property.    
     public type Group = {
         id: Nat;
         name: Text;
-        members: [Principal];
+        //changed the members array to point to the Member array
+        members: [Types.Member];
         contributionAmount: Nat;
         currentRound: Nat;
         totalRounds: Nat;
         isActive: Bool;
         creator: Principal;
-        nextRecipient: ?Principal;
+        nextRecipient: ?Types.Member;
         createdAt: Int;
         completedAt: ?Int;
+        //added the chanAccountIdentifier,type,last,currency,interest
+        chainAccountIdentifier:?Blob;
+        chainType:Text;
+        lastDisbursedAt: Int;
+        currency:Text;
+        interestRate:Text;
     };
 
     public type GroupSummary = {
@@ -50,7 +65,7 @@ actor RotateChain {
         totalRounds: Nat;
         isActive: Bool;
         spotsRemaining: Nat;
-        nextRecipient: ?Principal;
+        nextRecipient: ?Types.Member;
         progress: Nat;
     };
 
@@ -122,6 +137,32 @@ actor RotateChain {
     // Call initialization
     initializeStateManager();
 
+    // ==================== HEARTBEAT ====================
+
+    
+    system func heartbeat(): async () {
+        
+        let now = Time.now();
+        
+        if (now - lastTick >= interval) {
+            lastTick := now;
+            await tick();
+        };
+    };
+
+    public func tick() : async () {
+        let now = Time.now() / 1_000_000_000; // Convert to seconds
+
+        let chains = stateManager.getAllTickerGroups();
+        for ((id, chain) in chains.entries()) {
+            if (now - chain.lastDisbursedAt >= (chain.rotationIntervalDays * 1_000_000_000) ) {
+                //updateRound
+                let advanceResult = await advanceRound(chain.id);
+            };
+        };
+    };
+
+
     // ==================== HELPER FUNCTIONS ====================
 
     // Find a group by ID
@@ -158,10 +199,61 @@ actor RotateChain {
     // Create new rotation group
     public shared(msg) func createGroup(
         name: Text,
+        chainType:Text,
         contributionAmount: Nat,
         maxMembers: Nat,
+        currency:Text,
+        interestRate:Nat,
         _roundDurationDays: Nat
     ) : async Result.Result<Nat, Text> {
+
+        let groupId = nextGroupId;
+        nextGroupId += 1;
+
+        //for the wallet
+        func createSubaccount(inputText : Text) : Blob {
+            // Convert text to UTF-8 encoded bytes
+            let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
+            
+            // Create a 32-byte array, padding with zeros or truncating as needed
+            let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
+                if (i < utf8Bytes.size()) {
+                utf8Bytes[i]  // Use the UTF-8 byte if available
+                } else {
+                0 // Pad with zero if beyond the UTF-8 byte length
+                }
+            });
+            
+            // Return as a Blob (32-byte subaccount)
+            Blob.fromArray(subaccountBytes)
+        };
+
+
+        let myPrincipal = Principal.fromActor(RotateChain); 
+        
+        let userId = Principal.toText(msg.caller);
+        let userPrincipal = Principal.fromText(userId);
+        let chainName = Utils.sanitizeText(name);
+        let sub1 = createSubaccount(Nat.toText(groupId)  # userId # chainName);  
+        let userSub = createSubaccount(userId # chainName);
+        let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
+        let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
+
+        let creatorMember : Types.Member = {
+            principal= msg.caller;
+            joinedAt= Time.now();
+            totalContributions= 0;
+            receivedPayouts=0;
+            pendingContributions= 0;    // Contributions not yet processed
+            status= #pending;
+            lastContributionTime=null;
+            missedContributions=0;        // Track defaults
+            liquidTokenBalance= 0;      // rTokens for trading
+            //added the walletAddress
+            walletAddress=userSubAccount;
+        };
+
+
     
         // Validation using utils.mo
         if (Utils.isEmptyText(name)) { 
@@ -181,13 +273,11 @@ actor RotateChain {
             return #err("Invalid caller principal");
         };
         
-        let groupId = nextGroupId;
-        nextGroupId += 1;
         
         let newGroup: Group = {
             id = groupId;
             name = Utils.sanitizeText(name);  // Enhanced: sanitize input
-            members = [msg.caller];
+            members = [creatorMember];
             contributionAmount = contributionAmount;
             currentRound = 0;
             totalRounds = maxMembers;
@@ -196,6 +286,11 @@ actor RotateChain {
             nextRecipient = null;
             createdAt = Time.now();
             completedAt = null;
+            chainAccountIdentifier=storageSubAccount;
+            chainType=chainType;
+            lastDisbursedAt=0;
+            currency=currency;
+            interestRate = Nat.toText(interestRate) ;
         };
         
         groupsArray := Array.append(groupsArray, [newGroup]);
@@ -222,12 +317,55 @@ actor RotateChain {
                 };
             
                 // Check if already a member
-                if (Utils.principalInArray(msg.caller, group.members)) {
+                if (Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
                     return #err("Already a member of this group");
                 };
+
+                //for the wallet
+                func createSubaccount(inputText : Text) : Blob {
+                    // Convert text to UTF-8 encoded bytes
+                    let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
+                    
+                    // Create a 32-byte array, padding with zeros or truncating as needed
+                    let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
+                        if (i < utf8Bytes.size()) {
+                        utf8Bytes[i]  // Use the UTF-8 byte if available
+                        } else {
+                        0 // Pad with zero if beyond the UTF-8 byte length
+                        }
+                    });
+                    
+                    // Return as a Blob (32-byte subaccount)
+                    Blob.fromArray(subaccountBytes)
+                };
+
+                
+                let userId = Principal.toText(msg.caller);
+                let userPrincipal = Principal.fromText(userId);
+                let chainName = Utils.sanitizeText(group.name);
+                let userSub = createSubaccount(userId # chainName);
+                let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
+
+                let newMember : Types.Member = {
+                    principal= msg.caller;
+                    joinedAt= Time.now();
+                    totalContributions= 0;
+                    receivedPayouts=0;
+                    pendingContributions= 0;    // Contributions not yet processed
+                    status= #pending;
+                    lastContributionTime=null;
+                    missedContributions=0;        // Track defaults
+                    liquidTokenBalance= 0;      // rTokens for trading
+                    //added the walletAddress
+                    walletAddress=userSubAccount;
+                };
+
+
             
                 // Add new member
-                let updatedMembers = Utils.addPrincipalToArray(msg.caller, group.members);
+                let updatedMembers = Utils.addPrincipalToArray(newMember, group.members);
                 let isNowActive = updatedMembers.size() == group.totalRounds;
                 let updatedGroup = { group with 
                 members = updatedMembers;
@@ -256,7 +394,9 @@ actor RotateChain {
                 };
             
                 // Check if caller is a member
-                if (not Utils.principalInArray(msg.caller, group.members)) {
+                if (not Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
                     return #err("Not a member of this group");
                 };
             
@@ -321,7 +461,7 @@ actor RotateChain {
                 // Check if all members have contributed
                 var allContributed = true;
                 for (member in group.members.vals()) {
-                    if (not hasContributed(groupId, member, group.currentRound)) {
+                    if (not hasContributed(groupId, member.principal, group.currentRound)) {
                         allContributed := false;
                     };
                 };
@@ -339,13 +479,17 @@ actor RotateChain {
                 // Process real payout to current recipient
                 switch (group.nextRecipient) {
                     case (?recipient) {
-                        switch (await PaymentHandler.processRotationPayout(
+                        
+                        /*await PaymentHandler.processRotationPayout(
                             groupId,
                             recipient,
                             totalPayout,
-                            group.currentRound
-                        )) {
-                            case (#ok(payoutTxId)) {             
+                            group.currentRound1
+                        )*/
+                        let withdrawalResult = await chainWithdraw(group.chainAccountIdentifier,Principal.toText(recipient.principal),recipient.walletAddress,group.currency); 
+                        switch (withdrawalResult) {
+                            case ("Success") {
+                                let now = Time.now();
                                 // Advance round after successful payout
                                 let newRound = group.currentRound + 1;
                                 let isCompleted = newRound > group.totalRounds;
@@ -365,13 +509,14 @@ actor RotateChain {
                                     currentRound = newRound;
                                     nextRecipient = nextRecipient;
                                     isActive = not isCompleted;
+                                    lastDisbursedAt = now;
                                     completedAt = if (isCompleted) ?Time.now() else null;
                                 };
                                 updateGroup(updatedGroup);
 
                                 Debug.print("💰 Real ICP payout processed successfully!");
-                                Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
-                                Debug.print("Recipient: " # Principal.toText(recipient));
+                                //Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
+                                Debug.print("Recipient: " # Principal.toText(recipient.principal));
                                 Debug.print("Amount: " # Nat64.toText(totalPayout) # " e8s");
                         
                                 if (isCompleted) {
@@ -382,10 +527,12 @@ actor RotateChain {
 
                                 #ok(true)
                             };
-                            case (#err(error)) {
-                                let errorText = Utils.errorToText(error);
-                                Debug.print("❌ Payout failed: " # errorText);
-                                #err("Payout failed: " # errorText)
+                            case ("Error") {
+                                //let errorText = Utils.errorToText(error);
+                                //Debug.print("❌ Payout failed: " # errorText);
+                                Debug.print("❌ payout failed");
+                                //#err("Payout failed: " # errorText)
+                                #err("Payout failed: ")
                             };
                         }
                     };
@@ -397,6 +544,100 @@ actor RotateChain {
             case null { #err("Group not found") };
         }
     };
+
+    //chainBalance
+    private func chainBalance(token : Text, chainAccountIdentifier:?Blob) : async Nat {
+        
+
+        func convertOptionalBlobToNat8Array(optionalBlob : ?Blob) : ?[Nat8] {
+            switch (optionalBlob) {
+                case (null) { null };
+                case (?blob) { ?Blob.toArray(blob) };
+            }
+        };
+
+        let actorPrincipal = Principal.fromActor(RotateChain);
+
+        let cAccount = {
+            owner = actorPrincipal;
+            subaccount = chainAccountIdentifier;
+        };
+
+
+        switch(token) {
+        /*case("ckBTC") { await ckBTC.icrc1_balance_of(cAccount) };
+        case("ckETH") { await ckETH.icrc1_balance_of(cAccount)};
+        case("ckUSDC") { await ckUSDC.icrc1_balance_of(cAccount)};*/
+        case("ICP") { await Ledger.icrc1_balance_of(cAccount) };
+        case("LICP") { await Ledger.icrc1_balance_of(cAccount) };
+        case(_) { return 0 };
+        }
+    };
+
+
+    //chain withdrawal
+    private func chainWithdraw(chainAccountIdentifier : ?Blob,identity:Text,walletAddress:?Blob, token : Text) : async Text {
+
+        let icpUnits = 100000000;
+        let ckBTCUnits = 100000000;
+        let ckETHUnits = 1000000000000000000;
+        let ckUSDCUnits = 1000000;
+
+        let account = {
+            owner = Principal.fromText(identity);
+            subaccount = walletAddress;
+        };
+
+
+        func unitsController(token:Text):Nat{
+            switch(token) {
+                case("ckBTC") { ckBTCUnits };
+                case("ckETH") { ckETHUnits };
+                case("ckUSDC") { ckUSDCUnits };
+                case("ICP") { icpUnits };
+                case("LICP") { icpUnits };
+                case(_) { return 0 };
+            }
+        };
+
+        let amount = await chainBalance(token,chainAccountIdentifier);
+
+        let actualAmount = (amount/unitsController(token) * 90/100);
+
+
+        let args = {
+            to = account;
+            amount = actualAmount;
+            fee =  ?10_000;
+            memo = null;
+            from_subaccount = chainAccountIdentifier;
+            created_at_time = null;
+        };
+
+
+        //here in the chain withdrawal ensure you check for the loans that one has and pay them to the respective users one by one then pay the remaining cash to the receiver provided remaining cash is greater than 0.
+        let result = switch(token) {
+            /*case("ckBTC") { await ckBTC.icrc1_transfer(args) };
+            case("ckETH") { await ckETH.icrc1_transfer(args) };
+            case("ckUSDC") { await ckUSDC.icrc1_transfer(args) };*/
+            case("ICP") { await Ledger.icrc1_transfer(args) };
+            case("LICP") { await Ledger.icrc1_transfer(args) };
+            case(_) { #Err(#GenericError) };
+        };
+
+        switch(result) {
+            case(#Ok(txId)){ //return "Success TxID: " # Nat.toText(txId);
+                return "Success";
+            };
+            case (#Err(#InsufficientFunds({ balance }))) {
+                // update the chain wallet account balance
+                return "Error";
+            };
+            //case(#Err(err)) return "Error: " # debug_show(err);
+            case(#Err(err)) return "Error";
+        }
+    };
+
 
     // ==================== R TOKEN OPERATIONS ====================
 
@@ -746,12 +987,16 @@ actor RotateChain {
                     previousRecipients = [];
                     poolBalance = Nat64.fromNat(group.contributionAmount * group.members.size());
                     yieldGenerated = Nat64.fromNat(group.contributionAmount * group.members.size() / 20); // 5% yield
-                    rotationOrder = group.members;
+                    rotationOrder = Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                });
                     roundStartTime = group.createdAt;
                     contributionsThisRound = [];
                 };
                 
-                let mockMembers = Array.map<Principal, Types.Member>(group.members, func(p) : Types.Member {
+                let mockMembers = Array.map<Principal, Types.Member>(Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }), func(p) : Types.Member {
                     { 
                             principal = p;
                             joinedAt = group.createdAt;
@@ -762,6 +1007,7 @@ actor RotateChain {
                             lastContributionTime = ?Time.now();
                             missedContributions = 0;
                             liquidTokenBalance = Nat64.fromNat(group.contributionAmount);
+                            walletAddress = null; // Legacy groups don't have wallet addresses
                     }
                 });
                 
@@ -779,6 +1025,7 @@ actor RotateChain {
                         rotationIntervalDays = 30;
                         startDate = group.createdAt;
                         endDate = group.completedAt;
+                        lastDisbursedAt = group.lastDisbursedAt;
                         status = if (group.isActive) #active else #completed;
                         createdAt = group.createdAt;
                         totalPoolSize = Nat64.fromNat(group.contributionAmount * group.totalRounds);
@@ -799,7 +1046,9 @@ actor RotateChain {
     // Get user analytics for the caller
     public shared query(msg) func getMyAnalytics() : async AnalyticsEngine.UserAnalytics {
         let userGroups = Array.filter<Group>(groupsArray, func(g) = 
-            Utils.principalInArray(msg.caller, g.members)
+            Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(g.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))
         );
         
         // Convert to enhanced types (simplified)
@@ -814,6 +1063,7 @@ actor RotateChain {
                 minMembers = 2;
                 contributionAmount = Nat64.fromNat(g.contributionAmount);
                 rotationIntervalDays = 30;
+                lastDisbursedAt = g.lastDisbursedAt;
                 startDate = g.createdAt;
                 endDate = g.completedAt;
                 status = if (g.isActive) #active else #completed;
@@ -842,6 +1092,7 @@ actor RotateChain {
                 lastContributionTime = ?Time.now();
                 missedContributions = 0;
                 liquidTokenBalance = Nat64.fromNat(g.contributionAmount);
+                walletAddress = null;
             }
         });
     
@@ -1150,7 +1401,9 @@ actor RotateChain {
     // Get user's groups
     public query(msg) func getMyGroups() : async [GroupSummary] {
         let userGroups = Array.filter<Group>(groupsArray, func(g) = 
-            Utils.principalInArray(msg.caller, g.members)  // Enhanced: use utils
+            Utils.principalInArray(msg.caller,Array.map<Types.Member, Principal>(g.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))  // Enhanced: use utils
         );
         
         Array.map<Group, GroupSummary>(userGroups, func(g) = 
@@ -1163,7 +1416,7 @@ actor RotateChain {
                 totalRounds = g.totalRounds;
                 isActive = g.isActive;
                 spotsRemaining = g.totalRounds - g.members.size();
-                nextRecipient = g.nextRecipient;
+                nextRecipient =  g.nextRecipient ;
                 progress = calculateProgress(g.currentRound, g.totalRounds);
             }
         )

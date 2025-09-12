@@ -92,6 +92,8 @@ module PaymentHandler {
             };
         }
     };
+
+
     
     // Get real account balance from ICP ledger
     public func getAccountBalance(principal: Principal) : async Types.Amount {
@@ -172,4 +174,8 @@ module PaymentHandler {
         
         #ok(simulatedBlockIndex)
     };
+
+
+
+
 }
