@@ -10,7 +10,6 @@ interface AuthContextType extends AuthState {
   getActor: () => any
   callBackend: <T>(method: string, args?: any[]) => Promise<T | null>
   principal: string | null
-
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -28,15 +27,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initialize authentication state
     const initAuth = async () => {
       try {
-        // Initialize ICP Service in parallel
-        if (process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+        console.log('🔄 Initializing AuthContext...');
+        console.log('🔧 Using Internet Identity:', import.meta.env.VITE_USE_INTERNET_IDENTITY);
+        
+        // Initialize ICP Service in parallel if using Internet Identity
+        if (import.meta.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+          console.log('🔄 Initializing ICP service...');
           await icpService.initialize()
         }
 
         const user = await authService.getCurrentUser()
+        console.log('👤 Current user:', user ? 'Found' : 'None');
 
         // If using Internet Identity, also get the principal
-        if (user && process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+        if (user && import.meta.env.VITE_USE_INTERNET_IDENTITY === 'true') {
           const principalId = await icpService.getPrincipal()
           setPrincipal(principalId)
         }
@@ -48,6 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: null
         })
       } catch (error) {
+        console.error('❌ Auth initialization error:', error);
         setState({
           user: null,
           isAuthenticated: false,
@@ -61,6 +66,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Subscribe to auth events
     const unsubscribe = authEventEmitter.subscribe((event) => {
+      console.log('🔔 Auth event:', event.type);
+      
       switch (event.type) {
         case 'login':
           setState(prev => ({
@@ -70,7 +77,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             error: null
           }))
           // Update principal if using Internet Identity
-          if (process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+          if (import.meta.env.VITE_USE_INTERNET_IDENTITY === 'true') {
             icpService.getPrincipal().then(setPrincipal)
           }
           break
@@ -99,7 +106,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
+      console.log('🔐 Login attempt starting...');
       const user = await authService.login()
+      console.log('✅ Login successful');
+      
       setState({
         user,
         isAuthenticated: true,
@@ -108,13 +118,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
       
       // Update principal if using Internet Identity
-      if (process.env.VITE_USE_INTERNET_IDENTITY === 'true') {
+      if (import.meta.env.VITE_USE_INTERNET_IDENTITY === 'true') {
         const principalId = await icpService.getPrincipal()
         setPrincipal(principalId)
       }
       
       authEventEmitter.emit({ type: 'login', user })
     } catch (error) {
+      console.error('❌ Login failed:', error);
       const errorMessage = error instanceof Error ? error.message : 'Login failed'
       setState({
         user: null,

@@ -23,51 +23,72 @@ export class ICPService {
 
   async initialize(): Promise<void> {
     try {
+      console.log('🔄 Initializing ICP Service...');
+
       this.authClient = await AuthClient.create({
         idleOptions: {
-          disableIdle: process.env.NODE_ENV === 'development',
+          disableIdle: import.meta.env.MODE === 'development',
           idleTimeout: 1000 * 60 * 30, // 30 minutes
         },
       });
 
+      console.log('✅ AuthClient created successfully');
       await this.updateActor();
     } catch (error) {
-      console.error('ICP Service initialization failed:', error);
-      // Don't throw - allow mock auth to work
+      console.error('❌ ICP Service initialization failed:', error);
+      // Don't throw - allow fallback mock auth to work
     }
   }
 
   async login(): Promise<boolean> {
     if (!this.authClient) {
-      console.error('AuthClient not initialized');
+      console.error('❌ AuthClient not initialized');
       return false;
     }
 
+    console.log('🔐 Starting Internet Identity login process...');
+
     return new Promise((resolve) => {
+      const identityProvider = import.meta.env.DFX_NETWORK === "ic" 
+        ? "https://identity.ic0.app"
+        : `http://localhost:4943/?canisterId=${canisterIds.internet_identity}`;
+      
+      console.log('🌐 Identity Provider:', identityProvider);
+
       this.authClient?.login({
-        identityProvider: process.env.DFX_NETWORK === "ic" 
-          ? "https://identity.ic0.app"
-          : `http://localhost:4943/?canisterId=${canisterIds.internet_identity}`,
+        identityProvider,
         maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000), // 7 days
         onSuccess: async () => {
+          console.log('✅ Internet Identity login successful');
           await this.updateActor();
           resolve(true);
         },
-        onError: () => resolve(false),
+        onError: (error) => {
+          console.error('❌ Internet Identity login failed:', error);
+          resolve(false);
+        },
       });
     });
   }
 
   async logout(): Promise<void> {
-    await this.authClient?.logout();
-    this.actor = null;
-    this.agent = null;
+    try {
+      await this.authClient?.logout();
+      this.actor = null;
+      this.agent = null;
+      console.log('✅ Logout successful');
+    } catch (error) {
+      console.error('❌ Logout error:', error);
+    }
   }
 
   async isAuthenticated(): Promise<boolean> {
     try {
-      return !!(await this.authClient?.isAuthenticated());
-    } catch {
+      const result = await this.authClient?.isAuthenticated();
+      console.log('🔍 Authentication check:', result);
+      return !!result;
+    } catch (error) {
+      console.error('❌ Authentication check failed:', error);
       return false;
     }
   }
@@ -75,8 +96,11 @@ export class ICPService {
   async getPrincipal(): Promise<string | null> {
     try {
       const identity = this.authClient?.getIdentity();
-      return identity?.getPrincipal().toString() || null;
-    } catch {
+      const principal = identity?.getPrincipal().toString() || null;
+      console.log('🆔 Principal:', principal);
+      return principal;
+    } catch (error) {
+      console.error('❌ Failed to get principal:', error);
       return null;
     }
   }
@@ -91,7 +115,8 @@ export class ICPService {
       });
 
       // Fetch root key for local development
-      if (process.env.DFX_NETWORK !== "ic") {
+      if (import.meta.env.DFX_NETWORK !== "ic") {
+        console.log('🔑 Fetching root key for local development...');
         await this.agent.fetchRootKey();
       }
 
@@ -100,9 +125,12 @@ export class ICPService {
         this.actor = createActor(canisterIds.rotatechain_backend, {
           agent: this.agent,
         });
+        console.log('✅ Actor created successfully');
+      } else {
+        console.warn('⚠️ createActor not available - declarations not generated yet');
       }
     } catch (error) {
-      console.error('Failed to update actor:', error);
+      console.error('❌ Failed to update actor:', error);
     }
   }
 
@@ -110,15 +138,18 @@ export class ICPService {
     return this.actor;
   }
 
-  // Backend method calls
   async callBackend<T>(method: string, args: any[] = []): Promise<T | null> {
     try {
       if (!this.actor) {
-        throw new Error('Actor not initialized');
+        console.warn('⚠️ Actor not initialized, cannot call backend');
+        return null;
       }
-      return await this.actor[method](...args);
+      console.log(`🔄 Calling backend method: ${method}`);
+      const result = await this.actor[method](...args);
+      console.log(`✅ Backend call successful: ${method}`);
+      return result;
     } catch (error) {
-      console.error(`Backend call failed for ${method}:`, error);
+      console.error(`❌ Backend call failed for ${method}:`, error);
       return null;
     }
   }

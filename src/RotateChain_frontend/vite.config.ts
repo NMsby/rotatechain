@@ -26,7 +26,9 @@ export default defineConfig({
   },
   define: {
     global: 'globalThis',
-    'process.env': process.env,
+    // Only expose specific environment variables (secure approach)
+    'process.env.DFX_NETWORK': JSON.stringify(process.env.DFX_NETWORK || 'local'),
+    'process.env.NODE_ENV': JSON.stringify(process.env.NODE_ENV || 'development'),
   },
   optimizeDeps: {
     esbuildOptions: {

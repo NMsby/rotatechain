@@ -36,6 +36,7 @@ class MockAuthService implements AuthService {
     // Store in localStorage for persistence
     localStorage.setItem('rotatechain_user', JSON.stringify(this.user))
     localStorage.setItem('rotatechain_authenticated', 'true')
+    localStorage.setItem('rotatechain_auth_method', 'mock')
     
     return this.user
   }
@@ -45,6 +46,7 @@ class MockAuthService implements AuthService {
     this.isLoggedIn = false
     localStorage.removeItem('rotatechain_user')
     localStorage.removeItem('rotatechain_authenticated')
+    localStorage.removeItem('rotatechain_auth_method')
   }
 
   async getCurrentUser(): Promise<User | null> {
@@ -53,8 +55,9 @@ class MockAuthService implements AuthService {
     // Check localStorage for existing session
     const storedUser = localStorage.getItem('rotatechain_user')
     const isAuthenticated = localStorage.getItem('rotatechain_authenticated')
+    const authMethod = localStorage.getItem('rotatechain_auth_method')
     
-    if (storedUser && isAuthenticated === 'true') {
+    if (storedUser && isAuthenticated === 'true' && authMethod === 'mock') {
       this.user = JSON.parse(storedUser)
       this.isLoggedIn = true
       return this.user
@@ -74,20 +77,25 @@ class InternetIdentityService implements AuthService {
 
   async login(): Promise<User> {
     try {
+      console.log('🔐 Starting Internet Identity login...');
+
       // Initialize ICP service
       await icpService.initialize();
+      console.log('✅ ICP Service initialized');
 
       // Attempt Internet Identity login
       const success = await icpService.login();
       if (!success) {
         throw new Error('Internet Identity login failed');
       }
+      console.log('✅ Internet Identity login successful');
 
       // Get principal and create user object
       const principal = await icpService.getPrincipal();
       if (!principal) {
         throw new Error('Failed to get principal after login');
       }
+      console.log('✅ Principal obtained:', principal);
 
       // Create user object from Internet Identity
       this.user = {
@@ -105,11 +113,12 @@ class InternetIdentityService implements AuthService {
       localStorage.setItem('rotatechain_user', JSON.stringify(this.user))
       localStorage.setItem('rotatechain_authenticated', 'true')
       localStorage.setItem('rotatechain_auth_method', 'internet_identity')
+      console.log('✅ User data saved to localStorage');
 
       return this.user;
     } catch (error) {
-      console.error('Internet Identity login error:', error);
-      throw new Error('Internet Identity authentication failed');
+      console.error('❌ Internet Identity login error:', error);
+      throw new Error(`Internet Identity authentication failed: ${error}`);
     }
   }
 
@@ -160,9 +169,14 @@ class InternetIdentityService implements AuthService {
 
 // Export the appropriate service based on environment
 export const authService: AuthService = 
-  process.env.VITE_USE_INTERNET_IDENTITY === 'true'
+  import.meta.env.VITE_USE_INTERNET_IDENTITY === 'true'
     ? new InternetIdentityService()
     : new MockAuthService()
+
+// Debug logging to verify configuration
+console.log('🔧 Auth Configuration:');
+console.log('- VITE_USE_INTERNET_IDENTITY:', import.meta.env.VITE_USE_INTERNET_IDENTITY);
+console.log('- Using service:', import.meta.env.VITE_USE_INTERNET_IDENTITY === 'true' ? 'InternetIdentityService' : 'MockAuthService');
 
 // Auth event listeners for state management
 export type AuthEventType = 'login' | 'logout' | 'user_updated'
