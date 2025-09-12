@@ -252,8 +252,6 @@ actor RotateChain {
             //added the walletAddress
             walletAddress=userSubAccount;
         };
-
-
     
         // Validation using utils.mo
         if (Utils.isEmptyText(name)) { 
@@ -362,8 +360,6 @@ actor RotateChain {
                     walletAddress=userSubAccount;
                 };
 
-
-            
                 // Add new member
                 let updatedMembers = Utils.addPrincipalToArray(newMember, group.members);
                 let isNowActive = updatedMembers.size() == group.totalRounds;
@@ -578,31 +574,14 @@ actor RotateChain {
     //chain withdrawal
     private func chainWithdraw(chainAccountIdentifier : ?Blob,identity:Text,walletAddress:?Blob, token : Text) : async Text {
 
-        let icpUnits = 100000000;
-        let ckBTCUnits = 100000000;
-        let ckETHUnits = 1000000000000000000;
-        let ckUSDCUnits = 1000000;
-
         let account = {
             owner = Principal.fromText(identity);
             subaccount = walletAddress;
         };
 
-
-        func unitsController(token:Text):Nat{
-            switch(token) {
-                case("ckBTC") { ckBTCUnits };
-                case("ckETH") { ckETHUnits };
-                case("ckUSDC") { ckUSDCUnits };
-                case("ICP") { icpUnits };
-                case("LICP") { icpUnits };
-                case(_) { return 0 };
-            }
-        };
-
         let amount = await chainBalance(token,chainAccountIdentifier);
 
-        let actualAmount = (amount/unitsController(token) * 90/100);
+        let actualAmount = (amount * 90/100);
 
 
         let args = {
