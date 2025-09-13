@@ -482,16 +482,12 @@ actor RotateChain {
                 // Process real payout to current recipient
                 switch (group.nextRecipient) {
                     case (?recipient) {
-                        
-                        /*await PaymentHandler.processRotationPayout(
-                            groupId,
-                            recipient,
-                            totalPayout,
-                            group.currentRound
-                        )*/
                         let withdrawalResult = await chainWithdraw(group.chainAccountIdentifier,Principal.toText(recipient.principal),recipient.walletAddress,group.currency); 
 
                         switch (withdrawalResult) {
+                            case(_) {
+                                #err("withdrawal error");
+                            };
                             case ("Success") {
                                 let now = Time.now();
                                 // Advance round after successful payout
@@ -538,7 +534,7 @@ actor RotateChain {
                                 //#err("Payout failed: " # errorText)
                                 #err("Payout failed: ")
                             };
-                        }
+                        };
                     };
                     case null {
                         #err("No recipient assigned for this round")

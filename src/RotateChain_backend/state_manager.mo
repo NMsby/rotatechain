@@ -35,9 +35,6 @@ module StateManager {
         for ((k, v) in tree.entries()){
             map.put(k, v);
         };
-        /*let mappedPut = tree.entries(func(k: GroupId, v: GroupConfig) {
-            map.put(k, v);
-        });*/
         return map;
     };
     // R Token types
