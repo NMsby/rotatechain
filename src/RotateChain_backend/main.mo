@@ -155,7 +155,7 @@ actor RotateChain {
 
         let chains = stateManager.getAllTickerGroups();
         for ((id, chain) in chains.entries()) {
-            if (now - chain.lastDisbursedAt >= (chain.rotationIntervalDays * 1_000_000_000) ) {
+            if (((now - chain.lastDisbursedAt) >= (chain.rotationIntervalDays)) and (chain.status === #active) ) {
                 //updateRound
                 let advanceResult = await advanceRound(chain.id);
             };
@@ -204,7 +204,8 @@ actor RotateChain {
         maxMembers: Nat,
         currency:Text,
         interestRate:Nat,
-        _roundDurationDays: Nat
+        roundDurationSeconds: Nat,
+        description:Text
     ) : async Result.Result<Nat, Text> {
 
         let groupId = nextGroupId;
@@ -291,6 +292,10 @@ actor RotateChain {
             interestRate = Nat.toText(interestRate) ;
         };
         
+        //validation of group during creation
+        let createResult = groupManagement.createGroupWithValidation(Utils.sanitizeText(name),description,maxMembers,contributionAmount,roundDurationSeconds,creatorMember);
+    
+
         groupsArray := Array.append(groupsArray, [newGroup]);
             
         Debug.print("Group created: " # Nat.toText(groupId) # " - " # name);
@@ -360,9 +365,11 @@ actor RotateChain {
                     walletAddress=userSubAccount;
                 };
 
+
                 // Add new member
                 let updatedMembers = Utils.addPrincipalToArray(newMember, group.members);
                 let isNowActive = updatedMembers.size() == group.totalRounds;
+                //let isNowActive = groupManagement.shouldActivateGroup();
                 let updatedGroup = { group with 
                 members = updatedMembers;
                 isActive = isNowActive;
@@ -480,9 +487,10 @@ actor RotateChain {
                             groupId,
                             recipient,
                             totalPayout,
-                            group.currentRound1
+                            group.currentRound
                         )*/
                         let withdrawalResult = await chainWithdraw(group.chainAccountIdentifier,Principal.toText(recipient.principal),recipient.walletAddress,group.currency); 
+
                         switch (withdrawalResult) {
                             case ("Success") {
                                 let now = Time.now();
