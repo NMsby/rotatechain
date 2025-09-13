@@ -94,7 +94,6 @@ module PaymentHandler {
     };
 
 
-    
     // Get real account balance from ICP ledger
     public func getAccountBalance(principal: Principal) : async Types.Amount {
         await ICPPaymentService.getAccountBalance(principal)
