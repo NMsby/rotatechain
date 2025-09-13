@@ -599,14 +599,12 @@ actor RotateChain {
         };
 
         switch(result) {
-            case(#Ok(txId)){ //return "Success TxID: " # Nat.toText(txId);
+            case(#Ok(txId)){ 
                 return "Success";
             };
             case (#Err(#InsufficientFunds({ balance }))) {
-                // update the chain wallet account balance
                 return "Error";
             };
-            //case(#Err(err)) return "Error: " # debug_show(err);
             case(#Err(err)) return "Error";
         }
     };
