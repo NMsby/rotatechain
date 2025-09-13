@@ -561,9 +561,6 @@ actor RotateChain {
 
 
         switch(token) {
-        /*case("ckBTC") { await ckBTC.icrc1_balance_of(cAccount) };
-        case("ckETH") { await ckETH.icrc1_balance_of(cAccount)};
-        case("ckUSDC") { await ckUSDC.icrc1_balance_of(cAccount)};*/
         case("ICP") { await Ledger.icrc1_balance_of(cAccount) };
         case("LICP") { await Ledger.icrc1_balance_of(cAccount) };
         case(_) { return 0 };
@@ -596,9 +593,6 @@ actor RotateChain {
 
         //here in the chain withdrawal ensure you check for the loans that one has and pay them to the respective users one by one then pay the remaining cash to the receiver provided remaining cash is greater than 0.
         let result = switch(token) {
-            /*case("ckBTC") { await ckBTC.icrc1_transfer(args) };
-            case("ckETH") { await ckETH.icrc1_transfer(args) };
-            case("ckUSDC") { await ckUSDC.icrc1_transfer(args) };*/
             case("ICP") { await Ledger.icrc1_transfer(args) };
             case("LICP") { await Ledger.icrc1_transfer(args) };
             case(_) { #Err(#GenericError) };
