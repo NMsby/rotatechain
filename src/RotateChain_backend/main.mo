@@ -155,7 +155,7 @@ actor RotateChain {
 
         let chains = stateManager.getAllTickerGroups();
         for ((id, chain) in chains.entries()) {
-            if (((now - chain.lastDisbursedAt) >= (chain.rotationIntervalDays)) and (chain.status === #active) ) {
+            if (((now - chain.lastDisbursedAt) >= (chain.rotationIntervalDays)) and (chain.status == #active) ) {
                 //updateRound
                 let advanceResult = await advanceRound(chain.id);
             };
@@ -293,7 +293,6 @@ actor RotateChain {
         };
         
         //validation of group during creation
-        let createResult = groupManagement.createGroupWithValidation(Utils.sanitizeText(name),description,maxMembers,contributionAmount,roundDurationSeconds,creatorMember);
     
 
         groupsArray := Array.append(groupsArray, [newGroup]);
