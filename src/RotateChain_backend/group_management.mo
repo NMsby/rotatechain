@@ -6,7 +6,6 @@ import Utils "./utils";
 import Time "mo:base/Time";
 import Result "mo:base/Result";
 import Nat64 "mo:base/Nat64";
-import StateManager "./state_manager"
 
 module GroupManagement {
     
@@ -89,6 +88,6 @@ module GroupManagement {
     
     // Calculate if group should become active
     public func shouldActivateGroup(group: Types.GroupConfig) : Bool {
-        group.members.size() >= group.minMembers and group.status == #forming
+        group.members.size() >= group.maxMembers and group.status == #forming
     };
 }
