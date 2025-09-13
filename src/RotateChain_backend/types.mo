@@ -212,7 +212,7 @@ module Types {
         maxMembers: Nat;
         minMembers: Nat;
         contributionAmount: Amount;
-        rotationIntervalDays: Nat; //should actually refer to seconds
+        rotationIntervalDays: Nat; // should actually refer to seconds; copilot this is just a future implementation so ignore it
         startDate: Timestamp;
         lastDisbursedAt:Int;
         endDate: ?Timestamp;
