@@ -24,7 +24,7 @@ import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
 import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
-import groupManagement "group_management";
+import GroupManagement "./group_management";
 import AnalyticsEngine "./analytics_engine";
 
 actor RotateChain {
@@ -156,7 +156,7 @@ actor RotateChain {
         let chains = stateManager.getAllTickerGroups();
         for ((id, chain) in chains.entries()) {
             if (((now - chain.lastDisbursedAt) >= (chain.rotationIntervalDays)) and (chain.status == #active) ) {
-                //updateRound
+                //advanceRound
                 let advanceResult = await advanceRound(chain.id);
             };
         };
@@ -293,7 +293,24 @@ actor RotateChain {
         };
         
         //validation of group during creation
-    
+        let result = GroupManagement.createGroupWithValidation(
+            name,
+            description,
+            maxMembers,
+            Nat64.fromNat(contributionAmount),
+            roundDurationSeconds,
+            creatorMember
+        );
+        switch (result) {
+            case (#ok(groupConfig)) {
+                groupEntries := Array.append(groupEntries, [(groupConfig.id, groupConfig)]);
+                Debug.print("GroupConfig added to groupEntries: " # Nat.toText(groupConfig.id));
+            };
+            case (#err(error)) {
+                // Handle error as needed
+                return #err(Utils.errorToText(error));
+            };
+        };
 
         groupsArray := Array.append(groupsArray, [newGroup]);
             
@@ -307,6 +324,7 @@ actor RotateChain {
         if (not Utils.validatePrincipal(msg.caller)) {
             return #err("Invalid caller principal");
         };
+
 
         switch (findGroup(groupId)) {
             case (?group) {
@@ -368,7 +386,6 @@ actor RotateChain {
                 // Add new member
                 let updatedMembers = Utils.addPrincipalToArray(newMember, group.members);
                 let isNowActive = updatedMembers.size() == group.totalRounds;
-                //let isNowActive = groupManagement.shouldActivateGroup();
                 let updatedGroup = { group with 
                 members = updatedMembers;
                 isActive = isNowActive;
@@ -379,7 +396,20 @@ actor RotateChain {
             
                 Debug.print("Member joined: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId));
                 if (isNowActive) {
+
                     Debug.print("Group " # Nat.toText(groupId) # " is now ACTIVE! Round 1 started.");
+                    
+                    let updatedGroupEntries = Array.map<(Types.GroupId, Types.GroupConfig), (Types.GroupId, Types.GroupConfig)>(
+                        groupEntries,
+                        func((id, config)) : (Types.GroupId, Types.GroupConfig) {
+                            if (id == groupId) {
+                                (id, { config with status = #active })
+                            } else {
+                                (id, config)
+                            }
+                        }
+                    );
+                    groupEntries := updatedGroupEntries;
                 };
                 #ok(true)
             };
@@ -488,7 +518,7 @@ actor RotateChain {
                                 #err("withdrawal error");
                             };
                             case ("Success") {
-                                let now = Time.now();
+                                let now = Time.now() / 1_000_000_000;
                                 // Advance round after successful payout
                                 let newRound = group.currentRound + 1;
                                 let isCompleted = newRound > group.totalRounds;
