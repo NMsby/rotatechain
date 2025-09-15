@@ -11,7 +11,10 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Clock,
-  Shield
+  Shield,
+  RefreshCw,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
@@ -19,14 +22,26 @@ import { Progress } from '../components/ui/progress'
 import { Badge } from '../components/ui/badge'
 import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Skeleton } from '../components/ui/skeleton'
+import { Alert, AlertDescription } from '../components/ui/alert'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
+import { useBackend } from '../lib/useBackend'
 import { mockApi } from '../lib/mockApi'
 import { formatCurrency, formatNumber, formatRelativeTime, formatPercentage } from '../lib/utils'
 import type { DashboardStats, SystemHealth, UserBalance, Activity as ActivityType, TimeSeriesDataPoint } from '../types'
 
 export function Dashboard() {
-  const { user } = useAuth()
+  const { user, isAuthenticated } = useAuth()
+  const { 
+    checkHealth, 
+    getPlatformStats, 
+    getUserBalance,
+    getRTokenBalance,
+    error: backendError,
+    isLoading: backendLoading 
+  } = useBackend()
+
+  // Original state
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
   const [userBalance, setUserBalance] = useState<UserBalance | null>(null)
@@ -34,38 +49,91 @@ export function Dashboard() {
   const [healthTimeline, setHealthTimeline] = useState<TimeSeriesDataPoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  useEffect(() => {
-    const loadDashboardData = async () => {
-      try {
-        setIsLoading(true)
-        const [
-          statsData,
-          healthData,
-          balanceData,
-          activityData,
-          timelineData
-        ] = await Promise.all([
-          mockApi.getDashboardStats(),
-          mockApi.getSystemHealth(),
-          mockApi.getUserBalance(),
-          mockApi.getRecentActivity(8),
-          mockApi.getHealthTimeline()
-        ])
+  // Backend Integration State
+  const [backendHealth, setBackendHealth] = useState<boolean | null>(null)
+  const [backendStats, setBackendStats] = useState<any>(null)
+  const [backendBalance, setBackendBalance] = useState<string | null>(null)
+  const [rTokenBalance, setRTokenBalance] = useState<any>(null)
+  const [lastBackendUpdate, setLastBackendUpdate] = useState<Date | null>(null)
 
-        setStats(statsData)
-        setSystemHealth(healthData)
-        setUserBalance(balanceData)
-        setRecentActivity(activityData)
-        setHealthTimeline(timelineData)
-      } catch (error) {
-        console.error('Failed to load dashboard data:', error)
-      } finally {
-        setIsLoading(false)
+  const loadDashboardData = async () => {
+    try {
+      setIsLoading(true)
+      
+      // Load mock data
+      const [
+        statsData,
+        healthData,
+        balanceData,
+        activityData,
+        timelineData
+      ] = await Promise.all([
+        mockApi.getDashboardStats(),
+        mockApi.getSystemHealth(),
+        mockApi.getUserBalance(),
+        mockApi.getRecentActivity(8),
+        mockApi.getHealthTimeline()
+      ])
+
+      setStats(statsData)
+      setSystemHealth(healthData)
+      setUserBalance(balanceData)
+      setRecentActivity(activityData)
+      setHealthTimeline(timelineData)
+
+      // Load backend data if authenticated
+      if (isAuthenticated) {
+        await loadBackendData()
       }
+    } catch (error) {
+      console.error('Failed to load dashboard data:', error)
+    } finally {
+      setIsLoading(false)
     }
+  }
 
+  const loadBackendData = async () => {
+    if (!isAuthenticated) return
+    
+    try {
+      console.log('🔄 Loading backend data...')
+      
+      // Backend health check
+      const health = await checkHealth()
+      setBackendHealth(health)
+      console.log('🏥 Backend health:', health)
+      
+      // Platform statistics
+      const platformStats = await getPlatformStats()
+      setBackendStats(platformStats)
+      console.log('📊 Platform stats:', platformStats)
+      
+      // User balance
+      const balance = await getUserBalance()
+      setBackendBalance(balance?.toString() || null)
+      console.log('💰 User balance:', balance)
+
+      // R Token balance
+      const rTokens = await getRTokenBalance()
+      setRTokenBalance(rTokens)
+      console.log('🪙 R Token balance:', rTokens)
+      
+      setLastBackendUpdate(new Date())
+      console.log('✅ Backend data loaded successfully')
+    } catch (error) {
+      console.error('❌ Failed to load backend data:', error)
+    }
+  }
+
+  useEffect(() => {
     loadDashboardData()
   }, [])
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadBackendData()
+    }
+  }, [isAuthenticated])
 
   if (isLoading) {
     return <DashboardSkeleton />
@@ -101,6 +169,42 @@ export function Dashboard() {
     }
   }
 
+  // Stats Data with Backend Integration
+  const statsData = [
+    {
+      title: 'Total Users',
+      value: formatNumber(backendStats?.totalUsers || stats?.totalUsers || 0),
+      icon: Users,
+      trend: '+12.5%',
+      delay: 0.2,
+      isBackendData: !!backendStats?.totalUsers
+    },
+    {
+      title: 'Active Chains',
+      value: backendStats?.activeGroups || stats?.activeChains || 0,
+      icon: Layers,
+      trend: '+8.2%',
+      delay: 0.3,
+      isBackendData: !!backendStats?.activeGroups
+    },
+    {
+      title: 'Total Volume',
+      value: formatCurrency(backendStats?.totalVolume || stats?.totalVolume || 0),
+      icon: DollarSign,
+      trend: '+15.3%',
+      delay: 0.4,
+      isBackendData: !!backendStats?.totalVolume
+    },
+    {
+      title: 'System Uptime',
+      value: formatPercentage(backendStats?.systemUptime || stats?.systemUptime || 0),
+      icon: Shield,
+      trend: backendHealth ? '+0.1%' : '+0.1%',
+      delay: 0.5,
+      isBackendData: !!backendStats?.systemUptime
+    }
+  ]
+
   return (
     <div className="space-y-8">
       {/* Header */}
@@ -116,7 +220,37 @@ export function Dashboard() {
               Here's what's happening with your savings and investments today.
             </p>
           </div>
-          <div className="flex gap-3">
+          <div className="flex items-center gap-3">
+            {/* Backend Status Indicator */}
+            <div className="flex items-center gap-2 px-3 py-1 rounded-lg bg-muted">
+              {backendHealth ? (
+                <>
+                  <Wifi className="h-4 w-4 text-green-500" />
+                  <span className="text-sm font-medium">Backend Connected</span>
+                </>
+              ) : isAuthenticated ? (
+                <>
+                  <WifiOff className="h-4 w-4 text-red-500" />
+                  <span className="text-sm font-medium">Backend Offline</span>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="h-4 w-4 text-yellow-500" />
+                  <span className="text-sm font-medium">Not Connected</span>
+                </>
+              )}
+            </div>
+
+             <Button 
+              onClick={loadDashboardData} 
+              disabled={isLoading || backendLoading}
+              variant="outline"
+              size="default"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${(isLoading || backendLoading) ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+            
             <Link to="/dashboard/chains/new">
               <Button className="gradient-primary text-white">
                 <Plus className="mr-2 h-4 w-4" />
@@ -131,9 +265,25 @@ export function Dashboard() {
             </Link>
           </div>
         </div>
+
+        {/* Backend Error Alert */}
+        {backendError && (
+          <Alert variant="destructive" className="mt-4">
+            <AlertDescription>
+              Backend Error: {backendError}
+            </AlertDescription>
+          </Alert>
+        )}
+
+        {/* Backend Data Timestamp */}
+        {lastBackendUpdate && (
+          <p className="text-xs text-muted-foreground mt-2">
+            Backend data last updated: {lastBackendUpdate.toLocaleTimeString()}
+          </p>
+        )}
       </motion.div>
 
-      {/* User Profile Card */}
+      {/* User Profile Cardnwith Backend Balance */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -159,13 +309,23 @@ export function Dashboard() {
                   <span className="text-xs text-muted-foreground">
                     Member since {new Date(user?.createdAt || '').toLocaleDateString()}
                   </span>
+                  {isAuthenticated && (
+                    <Badge variant={backendHealth ? 'default' : 'secondary'} className="gap-1">
+                      {backendHealth ? 'Backend Active' : 'Demo Mode'}
+                    </Badge>
+                  )}
                 </div>
               </div>
               <div className="text-right">
                 <div className="text-2xl font-bold gradient-primary bg-clip-text text-transparent">
-                  {formatCurrency(userBalance?.totalValue || 0)}
+                  {backendBalance 
+                    ? `${(parseInt(backendBalance) / 100000000).toFixed(4)} ICP`
+                    : formatCurrency(userBalance?.totalValue || 0)
+                  }
                 </div>
-                <div className="text-sm text-muted-foreground">Total Portfolio</div>
+                <div className="text-sm text-muted-foreground">
+                  {backendBalance ? 'ICP Balance' : 'Total Portfolio'}
+                </div>
               </div>
             </div>
           </CardHeader>
@@ -174,36 +334,7 @@ export function Dashboard() {
 
       {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {[
-          {
-            title: 'Total Users',
-            value: formatNumber(stats?.totalUsers || 0),
-            icon: Users,
-            trend: '+12.5%',
-            delay: 0.2
-          },
-          {
-            title: 'Active Chains',
-            value: stats?.activeChains || 0,
-            icon: Layers,
-            trend: '+8.2%',
-            delay: 0.3
-          },
-          {
-            title: 'Total Volume',
-            value: formatCurrency(stats?.totalVolume || 0),
-            icon: DollarSign,
-            trend: '+15.3%',
-            delay: 0.4
-          },
-          {
-            title: 'System Uptime',
-            value: formatPercentage(stats?.systemUptime || 0),
-            icon: Shield,
-            trend: '+0.1%',
-            delay: 0.5
-          }
-        ].map((stat, index) => {
+        {statsData.map((stat, index) => {
           const Icon = stat.icon
           return (
             <motion.div
@@ -216,7 +347,14 @@ export function Dashboard() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm text-muted-foreground">{stat.title}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm text-muted-foreground">{stat.title}</p>
+                        {stat.isBackendData && (
+                          <Badge variant="default" className="h-4 px-1 text-xs">
+                            Live
+                          </Badge>
+                        )}
+                      </div>
                       <p className="text-2xl font-bold">{stat.value}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
@@ -248,6 +386,11 @@ export function Dashboard() {
                 <CardTitle className="flex items-center gap-2">
                   <Shield className="h-5 w-5" />
                   System Health (24h)
+                  {backendHealth !== null && (
+                    <Badge variant={backendHealth ? 'default' : 'destructive'}>
+                      {backendHealth ? 'Connected' : 'Offline'}
+                    </Badge>
+                  )}
                 </CardTitle>
                 <CardDescription>
                   Real-time system performance and uptime metrics
@@ -284,9 +427,14 @@ export function Dashboard() {
                 </div>
                 <div className="flex items-center justify-between mt-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-green-500" />
+                    <div className={`w-3 h-3 rounded-full ${
+                      backendHealth === true ? 'bg-green-500' : 
+                      backendHealth === false ? 'bg-red-500' : 'bg-green-500'
+                    }`} />
                     <span className="text-sm text-muted-foreground">
-                      Status: {systemHealth?.status === 'healthy' ? 'Healthy' : 'Warning'}
+                      Status: {backendHealth === true ? 'Healthy' : 
+                               backendHealth === false ? 'Backend Offline' : 
+                               systemHealth?.status === 'healthy' ? 'Healthy' : 'Warning'}
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground">
@@ -311,7 +459,42 @@ export function Dashboard() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* R Tokens */}
+                {/* Backend R Tokens */}
+                {rTokenBalance && Array.isArray(rTokenBalance) && rTokenBalance.length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-2 mb-3">
+                      <h3 className="font-semibold">Live R Tokens</h3>
+                      <Badge variant="default" className="h-4 px-1 text-xs">
+                        Backend
+                      </Badge>
+                    </div>
+                    <div className="space-y-3">
+                      {rTokenBalance.map((token: any, index: number) => (
+                        <div key={index} className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full gradient-primary flex items-center justify-center">
+                              <span className="text-white text-xs font-bold">R</span>
+                            </div>
+                            <div>
+                              <div className="font-medium">Group {token.groupId || index + 1}</div>
+                              <div className="text-sm text-muted-foreground">
+                                Live Data
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="font-semibold">{token.amount || 0}</div>
+                            <div className="text-sm text-muted-foreground">
+                              R Tokens
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Original R Tokens */}
                 <div>
                   <h3 className="font-semibold mb-3">R Tokens</h3>
                   <div className="space-y-3">
@@ -335,7 +518,7 @@ export function Dashboard() {
                           </div>
                         </div>
                       </div>
-                    ))}
+                    ))} 
                   </div>
                 </div>
 
@@ -459,6 +642,17 @@ export function Dashboard() {
                     <span className="font-medium text-green-600">+12.5%</span>
                   </div>
                   <Progress value={90} className="h-2" />
+                </div>
+
+                {/* Backend Connection Status */}
+                <div className="space-y-2 pt-2 border-t">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Backend Status</span>
+                    <span className={`font-medium ${backendHealth ? 'text-green-600' : 'text-red-600'}`}>
+                      {backendHealth ? 'Connected' : 'Offline'}
+                    </span>
+                  </div>
+                  <Progress value={backendHealth ? 100 : 0} className="h-2" />
                 </div>
               </CardContent>
             </Card>
