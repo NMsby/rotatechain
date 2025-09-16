@@ -108,8 +108,15 @@ export function LoginPage() {
                   🚧 Demo Mode Active
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  This is a mock authentication flow. In production, this would integrate with DFINITY's Internet Identity.
+                  
                 </p>
+                {import.meta.env.MODE === 'development' && (
+                  <div className="text-center text-xs text-muted-foreground">
+                    <p>
+                      Environment: {import.meta.env.VITE_USE_MOCK_AUTH === 'true' ? 'Mock Authentication' : 'Internet Identity II'}
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Divider */}

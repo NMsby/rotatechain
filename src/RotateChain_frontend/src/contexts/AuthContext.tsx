@@ -1,10 +1,13 @@
-import React, { createContext, useContext, useEffect, useState } from 'react'
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { User, AuthState } from '../types'
-import { authService, authEventEmitter } from '../lib/auth'
+import { authService, authEventEmitter, type Identity, Principal } from '../lib/auth'
 
 interface AuthContextType extends AuthState {
   login: () => Promise<void>
   logout: () => Promise<void>
+  getIdentity: () => Identity
+  getPrincipal: () => Principal
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -17,10 +20,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     error: null
   })
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const user = await authService.getCurrentUser()
+      setState(prev => ({
+        ...prev,
+        user,
+        isAuthenticated: !!user,
+        error: null
+      }))
+    } catch (error) {
+      console.error('Error refreshing user:', error)
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Failed to refresh user'
+      }))
+    }
+  }, [])
+
   useEffect(() => {
     // Initialize authentication state
     const initAuth = async () => {
       try {
+        setState(prev => ({ ...prev, isLoading: true }))
         const user = await authService.getCurrentUser()
         setState({
           user,
@@ -29,11 +51,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           error: null
         })
       } catch (error) {
+        console.error('Auth initialization error:', error)
         setState({
           user: null,
           isAuthenticated: false,
           isLoading: false,
-          error: error instanceof Error ? error.message : 'Authentication failed'
+          error: error instanceof Error ? error.message : 'Authentication initialization failed'
         })
       }
     }
@@ -48,6 +71,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ...prev,
             user: event.user || null,
             isAuthenticated: !!event.user,
+            isLoading: false,
             error: null
           }))
           break
@@ -56,6 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             ...prev,
             user: null,
             isAuthenticated: false,
+            isLoading: false,
             error: null
           }))
           break
@@ -82,8 +107,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null
       })
-      
-      authEventEmitter.emit({ type: 'login', user })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed'
       setState({
@@ -92,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: errorMessage
       })
+      throw error // Re-throw for component handling
     }
   }
 
@@ -106,21 +130,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null
       })
-      
-      authEventEmitter.emit({ type: 'logout' })
     } catch (error) {
       setState(prev => ({
         ...prev,
         isLoading: false,
         error: error instanceof Error ? error.message : 'Logout failed'
       }))
+      throw error
     }
   }
+
+  const getIdentity = useCallback(() => {
+    return authService.getIdentity()
+  }, [])
+
+  const getPrincipal = useCallback(() => {
+    return authService.getPrincipal()
+  }, [])
 
   const value: AuthContextType = {
     ...state,
     login,
-    logout
+    logout,
+    getIdentity,
+    getPrincipal,
+    refreshUser
   }
 
   return (

@@ -140,6 +140,21 @@ export interface AuthState {
   error: string | null;
 }
 
+// ICP-specific types
+export interface ICPAuthData {
+  principal: string
+  identity: string
+  delegationExpiry: number
+}
+
+// Wallet connection types
+export interface WalletConnection {
+  isConnected: boolean
+  principal: string | null
+  balance: number
+  walletType: 'internet-identity' | 'plug' | 'stoic' | null
+}
+
 // Theme types
 export interface ThemeContextType {
   theme: 'light' | 'dark';

@@ -1,15 +1,29 @@
+import { AuthClient } from '@dfinity/auth-client'
+import { Identity, AnonymousIdentity } from '@dfinity/agent'
+import { DelegationIdentity } from '@dfinity/identity'
+import { Principal } from '@dfinity/principal'
 import { User } from '../types'
 
-// Mock Internet Identity authentication
-// In production, this would integrate with DFINITY's Internet Identity
+// Internet Identity 2.0 Provider URLs
+const II_URL = import.meta.env.MODE === 'production' 
+  ? 'https://identity.ic0.app'
+  : `http://localhost:4943?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`
 
+const II_ALTERNATIVE_URL = import.meta.env.MODE === 'production'
+  ? 'https://id.ai' // New Internet Identity 2.0 endpoint
+  : `http://localhost:4943?canisterId=rdmx6-jaaaa-aaaaa-aaadq-cai`
+
+// Auth service interface
 export interface AuthService {
   login(): Promise<User>
   logout(): Promise<void>
   getCurrentUser(): Promise<User | null>
   isAuthenticated(): boolean
+  getIdentity(): Identity
+  getPrincipal(): Principal
 }
 
+// Mock service for development
 class MockAuthService implements AuthService {
   private user: User | null = null
   private isLoggedIn = false
@@ -65,39 +79,165 @@ class MockAuthService implements AuthService {
   isAuthenticated(): boolean {
     return this.isLoggedIn || localStorage.getItem('rotatechain_authenticated') === 'true'
   }
+
+  getIdentity(): Identity {
+    return new AnonymousIdentity()
+  }
+
+  getPrincipal(): Principal {
+    return Principal.anonymous()
+  }
 }
 
-// Production Internet Identity service (placeholder)
+// Production Internet Identity 2.0 service
 class InternetIdentityService implements AuthService {
+  private authClient: AuthClient | null = null
+  private identity: Identity | null = null
+
   async login(): Promise<User> {
-    // TODO: Implement actual Internet Identity integration
-    // This would use @dfinity/auth-client
-    throw new Error('Internet Identity not implemented. Please use mock authentication.')
+    try {
+      this.authClient = await AuthClient.create({
+        idleOptions: {
+          idleTimeout: 30 * 60 * 1000, // 30 minutes
+          disableDefaultIdleCallback: true, // Handle idle ourselves
+        },
+      })
+
+      return new Promise((resolve, reject) => {
+        this.authClient!.login({
+          identityProvider: II_URL,
+          // Alternative provider for Internet Identity 2.0
+          derivationOrigin: process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:4943',
+          // 7 days expiration
+          maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
+          windowOpenerFeatures: `
+            left=${window.screen.width / 2 - 250},
+            top=${window.screen.height / 2 - 300},
+            toolbar=0,location=0,menubar=0,width=500,height=600
+          `,
+          onSuccess: async () => {
+            try {
+              this.identity = this.authClient!.getIdentity()
+              const principal = this.identity.getPrincipal()
+              
+              // Create user object from identity
+              const user: User = {
+                id: principal.toString(),
+                name: `User ${principal.toString().slice(0, 8)}`,
+                email: '', // Internet Identity doesn't provide email
+                avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${principal.toString()}`,
+                walletAddress: '', // Will be set by wallet integration
+                internetIdentityPrincipal: principal.toString(),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString()
+              }
+
+              // Store user data
+              localStorage.setItem('rotatechain_user', JSON.stringify(user))
+              localStorage.setItem('rotatechain_authenticated', 'true')
+              localStorage.setItem('rotatechain_identity_principal', principal.toString())
+
+              authEventEmitter.emit({ type: 'login', user })
+              resolve(user)
+            } catch (error) {
+              console.error('Error processing successful login:', error)
+              reject(new Error('Failed to process login'))
+            }
+          },
+          onError: (error) => {
+            console.error('Internet Identity login error:', error)
+            reject(new Error(error || 'Authentication failed'))
+          }
+        })
+      })
+    } catch (error) {
+      console.error('Failed to create auth client:', error)
+      throw new Error('Failed to initialize authentication')
+    }
   }
 
   async logout(): Promise<void> {
-    // TODO: Implement Internet Identity logout
-    throw new Error('Internet Identity not implemented.')
+    try {
+      if (this.authClient) {
+        await this.authClient.logout()
+      }
+      
+      this.authClient = null
+      this.identity = null
+      
+      // Clear stored data
+      localStorage.removeItem('rotatechain_user')
+      localStorage.removeItem('rotatechain_authenticated')
+      localStorage.removeItem('rotatechain_identity_principal')
+      
+      authEventEmitter.emit({ type: 'logout' })
+    } catch (error) {
+      console.error('Logout error:', error)
+      throw new Error('Failed to logout')
+    }
   }
 
   async getCurrentUser(): Promise<User | null> {
-    // TODO: Get user from Internet Identity
-    throw new Error('Internet Identity not implemented.')
+    try {
+      if (!this.authClient) {
+        this.authClient = await AuthClient.create()
+      }
+
+      const isAuthenticated = await this.authClient.isAuthenticated()
+      
+      if (isAuthenticated) {
+        this.identity = this.authClient.getIdentity()
+        const principal = this.identity.getPrincipal()
+        
+        // Check if we have stored user data
+        const storedUser = localStorage.getItem('rotatechain_user')
+        if (storedUser) {
+          return JSON.parse(storedUser)
+        }
+        
+        // Create minimal user object if not stored
+        const user: User = {
+          id: principal.toString(),
+          name: `User ${principal.toString().slice(0, 8)}`,
+          email: '',
+          avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${principal.toString()}`,
+          walletAddress: '',
+          internetIdentityPrincipal: principal.toString(),
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString()
+        }
+        
+        return user
+      }
+      
+      return null
+    } catch (error) {
+      console.error('Error getting current user:', error)
+      return null
+    }
   }
 
   isAuthenticated(): boolean {
-    // TODO: Check Internet Identity authentication status
-    return false
+    return localStorage.getItem('rotatechain_authenticated') === 'true'
+  }
+
+  getIdentity(): Identity {
+    return this.identity || new AnonymousIdentity()
+  }
+
+  getPrincipal(): Principal {
+    const identity = this.getIdentity()
+    return identity.getPrincipal()
   }
 }
 
 // Export the appropriate service based on environment
 export const authService: AuthService = 
-  process.env.NODE_ENV === 'production' && process.env.VITE_USE_INTERNET_IDENTITY === 'true'
-    ? new InternetIdentityService()
-    : new MockAuthService()
+  import.meta.env.MODE === 'development' && import.meta.env.VITE_USE_MOCK_AUTH === 'true' 
+  ? new MockAuthService() 
+  : new InternetIdentityService()
 
-// Auth event listeners for state management
+// Auth event listeners for state management  
 export type AuthEventType = 'login' | 'logout' | 'user_updated'
 
 export interface AuthEvent {
@@ -124,3 +264,8 @@ class AuthEventEmitter {
 }
 
 export const authEventEmitter = new AuthEventEmitter()
+
+// Export utilities for use in other parts of the app
+export { AuthClient } from '@dfinity/auth-client'
+export { type Identity } from '@dfinity/agent'
+export { Principal } from '@dfinity/principal'
