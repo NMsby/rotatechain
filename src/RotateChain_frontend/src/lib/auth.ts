@@ -106,8 +106,11 @@ class InternetIdentityService implements AuthService {
       return new Promise((resolve, reject) => {
         this.authClient!.login({
           identityProvider: II_URL,
+          // CRITICAL FIX: Remove derivationOrigin for localhost
+          // derivationOrigin: undefined, // Let II handle this automatically
           // Alternative provider for Internet Identity 2.0
-          derivationOrigin: process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:4943',
+          // derivationOrigin: process.env.NODE_ENV === 'production' ? undefined : 'http://localhost:4943',
+          
           // 7 days expiration
           maxTimeToLive: BigInt(7 * 24 * 60 * 60 * 1000 * 1000 * 1000),
           windowOpenerFeatures: `

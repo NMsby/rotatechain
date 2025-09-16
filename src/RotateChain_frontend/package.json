@@ -19,7 +19,6 @@
         "@dfinity/candid": "^3.2.4",
         "@dfinity/identity": "^3.2.4",
         "@dfinity/principal": "^3.2.4",
-        "@dfinity/use-auth-client": "^3.2.3",
         "@hookform/resolvers": "^5.2.1",
         "@radix-ui/react-accordion": "^1.2.12",
         "@radix-ui/react-alert-dialog": "^1.1.15",
