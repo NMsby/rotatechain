@@ -1,6 +1,12 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { User, AuthState } from '../types'
 import { authService, authEventEmitter, type Identity, Principal } from '../lib/auth'
+import { 
+  userService,
+  loginWithInternetIdentity,
+  type InternetIdentityOptions,
+  type IdentityVersion
+} from '../lib/icp/userService'
 
 interface AuthContextType extends AuthState {
   login: () => Promise<void>
@@ -8,6 +14,10 @@ interface AuthContextType extends AuthState {
   getIdentity: () => Identity
   getPrincipal: () => Principal
   refreshUser: () => Promise<void>
+  // Internet Identity 2.0 features
+  identityVersion: IdentityVersion | null
+  supportsIdentity2: boolean
+  migrateToIdentity2: () => Promise<boolean>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -19,6 +29,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
     error: null
   })
+  const [identityVersion, setIdentityVersion] = useState<IdentityVersion | null>(null)
+  const [supportsIdentity2, setSupportsIdentity2] = useState(false)
 
   const refreshUser = useCallback(async () => {
     try {
@@ -29,6 +41,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isAuthenticated: !!user,
         error: null
       }))
+
+      // Check Internet Identity version
+      if (user) {
+        const authInfo = userService.getAuthenticationInfo()
+        setIdentityVersion(authInfo.version)
+      }
     } catch (error) {
       console.error('Error refreshing user:', error)
       setState(prev => ({
@@ -43,7 +61,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const initAuth = async () => {
       try {
         setState(prev => ({ ...prev, isLoading: true }))
+
+        // Check Internet Identity 2.0 support
+        const supports2_0 = await userService.hasInternetIdentity2Support()
+        setSupportsIdentity2(supports2_0)
+
+        // Initialize user service
+        await userService.initialize()
+
+        // Get current user
         const user = await authService.getCurrentUser()
+
+         // Get Internet Identity version info
+        const authInfo = userService.getAuthenticationInfo()
+        setIdentityVersion(authInfo.version)
+
         setState({
           user,
           isAuthenticated: !!user,
@@ -74,6 +106,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             error: null
           }))
+          // Update identity version info
+          const authInfo = userService.getAuthenticationInfo()
+          setIdentityVersion(authInfo.version)
           break
         case 'logout':
           setState(prev => ({
@@ -83,6 +118,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             error: null
           }))
+          setIdentityVersion(null)
           break
         case 'user_updated':
           setState(prev => ({
@@ -96,17 +132,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return unsubscribe
   }, [])
 
-  const login = async () => {
+  // Enhanced login with Internet Identity 2.0 support
+  const login = async (options: InternetIdentityOptions = {}) => {
     setState(prev => ({ ...prev, isLoading: true, error: null }))
     
     try {
-      const user = await authService.login()
+      // Use the enhanced userService login by default
+      const user = await loginWithInternetIdentity({
+        version: supportsIdentity2 ? '2.0' : '1.0',
+        preferredMethod: 'passkey',
+        allowFallback: true,
+        ...options
+      })
+
       setState({
         user,
         isAuthenticated: true,
         isLoading: false,
         error: null
       })
+
+      // Update identity version
+      const authInfo = userService.getAuthenticationInfo()
+      setIdentityVersion(authInfo.version)
+
+      // Emit login event
+      authEventEmitter.emit({ type: 'login', user })
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Login failed'
       setState({
@@ -130,6 +181,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null
       })
+      setIdentityVersion(null)
     } catch (error) {
       setState(prev => ({
         ...prev,
@@ -137,6 +189,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error: error instanceof Error ? error.message : 'Logout failed'
       }))
       throw error
+    }
+  }
+
+  // Migrate to Internet Identity 2.0
+  const migrateToIdentity2 = async (): Promise<boolean> => {
+    try {
+      const result = await userService.migrateToInternetIdentity2()
+      if (result.success) {
+        await refreshUser()
+        return true
+      } else {
+        setState(prev => ({
+          ...prev,
+          error: result.error || 'Migration failed'
+        }))
+        return false
+      }
+    } catch (error) {
+      setState(prev => ({
+        ...prev,
+        error: error instanceof Error ? error.message : 'Migration failed'
+      }))
+      return false
     }
   }
 
@@ -154,7 +229,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     getIdentity,
     getPrincipal,
-    refreshUser
+    refreshUser,
+    identityVersion,
+    supportsIdentity2,
+    migrateToIdentity2
   }
 
   return (
