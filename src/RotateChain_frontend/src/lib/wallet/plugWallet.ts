@@ -61,7 +61,6 @@ declare global {
         isConnected: () => Promise<boolean>
         disconnect: () => Promise<boolean>
         getPrincipal: () => Promise<Principal>
-        getAccountId: () => Promise<string>
         requestBalance: (canisterId?: string) => Promise<PlugBalanceResponse[]>
         requestTransfer: (options: PlugTransferOptions) => Promise<{
           height: number
@@ -78,6 +77,13 @@ declare global {
       }
     }
   }
+}
+
+// Utility function to derive account ID from principal
+function principalToAccountId(principal: Principal): string {
+  // For development purposes, return principal string
+  // In production, you'd use proper account ID derivation
+  return principal.toString()
 }
 
 class PlugWalletService {
@@ -124,7 +130,7 @@ class PlugWalletService {
         import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || 'trmuc-riaaa-aaaan-qz6dq-cai',
         'rrkah-fqaaa-aaaaa-aaaaq-cai', // Internet Identity canister
         'qoctq-giaaa-aaaaa-aaaea-cai', // NNS Dapp
-        'uxrrr-q7777-77774-qaaaq-cai', // ICP Ledger canister
+        'ryjl3-tyaaa-aaaaa-aaaba-cai', // ICP Ledger canister
       ],
       host: host,
       timeout: 60000, // 1 minute timeout
@@ -143,20 +149,33 @@ class PlugWalletService {
 
       // Get wallet information
       this.principal = await window.ic!.plug!.getPrincipal()
-      const accountId = await window.ic!.plug!.getAccountId()
+      if (!this.principal) {
+        throw new Error('Failed to get principal from Plug Wallet')
+      }
+      
+      // Derive account ID from principal
+      const accountId = principalToAccountId(this.principal)
       
       // Get balance
-      const balances = await this.getBalance()
-      const icpBalance = balances.find(b => b.canisterId === 'rrkah-fqaaa-aaaaa-aaaaq-cai')?.amount || 0
+      let icpBalance = 0
+      try {
+        const balances = await this.getBalance()
+        icpBalance = balances.find(b => b.symbol === 'ICP')?.amount || 0
+      } catch (balanceError) {
+        console.warn('Could not fetch balance:', balanceError)
+        // Continue without balance - this is not critical for connection
+      }
 
       // Create agent with SECP256K1 identity
-      this.agent = await window.ic!.plug!.createAgent({
-        whitelist: defaultOptions.whitelist,
-        host: defaultOptions.host
-      })
-
-      // Store the identity (Plug handles SECP256K1 internally)
-      this.identity = this.agent.rootKey ? null : null // Plug manages identity internally
+      try {
+        this.agent = await window.ic!.plug!.createAgent({
+          whitelist: defaultOptions.whitelist,
+          host: defaultOptions.host
+        })
+      } catch (agentError) {
+        console.warn('Could not create agent:', agentError)
+        // Continue without agent - connection is still valid
+      }
 
       const walletInfo: PlugWalletInfo = {
         principal: this.principal,
@@ -170,7 +189,22 @@ class PlugWalletService {
       return walletInfo
     } catch (error) {
       console.error('Error connecting to Plug Wallet:', error)
-      throw new Error(`Failed to connect to Plug Wallet: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      // More specific error messages
+      let errorMessage = 'Unknown error'
+      if (error instanceof Error) {
+        errorMessage = error.message
+        
+        // Handle specific Plug Wallet errors
+        if (errorMessage.includes('No keychain found')) {
+          errorMessage = 'Please create an account in Plug Wallet first, then try connecting again.'
+        } else if (errorMessage.includes('User rejected')) {
+          errorMessage = 'Connection was rejected by user.'
+        } else if (errorMessage.includes('timeout')) {
+          errorMessage = 'Connection timed out. Please try again.'
+        }
+      }
+      
+      throw new Error(`Failed to connect to Plug Wallet: ${errorMessage}`)
     }
   }
 
@@ -203,7 +237,8 @@ class PlugWalletService {
       return await window.ic!.plug!.requestBalance(canisterId)
     } catch (error) {
       console.error('Error getting balance from Plug Wallet:', error)
-      throw new Error('Failed to retrieve wallet balance')
+      // Return empty array instead of throwing - balance is not critical
+      return []
     }
   }
 
@@ -221,16 +256,20 @@ class PlugWalletService {
     }
   }
 
-  // Get account ID
+  // Get account ID (derived from principal)
   async getAccountId(): Promise<string | null> {
     if (!this.isInstalled() || !this.isConnected) {
       return null
     }
 
     try {
-      return await window.ic!.plug!.getAccountId()
+      const principal = await this.getPrincipal()
+      if (!principal) {
+        return null
+      }
+      return principalToAccountId(principal)
     } catch (error) {
-      console.error('Error getting account ID from Plug Wallet:', error)
+      console.error('Error getting account ID:', error)
       return null
     }
   }

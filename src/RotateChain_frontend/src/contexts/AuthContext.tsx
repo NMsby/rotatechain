@@ -7,7 +7,7 @@ import {
   type InternetIdentityOptions,
   type IdentityVersion
 } from '../lib/icp/userService'
-import { type PlugWalletInfo } from '@/lib/wallet/plugWallet'
+import { type PlugWalletInfo } from '../lib/wallet/plugWallet'
 
 export type WalletType = 'internet-identity' | 'plug' | null
 

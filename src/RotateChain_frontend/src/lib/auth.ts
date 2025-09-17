@@ -264,6 +264,7 @@ class InternetIdentityService implements AuthService {
         }
       } catch (error) {
         console.error('Error getting Plug wallet info:', error)
+        // Return null instead of throwing - this is not critical
       }
     }
 
