@@ -1,8 +1,13 @@
 import { AuthClient } from '@dfinity/auth-client'
 import { Identity, AnonymousIdentity } from '@dfinity/agent'
-import { DelegationIdentity } from '@dfinity/identity'
 import { Principal } from '@dfinity/principal'
 import { User } from '../types'
+import { 
+  plugWalletService,
+  isPlugInstalled,
+  isPlugConnected,
+  type PlugWalletInfo,
+} from './wallet/plugWallet'
 
 // Internet Identity 2.0 Provider URLs
 const II_URL = import.meta.env.MODE === 'production' 
@@ -21,6 +26,10 @@ export interface AuthService {
   isAuthenticated(): boolean
   getIdentity(): Identity
   getPrincipal(): Principal
+  // Plug Wallet Methods
+  connectPlugWallet(): Promise<User>
+  disconnectPlugWallet(): Promise<void>
+  getWalletInfo(): Promise<PlugWalletInfo | null>
 }
 
 // Mock service for development
@@ -51,6 +60,18 @@ class MockAuthService implements AuthService {
     localStorage.setItem('rotatechain_authenticated', 'true')
     
     return this.user
+  }
+
+  async connectPlugWallet(): Promise<User> {
+    return this.login()
+  }
+
+  async disconnectPlugWallet(): Promise<void> {
+    return this.logout()
+  }
+
+  async getWalletInfo(): Promise<PlugWalletInfo | null> {
+    return null
   }
 
   async logout(): Promise<void> {
@@ -93,6 +114,7 @@ class MockAuthService implements AuthService {
 class InternetIdentityService implements AuthService {
   private authClient: AuthClient | null = null
   private identity: Identity | null = null
+  private plugWalletInfo: PlugWalletInfo | null = null
 
   async login(): Promise<User> {
     try {
@@ -159,21 +181,116 @@ class InternetIdentityService implements AuthService {
     }
   }
 
-  async logout(): Promise<void> {
+  // Connect Plug Wallet
+  async connectPlugWallet(): Promise<User> {
     try {
-      if (this.authClient) {
-        await this.authClient.logout()
+      if (!isPlugInstalled()) {
+        throw new Error('Plug Wallet is not installed')
       }
-      
-      this.authClient = null
+
+      const walletInfo = await plugWalletService.connect({
+        whitelist: [
+          import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || 'trmuc-riaaa-aaaan-qz6dq-cai'
+        ]
+      })
+
+      this.plugWalletInfo = walletInfo
+      this.identity = plugWalletService.getIdentity()
+
+      const user: User = {
+        id: walletInfo.principal.toString(),
+        name: `Plug User ${walletInfo.principal.toString().slice(0, 8)}`,
+        email: '',
+        avatar: `https://api.dicebear.com/7.x/identicon/svg?seed=${walletInfo.principal.toString()}`,
+        walletAddress: walletInfo.accountId,
+        internetIdentityPrincipal: walletInfo.principal.toString(),
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      }
+
+      localStorage.setItem('rotatechain_user', JSON.stringify(user))
+      localStorage.setItem('rotatechain_authenticated', 'true')
+      localStorage.setItem('rotatechain_wallet_type', 'plug')
+      localStorage.setItem('rotatechain_identity_principal', walletInfo.principal.toString())
+
+      authEventEmitter.emit({ type: 'login', user })
+      return user
+    } catch (error) {
+      console.error('Plug Wallet connection error:', error)
+      throw new Error(error instanceof Error ? error.message : 'Failed to connect Plug Wallet')
+    }
+  }
+
+  // Disconnect Plug Wallet
+  async disconnectPlugWallet(): Promise<void> {
+    try {
+      await plugWalletService.disconnect()
+      this.plugWalletInfo = null
       this.identity = null
       
-      // Clear stored data
       localStorage.removeItem('rotatechain_user')
       localStorage.removeItem('rotatechain_authenticated')
+      localStorage.removeItem('rotatechain_wallet_type')
       localStorage.removeItem('rotatechain_identity_principal')
       
       authEventEmitter.emit({ type: 'logout' })
+    } catch (error) {
+      console.error('Plug Wallet disconnect error:', error)
+      throw new Error('Failed to disconnect Plug Wallet')
+    }
+  }
+
+  // Get wallet info
+  async getWalletInfo(): Promise<PlugWalletInfo | null> {
+    if (this.plugWalletInfo) {
+      return this.plugWalletInfo
+    }
+
+    const walletType = localStorage.getItem('rotatechain_wallet_type')
+    if (walletType === 'plug' && await isPlugConnected()) {
+      try {
+        const principal = await plugWalletService.getPrincipal()
+        const accountId = await plugWalletService.getAccountId()
+        
+        if (principal && accountId) {
+          this.plugWalletInfo = {
+            principal,
+            accountId,
+            walletAddress: principal.toString(),
+            balance: 0,
+            isConnected: true
+          }
+          return this.plugWalletInfo
+        }
+      } catch (error) {
+        console.error('Error getting Plug wallet info:', error)
+      }
+    }
+
+    return null
+  }
+
+  async logout(): Promise<void> {
+    try {
+      const walletType = localStorage.getItem('rotatechain_wallet_type')
+
+      if (walletType === 'plug') {
+        await this.disconnectPlugWallet()
+      } else {
+        if (this.authClient) {
+          await this.authClient.logout()
+        }
+      
+        this.authClient = null
+        this.identity = null
+      
+        // Clear stored data
+        localStorage.removeItem('rotatechain_user')
+        localStorage.removeItem('rotatechain_authenticated')
+        localStorage.removeItem('rotatechain_identity_principal')
+      
+        authEventEmitter.emit({ type: 'logout' })
+      }
     } catch (error) {
       console.error('Logout error:', error)
       throw new Error('Failed to logout')
@@ -182,6 +299,19 @@ class InternetIdentityService implements AuthService {
 
   async getCurrentUser(): Promise<User | null> {
     try {
+      const walletType = localStorage.getItem('rotatechain_wallet_type')
+
+      if (walletType === 'plug') {
+        const isConnected = await isPlugConnected()
+        if (isConnected) {
+          const storedUser = localStorage.getItem('rotatechain_user')
+          if (storedUser) {
+            return JSON.parse(storedUser)
+          }
+        }
+        return null
+      }
+
       if (!this.authClient) {
         this.authClient = await AuthClient.create()
       }
@@ -225,6 +355,12 @@ class InternetIdentityService implements AuthService {
   }
 
   getIdentity(): Identity {
+    const walletType = localStorage.getItem('rotatechain_wallet_type')
+    
+    if (walletType === 'plug' && this.identity) {
+      return this.identity
+    }
+    
     return this.identity || new AnonymousIdentity()
   }
 

@@ -1,20 +1,27 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Link, useNavigate, useLocation } from 'react-router-dom'
 import { motion } from 'motion/react'
-import { Loader2, Shield, Zap, Users } from 'lucide-react'
+import { Loader2, Shield, Zap, Users, Wallet } from 'lucide-react'
 import { Button } from '../components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Alert, AlertDescription } from '../components/ui/alert'
 import { useAuth } from '../contexts/AuthContext'
 import { ImageWithFallback } from '../components/figma/ImageWithFallback'
+import { isPlugInstalled } from '../lib/wallet/plugWallet'
 
 export function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
-  const { login, error } = useAuth()
+  const [plugLoading, setPlugLoading] = useState(false)
+  const { login, loginWithPlug, error } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
+  const [plugInstalled, setPlugInstalled] = useState(false)
 
   const from = (location.state as any)?.from?.pathname || '/dashboard'
+
+  useEffect(() => {
+    setPlugInstalled(isPlugInstalled())
+  }, [])
 
   const handleLogin = async () => {
     setIsLoading(true)
@@ -25,6 +32,23 @@ export function LoginPage() {
       console.error('Login failed:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handlePlugLogin = async () => {
+    if (!plugInstalled) {
+      window.open('https://plugwallet.ooo/download/', '_blank')
+      return
+    }
+
+    setPlugLoading(true)
+    try {
+      await loginWithPlug()
+      navigate(from, { replace: true })
+    } catch (error) {
+      console.error('Plug login failed:', error)
+    } finally {
+      setPlugLoading(false)
     }
   }
 
@@ -85,7 +109,7 @@ export function LoginPage() {
               {/* Internet Identity Login */}
               <Button
                 onClick={handleLogin}
-                disabled={isLoading}
+                disabled={isLoading || plugLoading}
                 className="w-full gradient-primary text-white"
                 size="lg"
               >
@@ -98,6 +122,27 @@ export function LoginPage() {
                   <>
                     <Shield className="mr-2 h-5 w-5" />
                     Sign in with Internet Identity
+                  </>
+                )}
+              </Button>
+
+              {/* Plug Wallet Login - ADDITION */}
+              <Button
+                onClick={handlePlugLogin}
+                disabled={isLoading || plugLoading}
+                variant="outline"
+                className="w-full"
+                size="lg"
+              >
+                {plugLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Connecting Plug Wallet...
+                  </>
+                ) : (
+                  <>
+                    <Wallet className="mr-2 h-5 w-5" />
+                    {plugInstalled ? 'Sign in with Plug Wallet' : 'Install Plug Wallet'}
                   </>
                 )}
               </Button>

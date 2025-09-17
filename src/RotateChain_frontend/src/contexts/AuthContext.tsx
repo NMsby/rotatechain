@@ -7,13 +7,20 @@ import {
   type InternetIdentityOptions,
   type IdentityVersion
 } from '../lib/icp/userService'
+import { type PlugWalletInfo } from '@/lib/wallet/plugWallet'
+
+export type WalletType = 'internet-identity' | 'plug' | null
 
 interface AuthContextType extends AuthState {
-  login: () => Promise<void>
+  login: (options?: InternetIdentityOptions) => Promise<void>
+  loginWithPlug: () => Promise<void>
   logout: () => Promise<void>
   getIdentity: () => Identity
   getPrincipal: () => Principal
   refreshUser: () => Promise<void>
+  // Wallet type information
+  walletType: WalletType
+  plugWalletInfo: PlugWalletInfo | null
   // Internet Identity 2.0 features
   identityVersion: IdentityVersion | null
   supportsIdentity2: boolean
@@ -29,12 +36,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
     error: null
   })
+  const [walletType, setWalletType] = useState<WalletType>(null)
+  const [plugWalletInfo, setPlugWalletInfo] = useState<PlugWalletInfo | null>(null)
   const [identityVersion, setIdentityVersion] = useState<IdentityVersion | null>(null)
   const [supportsIdentity2, setSupportsIdentity2] = useState(false)
 
   const refreshUser = useCallback(async () => {
     try {
       const user = await authService.getCurrentUser()
+      const storedWalletType = localStorage.getItem('rotatechain_wallet_type') as WalletType
+      
       setState(prev => ({
         ...prev,
         user,
@@ -42,8 +53,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error: null
       }))
 
-      // Check Internet Identity version
-      if (user) {
+      setWalletType(storedWalletType)
+
+      // Get wallet info if using Plug
+      if (storedWalletType === 'plug' && user) {
+        const walletInfo = await authService.getWalletInfo()
+        setPlugWalletInfo(walletInfo)
+      }
+
+      // Check Internet Identity version if using II
+      if (storedWalletType === 'internet-identity' && user) {
         const authInfo = userService.getAuthenticationInfo()
         setIdentityVersion(authInfo.version)
       }
@@ -69,12 +88,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Initialize user service
         await userService.initialize()
 
-        // Get current user
+        // Get current user and wallet type
         const user = await authService.getCurrentUser()
+        const storedWalletType = localStorage.getItem('rotatechain_wallet_type') as WalletType
+        
+        setWalletType(storedWalletType)
 
-         // Get Internet Identity version info
-        const authInfo = userService.getAuthenticationInfo()
-        setIdentityVersion(authInfo.version)
+        // Get wallet-specific information
+        if (storedWalletType === 'plug' && user) {
+          // Get Plug wallet info
+          const walletInfo = await authService.getWalletInfo()
+          setPlugWalletInfo(walletInfo)
+        } else if (storedWalletType === 'internet-identity' && user) {
+          // Get Internet Identity version info
+          const authInfo = userService.getAuthenticationInfo()
+          setIdentityVersion(authInfo.version)
+        }
 
         setState({
           user,
@@ -106,9 +135,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             error: null
           }))
-          // Update identity version info
-          const authInfo = userService.getAuthenticationInfo()
-          setIdentityVersion(authInfo.version)
+          // Update wallet type and info
+          const newWalletType = localStorage.getItem('rotatechain_wallet_type') as WalletType
+          setWalletType(newWalletType)
+
+          if (newWalletType === 'internet-identity') {
+            // Update identity version info
+            const authInfo = userService.getAuthenticationInfo()
+            setIdentityVersion(authInfo.version)
+          }
           break
         case 'logout':
           setState(prev => ({
@@ -118,6 +153,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             error: null
           }))
+          setWalletType(null)
+          setPlugWalletInfo(null)
           setIdentityVersion(null)
           break
         case 'user_updated':
@@ -151,6 +188,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null
       })
+      
+      // Update wallet type
+      setWalletType('internet-identity')
 
       // Update identity version
       const authInfo = userService.getAuthenticationInfo()
@@ -170,6 +210,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
+  // Plug Wallet login
+  const loginWithPlug = async () => {
+    setState(prev => ({ ...prev, isLoading: true, error: null }))
+    
+    try {
+      const user = await authService.connectPlugWallet()
+      const walletInfo = await authService.getWalletInfo()
+
+      setState({
+        user,
+        isAuthenticated: true,
+        isLoading: false,
+        error: null
+      })
+
+      setWalletType('plug')
+      setPlugWalletInfo(walletInfo)
+
+      authEventEmitter.emit({ type: 'login', user })
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Plug Wallet connection failed'
+      setState({
+        user: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: errorMessage
+      })
+      throw error
+    }
+  }
+
   const logout = async () => {
     setState(prev => ({ ...prev, isLoading: true }))
     
@@ -181,6 +252,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading: false,
         error: null
       })
+      setWalletType(null)
+      setPlugWalletInfo(null)
       setIdentityVersion(null)
     } catch (error) {
       setState(prev => ({
@@ -226,10 +299,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const value: AuthContextType = {
     ...state,
     login,
+    loginWithPlug,
     logout,
     getIdentity,
     getPrincipal,
     refreshUser,
+    walletType,
+    plugWalletInfo,
     identityVersion,
     supportsIdentity2,
     migrateToIdentity2

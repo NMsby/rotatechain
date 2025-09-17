@@ -18,6 +18,7 @@
         "@dfinity/auth-client": "^3.2.4",
         "@dfinity/candid": "^3.2.4",
         "@dfinity/identity": "^3.2.4",
+        "@dfinity/identity-secp256k1": "^3.2.5",
         "@dfinity/principal": "^3.2.4",
         "@hookform/resolvers": "^5.2.1",
         "@radix-ui/react-accordion": "^1.2.12",
