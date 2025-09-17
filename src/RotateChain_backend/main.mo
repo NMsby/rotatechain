@@ -591,8 +591,8 @@ actor RotateChain {
 
 
         switch(token) {
-            case("ICP") { await ICP.icrc1_balance_of(account) };
-            case("LICP") { await ICRC1.icrc1_balance_of(account)};
+            case("ICP") { await Ledger.icrc1_balance_of(account) };
+            case("LICP") { await Ledger.icrc1_balance_of(account)};
             case(_) { return 0 };
         };
     };
