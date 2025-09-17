@@ -211,32 +211,13 @@ actor RotateChain {
         let groupId = nextGroupId;
         nextGroupId += 1;
 
-        //for the wallet
-        func createSubaccount(inputText : Text) : Blob {
-            // Convert text to UTF-8 encoded bytes
-            let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
-            
-            // Create a 32-byte array, padding with zeros or truncating as needed
-            let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
-                if (i < utf8Bytes.size()) {
-                utf8Bytes[i]  // Use the UTF-8 byte if available
-                } else {
-                0 // Pad with zero if beyond the UTF-8 byte length
-                }
-            });
-            
-            // Return as a Blob (32-byte subaccount)
-            Blob.fromArray(subaccountBytes)
-        };
-
-
         let myPrincipal = Principal.fromActor(RotateChain); 
         
         let userId = Principal.toText(msg.caller);
         let userPrincipal = Principal.fromText(userId);
         let chainName = Utils.sanitizeText(name);
-        let sub1 = createSubaccount(Nat.toText(groupId)  # userId # chainName);  
-        let userSub = createSubaccount(userId # chainName);
+        let sub1 = Utils.createSubaccount(Nat.toText(groupId)  # userId # chainName);  
+        let userSub = Utils.createSubaccount(userId # chainName);
         let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
         let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
 
@@ -343,29 +324,12 @@ actor RotateChain {
                     return #err("Already a member of this group");
                 };
 
-                //for the wallet
-                func createSubaccount(inputText : Text) : Blob {
-                    // Convert text to UTF-8 encoded bytes
-                    let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
-                    
-                    // Create a 32-byte array, padding with zeros or truncating as needed
-                    let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
-                        if (i < utf8Bytes.size()) {
-                        utf8Bytes[i]  // Use the UTF-8 byte if available
-                        } else {
-                        0 // Pad with zero if beyond the UTF-8 byte length
-                        }
-                    });
-                    
-                    // Return as a Blob (32-byte subaccount)
-                    Blob.fromArray(subaccountBytes)
-                };
 
                 
                 let userId = Principal.toText(msg.caller);
                 let userPrincipal = Principal.fromText(userId);
                 let chainName = Utils.sanitizeText(group.name);
-                let userSub = createSubaccount(userId # chainName);
+                let userSub = Utils.createSubaccount(userId # chainName);
                 let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
 
                 let newMember : Types.Member = {
@@ -574,15 +538,28 @@ actor RotateChain {
         }
     };
 
-    //chainBalance
+    //internal chainBalance
     private func chainBalance(token : Text, chainAccountIdentifier:?Blob) : async Nat {
         
+        let actorPrincipal = Principal.fromActor(RotateChain);
 
-        func convertOptionalBlobToNat8Array(optionalBlob : ?Blob) : ?[Nat8] {
-            switch (optionalBlob) {
-                case (null) { null };
-                case (?blob) { ?Blob.toArray(blob) };
-            }
+        let cAccount = {
+            owner = actorPrincipal;
+            subaccount = chainAccountIdentifier;
+        };
+
+
+        switch(token) {
+        case("ICP") { await Ledger.icrc1_balance_of(cAccount) };
+        case("LICP") { await Ledger.icrc1_balance_of(cAccount) };
+        case(_) { return 0 };
+        }
+    };
+
+    //user's accessible groupBalance
+    public shared({caller}) func groupBalance(token : Text, chainAccountIdentifier:?Blob) : async Nat {
+        if (Principal.isAnonymous(caller)) {
+            return 0;
         };
 
         let actorPrincipal = Principal.fromActor(RotateChain);
@@ -599,6 +576,27 @@ actor RotateChain {
         case(_) { return 0 };
         }
     };
+
+
+    // a user's wallet balance
+    public shared ({ caller }) func walletBalance(token : Text, walletAddress:?Blob) : async Nat {
+        if (Principal.isAnonymous(caller)) {
+            return 0;
+        };
+        
+        let account = {
+            owner = caller;
+            subaccount = walletAddress;
+        };
+
+
+        switch(token) {
+            case("ICP") { await ICP.icrc1_balance_of(account) };
+            case("LICP") { await ICRC1.icrc1_balance_of(account)};
+            case(_) { return 0 };
+        };
+    };
+
 
 
     //chain withdrawal
@@ -882,7 +880,7 @@ actor RotateChain {
         }
     };
 
-    // Approve a loan (admin function - for now, any group member can approve)
+    //  any group member can approve
     public shared(msg) func approveLoan(
         loanId: Types.LoanId
     ) : async Result.Result<Bool, Types.Error> {

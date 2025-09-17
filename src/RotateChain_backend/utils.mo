@@ -7,6 +7,7 @@ import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Float "mo:base/Float";
 import Int "mo:base/Int";
+import Blob "mo:base/Blob";
 import Int64 "mo:base/Int64";
 import Types "./types";
 import Prim "mo:prim";
@@ -56,6 +57,26 @@ module Utils {
         
         null // No errors
     };
+
+    //create subaccount
+    public func createSubaccount(inputText : Text) : Blob {
+        // Convert text to UTF-8 encoded bytes
+        let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
+        
+        // Create a 32-byte array, padding with zeros or truncating as needed
+        let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
+            if (i < utf8Bytes.size()) {
+            utf8Bytes[i]  // Use the UTF-8 byte if available
+            } else {
+            0 // Pad with zero if beyond the UTF-8 byte length
+            }
+        });
+        
+        // Return as a Blob (32-byte subaccount)
+        Blob.fromArray(subaccountBytes)
+    };
+
+
     
     // Validate contribution parameters
     public func validateContributionParams(params: Types.ContributionParams) : ?Types.Error {
