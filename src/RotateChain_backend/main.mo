@@ -478,9 +478,6 @@ actor RotateChain {
                         let withdrawalResult = await chainWithdraw(group.chainAccountIdentifier,Principal.toText(recipient.principal),recipient.walletAddress,group.currency); 
 
                         switch (withdrawalResult) {
-                            case(_) {
-                                #err("withdrawal error");
-                            };
                             case ("Success") {
                                 let now = Time.now() / 1_000_000_000;
                                 // Advance round after successful payout
