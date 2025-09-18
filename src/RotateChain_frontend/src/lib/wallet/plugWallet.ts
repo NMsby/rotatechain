@@ -2,6 +2,8 @@ import { Secp256k1KeyIdentity } from '@dfinity/identity-secp256k1'
 import { Actor, HttpAgent, Identity } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import { AuthClient } from '@dfinity/auth-client'
+import {canisterId } from '../../../declarations/rotatechain_backend'
+import {canisterId as ledgerCanisterId,idlFactory as ledgerIDL, createActor as ledgerCreateActor } from '../../../declarations/icp_ledger_canister'
 
 // Environment configuration
 const isProduction = import.meta.env.MODE === 'production'
@@ -130,6 +132,7 @@ class PlugWalletService {
         import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || 'trmuc-riaaa-aaaan-qz6dq-cai',
         'rrkah-fqaaa-aaaaa-aaaaq-cai', // Internet Identity canister
         'qoctq-giaaa-aaaaa-aaaea-cai', // NNS Dapp
+        `${ledgerCanisterId}`,// canister id from .did file
         'ryjl3-tyaaa-aaaaa-aaaba-cai', // ICP Ledger canister
       ],
       host: host,
@@ -274,6 +277,69 @@ class PlugWalletService {
     }
   }
 
+  // wallet deposit
+  async walletDeposit(amount:number,walletAddress:any):Promise<any>{
+    if(window.ic?.plug){
+      console.log("plug not found")
+      return null
+    }
+    
+    const principal = this.principal
+
+    const actor = await createActor(ledgerCanisterId,ledgerIDL)
+
+    if(actor){
+      const toAccount = {
+        owner:principal,
+        subaccount:walletAddress
+      }
+
+      const result = await actor.transfer({
+        memo:[],
+        amount:[BigInt(amount)],
+        fee:[BigInt(10000)],
+        to:toAccount,
+        from_subaccount:[],
+        created_at_time:[]
+      })
+
+      return result
+    }
+
+
+  }
+
+  // chain wallet deposit
+  async chainDeposit(amount:number,chainAddress:any):Promise<any>{
+    if(window.ic?.plug){
+      console.log("plug not found")
+      return null
+    }
+    
+    const principal = this.principal
+
+    const actor = await createActor(ledgerCanisterId,ledgerIDL)
+
+    if(actor){
+      const toAccount = {
+        owner:canisterId,
+        subaccount:chainAddress
+      }
+
+      const result = await actor.transfer({
+        memo:[],
+        amount:[BigInt(amount)],
+        fee:[BigInt(10000)],
+        to:toAccount,
+        from_subaccount:[],
+        created_at_time:[]
+      })
+
+      return result
+    }
+  }
+
+
   // Transfer tokens
   async transfer(options: PlugTransferOptions): Promise<{ height: number }> {
     if (!this.isInstalled() || !this.isConnected) {
@@ -360,6 +426,14 @@ export const plugWalletService = new PlugWalletService()
 // Export utility functions
 export const connectPlugWallet = (options?: PlugConnectionOptions) => 
   plugWalletService.connect(options)
+
+
+export const walletDeposit = (amount:number,walletAddress: any) => 
+  plugWalletService.walletDeposit(amount,walletAddress)
+
+export const chainDeposit = (amount:number,chainAddress: any) => 
+  plugWalletService.chainDeposit(amount,chainAddress)
+
 
 export const disconnectPlugWallet = () => 
   plugWalletService.disconnect()

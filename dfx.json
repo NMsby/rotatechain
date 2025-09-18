@@ -7,7 +7,7 @@
     },
     "rotatechain_frontend": {
       "dependencies": [
-        "rotatechain_backend"
+        "rotatechain_backend","icp_ledger_canister"
       ],
       "source": [
         "src/RotateChain_frontend/dist"

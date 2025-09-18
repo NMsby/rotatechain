@@ -374,4 +374,4 @@ export const realApi = {
 }
 
 // Export the real API as default
-export { realApi }
+export default realApi;

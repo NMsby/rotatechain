@@ -9,6 +9,11 @@ import {
   createActor as createBackendActor,
   canisterId as backendCanisterId
 } from '../../../../declarations/rotatechain_backend'
+import {TransferArg} from "../../../declarations/icp_ledger_canister/icp_ledger_canister.did"
+import { icp_ledger_canister,
+  createActor as createLedgerActor,
+  canisterId as ledgerCanisterId
+} from '../../../../declarations/icp_ledger_canister'
 
 // Environment configuration
 const isProduction = import.meta.env.MODE === 'production'
@@ -176,6 +181,8 @@ export type BackendResult<T> = { ok: T } | { err: BackendError }
 class CanisterService {
   private agent: HttpAgent | null = null
   private actor: typeof rotatechain_backend | null = null
+  private ledgerActor: typeof icp_ledger_canister | null = null
+
 
   async initialize(identity?: Identity): Promise<void> {
     if (!this.agent) {
@@ -192,6 +199,12 @@ class CanisterService {
 
     if (!this.actor) {
       this.actor = createBackendActor(canisterId, {
+        agent: this.agent
+      })
+
+    }
+    if(!this.ledgerActor){
+      this.ledgerActor = creatLedgerActor(ledgerCanisterId, {
         agent: this.agent
       })
     }
@@ -404,6 +417,57 @@ class CanisterService {
     return await this.actor!.getDashboardData()
   }
 
+  // ==================== icp wallet utilities ====================
+  //transfer from wallet to chainWallet
+  async walletTransfer(amount:number,subAccount:any,chainSubAccount:any):Promise<any>{
+      if(this.ledgerActor){
+                    
+
+        let transferArg:TransferArg = {
+          amount:[BigInt(amount)],
+          from_subaccount:subAccount,
+          fee:[BigInt(10000)],
+          to:{
+            owner:canisterId,
+            subaccount:chainSubAccount
+          },
+          created_at_time:[],
+          memo:[]
+        }
+        return this.ledgerActor.icrc1_transfer(transferArg)
+      }
+      else{
+        console.log("internet identity not properly configured")
+        return null
+      }
+
+  }
+
+  //withdraw from wallet to plug
+  async withdrawWallet(amount:number,subAccount:any,plugPrincipal:any){
+      if(this.ledgerActor){
+                    
+    
+
+        let transferArg:TransferArg = {
+          amount:BigInt(amount),
+          from_subaccount:subAccount,
+          fee:[BigInt(10000)],
+          to:{
+            owner:principal,
+            subaccount:[]
+          },
+          created_at_time:[],
+          memo:[]
+        }
+        this.ledgerActor.icrc1_transfer(transferArg)
+      }
+      else{
+        return null
+      }
+  }
+
+
   // Cleanup method
   cleanup(): void {
     this.agent = null
@@ -430,6 +494,15 @@ export const formatPrincipal = (principal: Principal): string => {
   const str = principal.toString()
   if (str.length <= 12) return str
   return `${str.slice(0, 6)}...${str.slice(-6)}`
+}
+
+//Icp ledger functions
+export const withdrawWallet = (amount:number,subAccount:any,plugPrincipal:any) => {
+  canisterService.walletTransfer(amount,subAccount,plugPrincipal)
+}
+
+export const walletTransfer = (amount:number,subAccount:any,chainSubAccount:any) => {
+  canisterService.walletTransfer(amount,subAccount,chainSubAccount)
 }
 
 // Export types for use in components
