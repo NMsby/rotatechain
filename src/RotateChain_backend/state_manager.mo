@@ -31,7 +31,7 @@ module StateManager {
 
     // Converts an RBTree<GroupId, GroupConfig> to a HashMap<GroupId, GroupConfig>
     private func rbTreeToHashMap(tree: RBTree.RBTree<GroupId, GroupConfig>): HashMap.HashMap<GroupId, GroupConfig> {
-        let map = HashMap.HashMap<GroupId, GroupConfig>(0, Nat.equal, Nat32.fromNat);
+        let map = HashMap.HashMap<GroupId, GroupConfig>(tree.size(), Nat.equal, Nat32.fromNat);
         for ((k, v) in tree.entries()){
             map.put(k, v);
         };
