@@ -216,8 +216,8 @@ actor RotateChain {
         let userId = Principal.toText(msg.caller);
         let userPrincipal = Principal.fromText(userId);
         let chainName = Utils.sanitizeText(name);
-        let sub1 = Utils.createSubaccount(Nat.toText(groupId)  # userId # chainName);  
-        let userSub = Utils.createSubaccount(userId # chainName);
+        let sub1 = Utils.createSubaccount(Nat.toText(groupId) # ":" # userId # ":" # chainName);  
+        let userSub = Utils.createSubaccount(userId # ":" # chainName);
         let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
         let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
 
