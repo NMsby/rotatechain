@@ -622,7 +622,7 @@ actor RotateChain {
         let result = switch(token) {
             case("ICP") { await Ledger.icrc1_transfer(args) };
             case("LICP") { await Ledger.icrc1_transfer(args) };
-            case(_) { #Err(#GenericError) };
+            case(_) { #Err(#GenericError({ message = "Unsupported token" })) };
         };
 
         switch(result) {
