@@ -329,7 +329,7 @@ actor RotateChain {
                 let userId = Principal.toText(msg.caller);
                 let userPrincipal = Principal.fromText(userId);
                 let chainName = Utils.sanitizeText(group.name);
-                let userSub = Utils.createSubaccount(userId # chainName);
+                let userSub = Utils.createSubaccount(userId # ":" # chainName);
                 let userSubAccount = ?userSub;
 
                 let newMember : Types.Member = {
