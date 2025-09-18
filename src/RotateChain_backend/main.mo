@@ -622,7 +622,6 @@ actor RotateChain {
         };
 
 
-        //here in the chain withdrawal ensure you check for the loans that one has and pay them to the respective users one by one then pay the remaining cash to the receiver provided remaining cash is greater than 0.
         let result = switch(token) {
             case("ICP") { await Ledger.icrc1_transfer(args) };
             case("LICP") { await Ledger.icrc1_transfer(args) };
