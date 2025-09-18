@@ -606,7 +606,7 @@ actor RotateChain {
 
         let amount = await chainBalance(token,chainAccountIdentifier);
 
-        let actualAmount = (amount * 90/100);
+        let actualAmount = (amount * Types.PAYOUT_PERCENTAGE);
 
 
         let args = {

@@ -359,6 +359,7 @@ module Types {
     public let MIN_ROTATION_DAYS : Nat = 7;          // 1 week minimum
     public let MAX_ROTATION_DAYS : Nat = 90;         // 3 months maximum
     public let DEFAULT_YIELD_RATE : Nat = 500;       // 5% annual yield
+    public let PAYOUT_PERCENTAGE:Nat = 90/100;
     //added the default yield rate
     public let DEFAULT_YIELD_STRATEGY: YieldStrategy = #fixed(0);   
 }
