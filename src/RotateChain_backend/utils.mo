@@ -10,7 +10,6 @@ import Int "mo:base/Int";
 import Blob "mo:base/Blob";
 import Int64 "mo:base/Int64";
 import Types "./types";
-import Prim "mo:prim";
 
 module Utils {
 

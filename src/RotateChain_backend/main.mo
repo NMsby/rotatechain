@@ -216,10 +216,10 @@ actor RotateChain {
         let userId = Principal.toText(msg.caller);
         let userPrincipal = Principal.fromText(userId);
         let chainName = Utils.sanitizeText(name);
-        let sub1 = Utils.createSubaccount(Nat.toText(groupId)  # userId # chainName);  
-        let userSub = Utils.createSubaccount(userId # chainName);
-        let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
-        let storageSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(sub1)); 
+        let sub1 = Utils.createSubaccount(Nat.toText(groupId) # ":" # userId # ":" # chainName);  
+        let userSub = Utils.createSubaccount(userId # ":" # chainName);
+        let userSubAccount = ?userSub;
+        let storageSubAccount = ?sub1; 
 
         let creatorMember : Types.Member = {
             principal= msg.caller;
@@ -622,7 +622,7 @@ actor RotateChain {
         let result = switch(token) {
             case("ICP") { await Ledger.icrc1_transfer(args) };
             case("LICP") { await Ledger.icrc1_transfer(args) };
-            case(_) { #Err(#GenericError) };
+            case(_) { #Err(#GenericError({ message = "Unsupported token" })) };
         };
 
         switch(result) {
