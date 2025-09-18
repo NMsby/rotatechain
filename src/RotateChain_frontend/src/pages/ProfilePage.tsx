@@ -118,7 +118,10 @@ export function ProfilePage() {
     )
   }
 
-  const displayProfile = profile || user
+  const displayProfile = profile || user  
+  const profileAvatar = profile?.personalInfo?.avatar || (user as any)?.avatar
+  const profileName = profile?.personalInfo?.displayName || (user as any)?.name
+  const profileEmail = profile?.personalInfo?.email || (user as any)?.email
   const profileStats = stats ? [
     {
       label: 'Chains Joined',
@@ -185,19 +188,19 @@ export function ProfilePage() {
                 <div className="flex flex-col items-center space-y-4">
                   <Avatar className="h-24 w-24">
                     <AvatarImage 
-                      src={displayProfile?.avatar} 
-                      alt={displayProfile?.name || 'User'} 
+                      src={profileAvatar} 
+                      alt={profileName || 'User'} 
                     />
                     <AvatarFallback className="text-2xl">
-                      {displayProfile?.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
+                      {profileName?.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'}
                     </AvatarFallback>
                   </Avatar>
                   <div className="space-y-1">
                     <CardTitle className="text-xl">
-                      {profile?.personalInfo?.displayName || displayProfile?.name || 'Anonymous User'}
+                      {profile?.personalInfo?.displayName || profileName || 'Anonymous User'}
                     </CardTitle>
                     <CardDescription>
-                      {profile?.personalInfo?.email || displayProfile?.email || 'No email provided'}
+                      {profile?.personalInfo?.email || profileEmail || 'No email provided'}
                     </CardDescription>
                   </div>
                   <div className="flex items-center gap-2">
@@ -257,22 +260,22 @@ export function ProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Full Name</label>
-                    <div className="font-semibold">{user.name}</div>
+                    <div className="font-semibold">{user?.name}</div>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Email Address</label>
-                    <div className="font-semibold">{user.email}</div>
+                    <div className="font-semibold">{user?.email}</div>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">User ID</label>
-                    <div className="font-mono text-sm bg-muted rounded p-2">{user.id}</div>
+                    <div className="font-mono text-sm bg-muted rounded p-2">{user?.id}</div>
                   </div>
                   
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-muted-foreground">Account Created</label>
-                    <div className="font-semibold">{new Date(user.createdAt).toLocaleDateString()}</div>
+                    <div className="font-semibold">{user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'Unknown'}</div>
                   </div>
                 </div>
               </CardContent>
@@ -302,17 +305,17 @@ export function ProfilePage() {
                       Internet Identity Principal
                     </label>
                     <div className="font-mono text-sm bg-muted rounded p-3 break-all">
-                      {profile?.principal || displayProfile?.internetIdentityPrincipal || 'Not connected'}
+                      {profile?.principal || (user as any)?.internetIdentityPrincipal || 'Not connected'}
                     </div>
                   </div>
                   
-                  {displayProfile?.walletAddress && (
+                  {(user as any)?.walletAddress && (
                     <div className="space-y-2">
                       <label className="text-sm font-medium text-muted-foreground">
                         Wallet Address
                       </label>
                       <div className="font-mono text-sm bg-muted rounded p-3 break-all">
-                        {displayProfile.walletAddress}
+                        {(user as any).walletAddress}
                       </div>
                     </div>
                   )}

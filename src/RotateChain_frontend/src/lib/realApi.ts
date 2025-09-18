@@ -121,7 +121,7 @@ export const realApi = {
     try {
       const isHealthy = await canisterService.healthCheck()
       return {
-        status: isHealthy ? 'operational' : 'degraded',
+        status: isHealthy ? 'healthy' : 'error',
         uptime: 99.9,
         lastCheck: new Date().toISOString(),
         services: {
@@ -133,7 +133,7 @@ export const realApi = {
     } catch (error) {
       console.error('Failed to get system health:', error)
       return {
-        status: 'degraded',
+        status: 'error',
         uptime: 0,
         lastCheck: new Date().toISOString(),
         services: {
@@ -283,7 +283,7 @@ export const realApi = {
         name: group.name,
         members: [], // GroupSummary doesn't include member list
         currentPayout: formatAmount(group.contributionAmount),
-        totalContributions: formatAmount(group.contributionAmount) * Number(group.memberCount),
+        totalContributions: formatAmount(group.contributionAmount) * group.members.length,
         status: Object.keys(group.status)[0] as 'active' | 'completed' | 'pending',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -320,11 +320,11 @@ export const realApi = {
       const pools: Pool[] = myGroups.map((group, index) => ({
         id: group.id.toString(),
         name: `${group.name} Yield Pool`,
-        totalLiquidity: formatAmount(group.contributionAmount) * Number(group.memberCount),
+        totalLiquidity: formatAmount(group.contributionAmount) * group.members.length,
         apy: 5 + (index % 3) * 2.5, // Simulated APY: 5%, 7.5%, 10%
         tokenSymbol: 'ICP',
-        participants: Number(group.memberCount),
-        riskLevel: Number(group.memberCount) > 15 ? 'low' : Number(group.memberCount) > 8 ? 'medium' : 'high',
+        participants: group.members.length,
+        riskLevel: group.members.length > 15 ? 'low' : group.members.length > 8 ? 'medium' : 'high',
         status: Object.keys(group.status)[0] === 'active' ? 'active' : 'inactive',
         createdAt: new Date().toISOString()
       }))
@@ -372,6 +372,3 @@ export const realApi = {
     }
   }
 }
-
-// Export the real API as default
-export { realApi }

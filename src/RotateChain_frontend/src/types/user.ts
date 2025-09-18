@@ -21,6 +21,7 @@ export interface UserProfile {
     bio?: string
     location?: string
     website?: string
+    avatar?: string
   }
   preferences: {
     theme: 'light' | 'dark' | 'system'

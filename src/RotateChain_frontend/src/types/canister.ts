@@ -1,8 +1,11 @@
 import { Principal } from '@dfinity/principal'
+import { GroupConfig } from './canister'
+import { UserAnalytics } from './canister'
+import { PlatformAnalytics } from './canister'
 
 // Import backend types from canister service
 export type {
-  GroupConfig,
+  BackendGroupConfig as GroupConfig,
   GroupStatus,
   Member,
   MemberStatus,
@@ -12,8 +15,8 @@ export type {
   Loan,
   LoanStatus,
   GroupPerformanceMetrics,
-  UserAnalytics,
-  PlatformAnalytics,
+  BackendUserAnalytics as UserAnalytics,
+  BackendPlatformAnalytics as PlatformAnalytics,
   BackendError,
   BackendResult
 } from '../lib/icp/canisterService'

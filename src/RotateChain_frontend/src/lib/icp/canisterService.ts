@@ -432,20 +432,57 @@ export const formatPrincipal = (principal: Principal): string => {
   return `${str.slice(0, 6)}...${str.slice(-6)}`
 }
 
+// Result handling utility
+export const handleBackendResult = <T>(
+  result: { ok: T } | { err: any }
+): { success: boolean; data?: T; error?: string } => {
+  if ('ok' in result) {
+    return { success: true, data: result.ok }
+  } else {
+    return { success: false, error: handleBackendError(result.err) }
+  }
+}
+
+// Error handling utilities
+export const handleBackendError = (error: any): string => {
+  if (typeof error === 'object' && error !== null) {
+    if ('GroupNotFound' in error) return 'Group not found'
+    if ('InsufficientBalance' in error) return 'Insufficient balance'
+    if ('UnauthorizedAccess' in error) return 'Unauthorized access'
+    if ('InvalidAmount' in error) return 'Invalid amount'
+    if ('GroupFull' in error) return 'Group is full'
+    if ('AlreadyMember' in error) return 'Already a member'
+    if ('NotMember' in error) return 'Not a group member'
+    if ('RotationInProgress' in error) return 'Rotation in progress'
+    if ('PaymentFailed' in error) return 'Payment failed'
+    if ('LoanNotFound' in error) return 'Loan not found'
+    if ('InsufficientCollateral' in error) return 'Insufficient collateral'
+    if ('InvalidLoanTerm' in error) return 'Invalid loan term'
+    if ('LoanNotActive' in error) return 'Loan is not active'
+    if ('CollateralLocked' in error) return 'Collateral is locked'
+  }
+  return 'An unknown error occurred'
+}
+
+export const formatDateTime = (timestamp: bigint): string => {
+  const date = new Date(Number(timestamp) / 1000000) // Convert from nanoseconds  
+  return date.toLocaleString()
+}
+
 // Export types for use in components
 export type {
-  GroupConfig,
-  GroupStatus,
-  Member,
-  MemberStatus,
-  RToken,
-  RTokenStatus,
-  RTokenTransfer,
-  Loan,
-  LoanStatus,
-  GroupPerformanceMetrics,
-  UserAnalytics,
-  PlatformAnalytics,
-  BackendError,
-  BackendResult
+  GroupConfig as BackendGroupConfig,
+  GroupStatus as BackendGroupStatus,
+  Member as BackendMember,
+  MemberStatus as BackendMemberStatus,
+  RToken as BackendRToken,
+  RTokenStatus as BackendRTokenStatus,
+  RTokenTransfer as BackendRTokenTransfer,
+  Loan as BackendLoan,
+  LoanStatus as BackendLoanStatus,
+  GroupPerformanceMetrics as BackendGroupPerformanceMetrics,
+  UserAnalytics as BackendUserAnalytics,
+  PlatformAnalytics as BackendPlatformAnalytics,
+  BackendError as BackendErrorType,
+  BackendResult as BackendResultType
 }
