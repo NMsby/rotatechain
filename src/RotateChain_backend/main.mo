@@ -24,7 +24,7 @@ import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
 import AnalyticsEngine "./analytics_engine";
 
-actor RotateChain {
+persistent actor RotateChain {
   
     // Complete types for rotational savings
     public type Group = {
@@ -65,39 +65,39 @@ actor RotateChain {
 
     // ==================== STABLE VARIABLES (ACTOR LEVEL) ====================
     // Legacy state for existing system
-    private stable var nextGroupId: Nat = 1;
-    private stable var groupsArray: [Group] = [];
-    private stable var contributionsTracker: [(Nat, Principal, Nat)] = [];
+    private var nextGroupId: Nat = 1;
+    private var groupsArray: [Group] = [];
+    private var contributionsTracker: [(Nat, Principal, Nat)] = [];
 
     // StateManager stable storage - These persist across upgrades
-    private stable var groupEntries: [(Types.GroupId, Types.GroupConfig)] = [];
-    private stable var rotationEntries: [(Types.GroupId, Types.RotationState)] = [];
-    private stable var memberEntries: [(Types.GroupId, [(Principal, Types.Member)])] = [];
-    private stable var transactionEntries: [(Types.TransactionId, Types.Transaction)] = [];
-    private stable var groupMembershipEntries: [(Principal, [Types.GroupId])] = [];
+    private var groupEntries: [(Types.GroupId, Types.GroupConfig)] = [];
+    private var rotationEntries: [(Types.GroupId, Types.RotationState)] = [];
+    private var memberEntries: [(Types.GroupId, [(Principal, Types.Member)])] = [];
+    private var transactionEntries: [(Types.TransactionId, Types.Transaction)] = [];
+    private var groupMembershipEntries: [(Principal, [Types.GroupId])] = [];
 
     // R Token stable storage
-    private stable var rTokenEntries: [(Types.RTokenId, Types.RToken)] = [];
-    private stable var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
-    private stable var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
+    private var rTokenEntries: [(Types.RTokenId, Types.RToken)] = [];
+    private var rTokenTransferEntries: [(Types.TransactionId, Types.RTokenTransfer)] = [];
+    private var rTokenHolderEntries: [(Principal, [(Types.GroupId, Types.Amount)])] = [];
 
     // Lending stable storage
-    private stable var loanEntries: [(Types.LoanId, Types.Loan)] = [];
-    private stable var loanPaymentEntries: [(Types.TransactionId, Types.LoanPayment)] = [];
+    private var loanEntries: [(Types.LoanId, Types.Loan)] = [];
+    private var loanPaymentEntries: [(Types.TransactionId, Types.LoanPayment)] = [];
     
     // State counters
-    private stable var groupCounter: Types.GroupId = 0;
-    private stable var transactionCounter: Types.TransactionId = 0;
-    private stable var isSystemPaused: Bool = false;
+    private var groupCounter: Types.GroupId = 0;
+    private var transactionCounter: Types.TransactionId = 0;
+    private var isSystemPaused: Bool = false;
 
     // ==================== YIELD MANAGER INSTANCE ====================
-    private let yieldManager = YieldManager.YieldManager();
+    private transient let yieldManager = YieldManager.YieldManager();
 
     // ==================== INITIALIZE STATE MANAGER ====================
-    private let stateManager = StateManager.StateManager();
+    private transient let stateManager = StateManager.StateManager();
 
     // ==================== ANALYTICS ENGINE INSTANCE ====================
-    private let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
+    private transient let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
 
     // Initialize state on canister creation
     private func initializeStateManager() {
