@@ -19,7 +19,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Skeleton } from '../components/ui/skeleton'
 import BackButton from '../components/common/BackButton'
 import Pagination from '../components/common/Pagination'
-import { mockApi } from '../lib/mockApi'
+// import { mockApi } from '../lib/mockApi'
+import { realApi } from '../lib/realApi'
 import { formatCurrency, formatRelativeTime } from '../lib/utils'
 import type { Chain, PaginatedResponse } from '../types'
 
@@ -41,7 +42,7 @@ export function ChainsPage() {
   const loadChains = async () => {
     try {
       setIsLoading(true)
-      const response: PaginatedResponse<Chain> = await mockApi.getChains(currentPage, pageSize)
+      const response: PaginatedResponse<Chain> = await realApi.getChains(currentPage, pageSize)
       setChains(response.data)
       setTotalPages(response.meta.totalPages)
     } catch (error) {

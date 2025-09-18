@@ -21,7 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Skeleton } from '../components/ui/skeleton'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
-import { mockApi } from '../lib/mockApi'
+// import { mockApi } from '../lib/mockApi'
+import { realApi } from '../lib/realApi'
 import { formatCurrency, formatNumber, formatRelativeTime, formatPercentage } from '../lib/utils'
 import type { DashboardStats, SystemHealth, UserBalance, Activity as ActivityType, TimeSeriesDataPoint } from '../types'
 
@@ -45,11 +46,11 @@ export function Dashboard() {
           activityData,
           timelineData
         ] = await Promise.all([
-          mockApi.getDashboardStats(),
-          mockApi.getSystemHealth(),
-          mockApi.getUserBalance(),
-          mockApi.getRecentActivity(8),
-          mockApi.getHealthTimeline()
+          realApi.getDashboardStats(),
+          realApi.getSystemHealth(),
+          realApi.getUserBalance(),
+          realApi.getRecentActivity(8),
+          realApi.getHealthTimeline()
         ])
 
         setStats(statsData)

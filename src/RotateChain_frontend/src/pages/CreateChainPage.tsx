@@ -15,7 +15,8 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Alert, AlertDescription } from '../components/ui/alert'
 import { Badge } from '../components/ui/badge'
 import BackButton from '../components/common/BackButton'
-import { mockApi } from '../lib/mockApi'
+// import { mockApi } from '../lib/mockApi'
+import { realApi } from '../lib/realApi'
 import { formatCurrency } from '../lib/utils'
 import type { CreateChainFormData } from '../types'
 
@@ -66,7 +67,7 @@ export function CreateChainPage() {
         chainType: data.chainType,
       }
 
-      const newChain = await mockApi.createChain(chainData)
+      const newChain = await realApi.createChain(chainData)
       
       // Redirect to the new chain's detail page
       navigate(`/dashboard/chains/${newChain.id}`, {
