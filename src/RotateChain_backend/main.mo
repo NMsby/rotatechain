@@ -12,7 +12,6 @@ import Buffer "mo:base/Buffer";
 import Error "mo:base/Error";
 import Bool "mo:base/Bool";
 import Blob "mo:base/Blob";
-import Prim "mo:prim";
 
 // Import new modules for validation and utilities
 import Types "./types";
