@@ -102,7 +102,7 @@ export const realApi = {
       ])
 
       return {
-        totalGroups: Number(platformAnalytics.totalGroups),
+        // totalGroups: Number(platformAnalytics.totalGroups),
         activeGroups: Number(platformAnalytics.activeGroups),
         totalMembers: Number(platformAnalytics.totalUsers),
         totalValueLocked: formatAmount(platformAnalytics.totalValueLocked),
@@ -123,7 +123,6 @@ export const realApi = {
       return {
         status: isHealthy ? 'healthy' : 'error',
         uptime: 99.9,
-        lastCheck: new Date().toISOString(),
         services: {
           backend: isHealthy,
           database: isHealthy,
@@ -135,7 +134,6 @@ export const realApi = {
       return {
         status: 'error',
         uptime: 0,
-        lastCheck: new Date().toISOString(),
         services: {
           backend: false,
           database: false,

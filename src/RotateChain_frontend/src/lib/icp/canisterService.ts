@@ -245,10 +245,11 @@ class CanisterService {
     return await this.actor!.joinGroup(BigInt(groupId))
   }
 
-  async leaveGroup(groupId: number): Promise<BackendResult<bigint>> {
-    await this.initializeWithAuth()
-    return await this.actor!.leaveGroup(BigInt(groupId))
-  }
+  // leaveGroup to be implemented (does not exist in backend yet)
+  // async leaveGroup(groupId: number): Promise<BackendResult<bigint>> {
+  //   await this.initializeWithAuth()
+  //   return await this.actor!.leaveGroup(BigInt(groupId))
+  // }
 
   async getGroup(groupId: number): Promise<GroupConfig | null> {
     await this.initializeWithAuth()
@@ -258,7 +259,7 @@ class CanisterService {
 
   async getAllGroups(): Promise<GroupConfig[]> {
     await this.initializeWithAuth()
-    return await this.actor!.getAllGroups()
+    return await this.actor!.getGroups()
   }
 
   async getMyGroups(): Promise<GroupConfig[]> {
@@ -266,10 +267,11 @@ class CanisterService {
     return await this.actor!.getMyGroups()
   }
 
-  async getGroupMembers(groupId: number): Promise<Member[]> {
-    await this.initializeWithAuth()
-    return await this.actor!.getGroupMembers(BigInt(groupId))
-  }
+  // getGroupMembers to be implemented (does not exist in backend yet)
+  // async getGroupMembers(groupId: number): Promise<Member[]> {
+  //   await this.initializeWithAuth()
+  //   return await this.actor!.getGroupMembers(BigInt(groupId))
+  // }
 
   // ==================== CONTRIBUTIONS ====================
   
@@ -278,7 +280,7 @@ class CanisterService {
     amount: number
   ): Promise<BackendResult<bigint>> {
     await this.initializeWithAuth()
-    return await this.actor!.contribute(BigInt(groupId), BigInt(amount))
+    return await this.actor!.recordContribution(BigInt(groupId))
   }
 
   async getContributionHistory(groupId: number): Promise<any[]> {
@@ -360,7 +362,7 @@ class CanisterService {
 
   async getLoan(loanId: number): Promise<Loan | null> {
     await this.initializeWithAuth()
-    const result = await this.actor!.getLoan(BigInt(loanId))
+    const result = await this.actor!.getLoanDetails(BigInt(loanId))
     return result.length > 0 ? result[0] : null
   }
 

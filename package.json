@@ -35,11 +35,16 @@
     "src/RotateChain_frontend"
   ],
   "dependencies": {
-    "@dfinity/agent": "^3.1.0",
+    "@dfinity/agent": "^3.2.6",
+    "@dfinity/auth-client": "^3.2.6",
+    "@dfinity/candid": "^3.2.6",
+    "@dfinity/identity": "^3.2.6",
+    "@dfinity/identity-secp256k1": "^3.2.6",
+    "@dfinity/principal": "^3.2.6",
     "@heroicons/react": "^2.2.0",
-    "@reduxjs/toolkit": "^2.8.2",
-    "@types/node": "^24.0.12",
-    "framer-motion": "^12.23.0",
+    "@reduxjs/toolkit": "^2.9.0",
+    "@types/node": "^24.5.2",
+    "framer-motion": "^12.23.15",
     "react-redux": "^9.2.0",
     "simple-cbor": "^0.4.1"
   },

@@ -381,11 +381,3 @@ export const transferViaPlug = (options: PlugTransferOptions) =>
 
 // Export service class
 export { PlugWalletService }
-
-// Export types
-export type {
-  PlugWalletInfo,
-  PlugConnectionOptions,
-  PlugBalanceResponse,
-  PlugTransferOptions
-}
