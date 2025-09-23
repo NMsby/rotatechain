@@ -9,6 +9,29 @@ import {
   createActor as createBackendActor,
   canisterId as backendCanisterId
 } from '../../../../declarations/rotatechain_backend'
+import { 
+  Group, 
+  GroupSummary,
+  RToken as CandidRToken,
+  RTokenTransfer as CandidRTokenTransfer,
+  Loan as CandidLoan,
+  UserAnalytics as CandidUserAnalytics,
+  PlatformAnalytics as CandidPlatformAnalytics,
+  Error as CandidError 
+} from '../../../../declarations/rotatechain_backend/rotatechain_backend.did'
+
+export type BackendError = CandidError
+
+// Fix memo type handling for RToken and RTokenTransfer
+const convertCandidRToken = (token: CandidRToken): RToken => ({
+  ...token,
+  memo: Array.isArray(token.memo) && token.memo.length > 0 ? token.memo[0] : null
+})
+
+const convertCandidRTokenTransfer = (transfer: CandidRTokenTransfer): RTokenTransfer => ({
+  ...transfer,
+  memo: Array.isArray(transfer.memo) && transfer.memo.length > 0 ? transfer.memo[0] : null
+})
 
 // Environment configuration
 const isProduction = import.meta.env.MODE === 'production'
@@ -155,22 +178,6 @@ export interface PlatformAnalytics {
   rTokenVelocity: number
 }
 
-export type BackendError = 
-  | { GroupNotFound: null }
-  | { InsufficientBalance: null }
-  | { UnauthorizedAccess: null }
-  | { InvalidAmount: null }
-  | { GroupFull: null }
-  | { AlreadyMember: null }
-  | { NotMember: null }
-  | { RotationInProgress: null }
-  | { PaymentFailed: null }
-  | { LoanNotFound: null }
-  | { InsufficientCollateral: null }
-  | { InvalidLoanTerm: null }
-  | { LoanNotActive: null }
-  | { CollateralLocked: null }
-
 export type BackendResult<T> = { ok: T } | { err: BackendError }
 
 class CanisterService {
@@ -225,18 +232,19 @@ class CanisterService {
   
   async createGroup(
     name: string,
-    description: string,
+    // description: string,
     maxMembers: number,
     contributionAmount: number,
-    rotationIntervalDays: number
+    roundDurationDays: number
+    // rotationIntervalDays: number
   ): Promise<BackendResult<bigint>> {
     await this.initializeWithAuth()
     return await this.actor!.createGroup(
       name,
-      description,
+      // description,
       BigInt(maxMembers),
       BigInt(contributionAmount),
-      BigInt(rotationIntervalDays)
+      BigInt(roundDurationDays)
     )
   }
 
@@ -257,12 +265,12 @@ class CanisterService {
     return result.length > 0 ? result[0] : null
   }
 
-  async getAllGroups(): Promise<GroupConfig[]> {
+  async getAllGroups(): Promise<Group[]> {
     await this.initializeWithAuth()
     return await this.actor!.getGroups()
   }
 
-  async getMyGroups(): Promise<GroupConfig[]> {
+  async getMyGroups(): Promise<GroupSummary[]> {
     await this.initializeWithAuth()
     return await this.actor!.getMyGroups()
   }
@@ -283,10 +291,11 @@ class CanisterService {
     return await this.actor!.recordContribution(BigInt(groupId))
   }
 
-  async getContributionHistory(groupId: number): Promise<any[]> {
-    await this.initializeWithAuth()
-    return await this.actor!.getContributionHistory(BigInt(groupId))
-  }
+  // getContributionHistory to be implemented (does not exist in backend yet)
+  // async getContributionHistory(groupId: number): Promise<any[]> {
+  //   await this.initializeWithAuth()
+  //   return await this.actor!.getContributionHistory(BigInt(groupId))
+  // }
 
   // ==================== R TOKEN OPERATIONS ====================
   
@@ -325,12 +334,14 @@ class CanisterService {
 
   async getMyRTokens(): Promise<RToken[]> {
     await this.initializeWithAuth()
-    return await this.actor!.getMyRTokens()
+    const tokens = await this.actor!.getMyRTokens()
+    return tokens.map(convertCandidRToken)
   }
 
   async getMyTransferHistory(): Promise<RTokenTransfer[]> {
     await this.initializeWithAuth()
-    return await this.actor!.getMyTransferHistory()
+    const transfers = await this.actor!.getMyTransferHistory()
+    return transfers.map(convertCandidRTokenTransfer)
   }
 
   // ==================== LENDING OPERATIONS ====================
@@ -371,10 +382,11 @@ class CanisterService {
     return await this.actor!.getMyLoans()
   }
 
-  async getMyBorrowingHistory(): Promise<any[]> {
-    await this.initializeWithAuth()
-    return await this.actor!.getMyBorrowingHistory()
-  }
+  // getMyBorrowingHistory to be implemented (does not exist in backend yet)
+  // async getMyBorrowingHistory(): Promise<any[]> {
+  //   await this.initializeWithAuth()
+  //   return await this.actor!.getMyBorrowingHistory()
+  // }
 
   // ==================== ANALYTICS ====================
   
@@ -401,10 +413,12 @@ class CanisterService {
     return await this.actor!.getPlatformStats()
   }
 
-  async getDashboardData(): Promise<any> {
-    await this.initializeWithAuth()
-    return await this.actor!.getDashboardData()
-  }
+
+  // getDashboardData() to be implemented (does not exist in backend yet)
+  // async getDashboardData(): Promise<any> {
+  //   await this.initializeWithAuth()
+  //   return await this.actor!.getDashboardData()
+  // }
 
   // Cleanup method
   cleanup(): void {

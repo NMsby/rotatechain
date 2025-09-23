@@ -161,22 +161,31 @@ function generateMockUserBalance(): UserBalance {
 
 function generateMockDashboardStats(): DashboardStats {
   return {
-    totalUsers: 12847,
-    totalChains: 342,
-    totalVolume: 2547893.50,
-    systemUptime: 99.7,
-    lastBlockTime: new Date(Date.now() - Math.random() * 60000).toISOString(),
-    activeChains: 287
+    activeGroups: 156,
+    totalMembers: 12847,  // Remove totalUsers property
+    totalValueLocked: 2847592.50,
+    userContributions: 45000,
+    userReturns: 3750,
+    userGroups: 3,
+    pendingPayouts: 15000
+    // totalUsers: 12847,
+    // totalChains: 342,
+    // totalVolume: 2547893.50,
+    // systemUptime: 99.7,
+    // lastBlockTime: new Date(Date.now() - Math.random() * 60000).toISOString(),
+    // activeChains: 287
   }
 }
 
 function generateMockSystemHealth(): SystemHealth {
   return {
-    uptime: 99.7,
-    lastBlock: new Date(Date.now() - Math.random() * 60000).toISOString(),
-    activeChains: 287,
-    status: 'healthy',
-    timestamp: new Date().toISOString()
+    status: Math.random() > 0.95 ? 'warning' : 'healthy',
+    uptime: 99.5 + Math.random() * 0.48,
+    services: {
+      backend: true,
+      database: Math.random() > 0.02,
+      blockchain: Math.random() > 0.01
+    }
   }
 }
 
