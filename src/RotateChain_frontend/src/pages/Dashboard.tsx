@@ -10,7 +10,6 @@ import {
   Activity,
   ArrowUpRight,
   ArrowDownRight,
-  Clock,
   Shield
 } from 'lucide-react'
 import { Button } from '../components/ui/button'
@@ -102,7 +101,7 @@ export function Dashboard() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="w-full h-full flex flex-col p-6 space-y-8">
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
@@ -111,9 +110,11 @@ export function Dashboard() {
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Welcome back, {user?.name?.split(' ')[0]}!</h1>
+            <h1 className="text-3xl font-bold">
+              Welcome back, {user?.name?.split(' ')[0]}!
+            </h1>
             <p className="text-muted-foreground">
-              Here's what's happening with your savings and investments today.
+              Here’s what’s happening with your savings and investments today.
             </p>
           </div>
           <div className="flex gap-3">
@@ -471,7 +472,7 @@ export function Dashboard() {
 
 function DashboardSkeleton() {
   return (
-    <div className="space-y-8">
+    <div className="w-full h-full flex flex-col p-6 space-y-8">
       <div className="flex justify-between items-center">
         <div className="space-y-2">
           <Skeleton className="h-8 w-64" />

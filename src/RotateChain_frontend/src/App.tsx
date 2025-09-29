@@ -38,21 +38,24 @@ function App() {
                 <Route path="/*" element={<PublicLayout />} />
 
                 {/* Protected Dashboard Routes */}
-                <Route path="/dashboard/*" element={
-                  <ProtectedRoute>
-                    <DashboardLayout />
-                  </ProtectedRoute>
-                } />
+                <Route
+                  path="/dashboard/*"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Logout Route */}
                 <Route path="/logout" element={<LogoutPage />} />
               </Routes>
-              
+
               {/* Global Components */}
               <Toaster position="top-right" />
             </div>
           </Router>
-          
+
           {/* Dev tools - only in development */}
           {process.env.NODE_ENV === 'development' && (
             <ReactQueryDevtools initialIsOpen={false} />
@@ -82,7 +85,6 @@ function PublicLayout() {
 
 // Logout page that clears auth and redirects
 function LogoutPage() {
-  // This would typically be handled by the auth context
   React.useEffect(() => {
     localStorage.removeItem('rotatechain_user')
     localStorage.removeItem('rotatechain_authenticated')

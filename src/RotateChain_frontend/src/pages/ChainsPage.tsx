@@ -150,9 +150,8 @@ export function ChainsPage() {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Types</SelectItem>
-                  <SelectItem value="standard">Standard</SelectItem>
-                  <SelectItem value="premium">Premium</SelectItem>
-                  <SelectItem value="enterprise">Enterprise</SelectItem>
+                  <SelectItem value="global">Global</SelectItem>
+                  <SelectItem value="social">Social</SelectItem>
                 </SelectContent>
               </Select>
             </div>

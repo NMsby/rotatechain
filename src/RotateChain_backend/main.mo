@@ -24,7 +24,7 @@ import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
 import AnalyticsEngine "./analytics_engine";
 
-actor RotateChain {
+persistent actor RotateChain {
   
     // Complete types for rotational savings
     public type Group = {
@@ -91,13 +91,13 @@ actor RotateChain {
     private stable var isSystemPaused: Bool = false;
 
     // ==================== YIELD MANAGER INSTANCE ====================
-    private let yieldManager = YieldManager.YieldManager();
+    private transient let yieldManager = YieldManager.YieldManager();
 
     // ==================== INITIALIZE STATE MANAGER ====================
-    private let stateManager = StateManager.StateManager();
+    private transient let stateManager = StateManager.StateManager();
 
     // ==================== ANALYTICS ENGINE INSTANCE ====================
-    private let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
+    private transient let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
 
     // Initialize state on canister creation
     private func initializeStateManager() {

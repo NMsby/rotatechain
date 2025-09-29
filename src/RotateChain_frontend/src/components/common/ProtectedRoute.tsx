@@ -1,18 +1,20 @@
-import React from 'react'
-import { Navigate, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
-import { Loader2 } from 'lucide-react'
+import React from "react"
+import { Navigate, useLocation } from "react-router-dom"
+import { useAuth } from "../../contexts/AuthContext"
+import { Loader2 } from "lucide-react"
 
 interface ProtectedRouteProps {
   children: React.ReactNode
   redirectTo?: string
+  requiredRole?: "admin" | "user" // optional role-based access
 }
 
-export function ProtectedRoute({ 
-  children, 
-  redirectTo = '/login' 
+export function ProtectedRoute({
+  children,
+  redirectTo = "/login",
+  requiredRole,
 }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth()
+  const { isAuthenticated, isLoading, user } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
@@ -27,12 +29,22 @@ export function ProtectedRoute({
   }
 
   if (!isAuthenticated) {
-    // Redirect to login page with return url
     return (
-      <Navigate 
-        to={redirectTo} 
-        state={{ from: location }} 
-        replace 
+      <Navigate
+        to={redirectTo}
+        state={{ from: location }}
+        replace
+      />
+    )
+  }
+
+  // ✅ Role-based restriction
+  if (requiredRole && user?.role !== requiredRole) {
+    return (
+      <Navigate
+        to="/unauthorized"
+        state={{ from: location }}
+        replace
       />
     )
   }

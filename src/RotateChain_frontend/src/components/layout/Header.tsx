@@ -34,8 +34,8 @@ export function Header() {
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4">
+    <header className="sticky top-0 z-50 w-full h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <div className="flex h-16 items-center justify-between px-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg gradient-primary flex items-center justify-center">
@@ -44,11 +44,11 @@ export function Header() {
           <span className="font-bold text-xl">RotateChain</span>
         </Link>
 
-        {/* Navigation */}
+        {/* Navigation (only visible when authenticated) */}
         {isAuthenticated && (
           <nav className="hidden md:flex items-center gap-1">
             {navigation
-              .filter(item => !item.auth || isAuthenticated)
+              .filter((item) => !item.auth || isAuthenticated)
               .map((item) => (
                 <Link key={item.name} to={item.href}>
                   <Button
@@ -66,7 +66,7 @@ export function Header() {
           </nav>
         )}
 
-        {/* Right side */}
+        {/* Right side controls */}
         <div className="flex items-center gap-2">
           {/* Theme toggle */}
           <Button
@@ -82,7 +82,7 @@ export function Header() {
             )}
           </Button>
 
-          {/* User menu */}
+          {/* User dropdown menu */}
           {isAuthenticated && user ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -90,13 +90,17 @@ export function Header() {
                   <Avatar className="h-8 w-8">
                     <AvatarImage src={user.avatar} alt={user.name} />
                     <AvatarFallback>
-                      {user.name.split(' ').map(n => n[0]).join('').toUpperCase()}
+                      {user.name
+                        .split(' ')
+                        .map((n) => n[0])
+                        .join('')
+                        .toUpperCase()}
                     </AvatarFallback>
                   </Avatar>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56" align="end" forceMount>
-                <div className="flex items-center justify-start gap-2 p-2">
+                <div className="flex items-center gap-2 p-2">
                   <div className="flex flex-col space-y-1 leading-none">
                     <p className="font-medium">{user.name}</p>
                     <p className="w-[200px] truncate text-sm text-muted-foreground">
