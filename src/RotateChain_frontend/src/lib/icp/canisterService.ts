@@ -190,7 +190,7 @@ class CanisterService {
 
   async initialize(identity?: Identity): Promise<void> {
     this.canisterId = canisterId
-    if (!this.agent) {
+    /*if (!this.agent) {
       this.agent = new HttpAgent({
         host,
         identity: identity || undefined
@@ -200,11 +200,13 @@ class CanisterService {
       if (!isProduction) {
         await this.agent.fetchRootKey()
       }
-    }
+    }*/
 
     if (!this.actor) {
       this.actor = await createBackendActor(this.canisterId, {
-        agent: this.agent
+        agentOptions:{
+          identity
+        }
       })
     }
   }
