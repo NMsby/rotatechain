@@ -1,5 +1,6 @@
 /// <reference types="vite/client" />
 
+/*
 interface ImportMetaEnv {
   readonly MODE: string
   readonly VITE_ROTATECHAIN_BACKEND_CANISTER_ID?: string
@@ -10,4 +11,4 @@ interface ImportMetaEnv {
 
 interface ImportMeta {
   readonly env: ImportMetaEnv
-}
+}*/

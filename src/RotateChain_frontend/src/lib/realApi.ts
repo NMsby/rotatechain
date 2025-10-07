@@ -247,7 +247,7 @@ export const realApi = {
       const groupId = Number(response.data)
       const group = await canisterService.getGroup(groupId)
       if (!group) {
-        throw new Error('Created chain not found')
+        throw new Error('Failed to create chain')
       }
 
       return convertGroupConfigToChain(group)

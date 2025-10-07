@@ -1,8 +1,0 @@
-{
-  "icp_ledger_canister": {
-    "ic": "s4cqm-6aaaa-aaaan-qz6ea-cai"
-  },
-  "rotatechain_backend": {
-    "ic": "trmuc-riaaa-aaaan-qz6dq-cai"
-  }
-}
