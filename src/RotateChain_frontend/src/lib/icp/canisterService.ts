@@ -22,7 +22,6 @@ import {
 
 export type BackendError = CandidError
 
-console.log(`canisterId found outside:${canisterId}`)
 
 // Fix memo type handling for RToken and RTokenTransfer
 const convertCandidRToken = (token: CandidRToken): RToken => ({
@@ -204,7 +203,6 @@ class CanisterService {
     }
 
     if (!this.actor) {
-      console.log(`canister id found: ${canisterId}`)
       this.actor = await createBackendActor(this.canisterId, {
         agent: this.agent
       })
