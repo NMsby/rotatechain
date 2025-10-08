@@ -234,6 +234,7 @@ export const realApi = {
       const result = await canisterService.createGroup(
         data.name,
         data.description,
+        data.chainType,
         data.maxMembers,
         toE8s(data.contributionAmount),
         data.rotationPeriod
