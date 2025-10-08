@@ -250,8 +250,8 @@ class CanisterService {
     return await this.actor!.createGroup(
       name,
       // description,
-      BigInt(maxMembers),
       BigInt(contributionAmount),
+      BigInt(maxMembers),
       BigInt(roundDurationDays)
     )
   }
