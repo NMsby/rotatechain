@@ -30,6 +30,7 @@ persistent actor RotateChain {
     public type Group = {
         id: Nat;
         name: Text;
+        description: Text;
         members: [Principal];
         contributionAmount: Nat;
         currentRound: Nat;
@@ -158,6 +159,7 @@ persistent actor RotateChain {
     // Create new rotation group
     public shared(msg) func createGroup(
         name: Text,
+        description: Text,
         contributionAmount: Nat,
         maxMembers: Nat,
         _roundDurationDays: Nat
@@ -187,6 +189,7 @@ persistent actor RotateChain {
         let newGroup: Group = {
             id = groupId;
             name = Utils.sanitizeText(name);  // Enhanced: sanitize input
+            description = description;
             members = [msg.caller];
             contributionAmount = contributionAmount;
             currentRound = 0;
