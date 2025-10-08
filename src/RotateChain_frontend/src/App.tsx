@@ -9,11 +9,13 @@ import ProtectedRoute from './components/common/ProtectedRoute'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
 import DashboardLayout from './components/layout/DashboardLayout'
+import MistralWidget from './components/common/AiAssistant'
 
 // Pages
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
+import AiAssistant from './components/common/AiAssistant'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -36,23 +38,25 @@ function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/*" element={<PublicLayout />} />
-
                 {/* Protected Dashboard Routes */}
-                <Route path="/dashboard/*" element={
-                  <ProtectedRoute>
-                    <DashboardLayout />
-                  </ProtectedRoute>
-                } />
-
+                <Route
+                  path="/dashboard/*"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayout />
+                    </ProtectedRoute>
+                  }
+                />
                 {/* Logout Route */}
                 <Route path="/logout" element={<LogoutPage />} />
               </Routes>
-              
+
               {/* Global Components */}
               <Toaster position="top-right" />
+              <AiAssistant /> {/* Add AiAssistant  here */}
             </div>
           </Router>
-          
+
           {/* Dev tools - only in development */}
           {process.env.NODE_ENV === 'development' && (
             <ReactQueryDevtools initialIsOpen={false} />
@@ -88,7 +92,6 @@ function LogoutPage() {
     localStorage.removeItem('rotatechain_authenticated')
     window.location.href = '/'
   }, [])
-
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
