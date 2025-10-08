@@ -240,6 +240,7 @@ class CanisterService {
   async createGroup(
     name: string,
     description: string,
+    chainType:string,
     maxMembers: number,
     contributionAmount: number,
     roundDurationDays: number
@@ -250,6 +251,7 @@ class CanisterService {
     return await this.actor!.createGroup(
       name,
       description,
+      chainType,
       BigInt(contributionAmount),
       BigInt(maxMembers),
       BigInt(roundDurationDays)

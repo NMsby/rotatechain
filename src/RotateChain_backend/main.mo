@@ -31,6 +31,7 @@ persistent actor RotateChain {
         id: Nat;
         name: Text;
         description: Text;
+        chainType:Text;
         members: [Principal];
         contributionAmount: Nat;
         currentRound: Nat;
@@ -160,6 +161,7 @@ persistent actor RotateChain {
     public shared(msg) func createGroup(
         name: Text,
         description: Text,
+        chainType:Text,
         contributionAmount: Nat,
         maxMembers: Nat,
         _roundDurationDays: Nat
@@ -190,6 +192,7 @@ persistent actor RotateChain {
             id = groupId;
             name = Utils.sanitizeText(name);  // Enhanced: sanitize input
             description = description;
+            chainType = chainType;
             members = [msg.caller];
             contributionAmount = contributionAmount;
             currentRound = 0;
