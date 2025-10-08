@@ -18,7 +18,7 @@ import BackButton from '../components/common/BackButton'
 // import { mockApi } from '../lib/mockApi'
 import { realApi } from '../lib/realApi'
 import { formatCurrency } from '../lib/utils'
-import type { CreateChainFormData } from '../types'
+import type { CreateChainFormData,Chain } from '../types'
 
 const formSchema = z.object({
   name: z.string().min(3, 'Chain name must be at least 3 characters').max(50, 'Chain name must be less than 50 characters'),
@@ -67,14 +67,21 @@ export function CreateChainPage() {
         chainType: data.chainType,
       }
 
-      const newChain = await realApi.createChain(chainData)
+      const newChain:Chain = await realApi.createChain(chainData)
       
-      // Redirect to the new chain's detail page
-      navigate(`/dashboard/chains/${newChain.id}`, {
-        state: { 
-          message: 'Chain created successfully! You can now invite members to join.' 
-        }
-      })
+      if(newChain){
+
+        // Redirect to the new chain's detail page
+        navigate(`/dashboard/chains/${newChain.id}`, {
+          state: { 
+            message: 'Chain created successfully! You can now invite members to join.' 
+          } 
+        })
+
+      }
+      else{
+        throw new Error('Failed to create chain')
+      }
     } catch (error) {
       setSubmitError(error instanceof Error ? error.message : 'Failed to create chain')
     } finally {

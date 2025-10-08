@@ -1,5 +1,5 @@
-import { Actor, HttpAgent, Identity } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
+import { Actor, HttpAgent, Identity } from '@dfinity/agent'
 import { AuthClient } from '@dfinity/auth-client'
 
 // Import generated Candid interfaces
@@ -7,8 +7,8 @@ import { AuthClient } from '@dfinity/auth-client'
 import { 
   rotatechain_backend,
   createActor as createBackendActor,
-  canisterId as backendCanisterId
-} from '../../../../declarations/rotatechain_backend'
+  canisterId
+} from '@declarations/rotatechain_backend'
 import { 
   Group, 
   GroupSummary,
@@ -18,9 +18,10 @@ import {
   UserAnalytics as CandidUserAnalytics,
   PlatformAnalytics as CandidPlatformAnalytics,
   Error as CandidError 
-} from '../../../../declarations/rotatechain_backend/rotatechain_backend.did'
+} from '@declarations/rotatechain_backend/rotatechain_backend.did'
 
 export type BackendError = CandidError
+
 
 // Fix memo type handling for RToken and RTokenTransfer
 const convertCandidRToken = (token: CandidRToken): RToken => ({
@@ -36,7 +37,8 @@ const convertCandidRTokenTransfer = (transfer: CandidRTokenTransfer): RTokenTran
 // Environment configuration
 const isProduction = import.meta.env.MODE === 'production'
 const host = isProduction ? 'https://ic0.app' : 'http://localhost:4943'
-const canisterId = import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || backendCanisterId
+//const canisterId = import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || backendCanisterId
+
 
 // Backend service types (derived from your Motoko implementation)
 export interface GroupConfig {
@@ -183,9 +185,12 @@ export type BackendResult<T> = { ok: T } | { err: BackendError }
 class CanisterService {
   private agent: HttpAgent | null = null
   private actor: typeof rotatechain_backend | null = null
+  private canisterId: string | Principal = ""
+
 
   async initialize(identity?: Identity): Promise<void> {
-    if (!this.agent) {
+    this.canisterId = canisterId
+    /*if (!this.agent) {
       this.agent = new HttpAgent({
         host,
         identity: identity || undefined
@@ -195,15 +200,17 @@ class CanisterService {
       if (!isProduction) {
         await this.agent.fetchRootKey()
       }
-    }
+    }*/
 
     if (!this.actor) {
-      this.actor = createBackendActor(canisterId, {
-        agent: this.agent
+      this.actor = await createBackendActor(this.canisterId, {
+        agentOptions:{
+          identity
+        }
       })
     }
   }
-
+ 
   async initializeWithAuth(): Promise<void> {
     const authClient = await AuthClient.create()
     const isAuthenticated = await authClient.isAuthenticated()
@@ -239,6 +246,7 @@ class CanisterService {
     // rotationIntervalDays: number
   ): Promise<BackendResult<bigint>> {
     await this.initializeWithAuth()
+
     return await this.actor!.createGroup(
       name,
       // description,

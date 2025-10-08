@@ -12,8 +12,7 @@
       "source": [
         "src/RotateChain_frontend/dist"
       ],
-      "type": "assets",
-      "workspace": "RotateChain_frontend"
+      "type": "assets"
     },
     "icp_ledger_canister": {
       "type": "custom",
