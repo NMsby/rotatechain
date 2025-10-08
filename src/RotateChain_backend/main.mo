@@ -210,6 +210,44 @@ persistent actor RotateChain {
         #ok(groupId)
     };
 
+    //leave existing group
+    public shared(msg) func leaveGroup(groupId:Nat) : async Result.Result<Bool,Text> {
+        // principal validation
+        if (not Utils.validatePrincipal(msg.caller)) {
+            return #err("Invalid caller principal");
+        };
+
+        switch (findGroup(groupId)) {
+            case (?group) {            
+                if (group.isActive) {
+                    return #err("Cannot leave active group");
+                };
+            
+                // Check if member exists
+                if (Utils.principalInArray(msg.caller, group.members)) {
+
+                    // remove member
+                    let updatedMembers = Utils.removePrincipalFromArray(msg.caller, group.members);
+                    let updatedGroup = { group with 
+                        members = updatedMembers;
+                    };
+                    updateGroup(updatedGroup);
+                
+                    Debug.print("Member left: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId));
+
+                    #ok(true);
+                };
+
+                #err("member does not exist");
+            
+            };
+            case null { #err("Group not found") };
+        }
+
+
+
+    }
+
     // Join existing group
     public shared(msg) func joinGroup(groupId: Nat) : async Result.Result<Bool, Text> {
         // Enhanced validation

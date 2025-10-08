@@ -264,10 +264,10 @@ class CanisterService {
   }
 
   // leaveGroup to be implemented (does not exist in backend yet)
-  // async leaveGroup(groupId: number): Promise<BackendResult<bigint>> {
-  //   await this.initializeWithAuth()
-  //   return await this.actor!.leaveGroup(BigInt(groupId))
-  // }
+  async leaveGroup(groupId: number): Promise<BackendResult<bigint>> {
+    await this.initializeWithAuth()
+    return await this.actor!.leaveGroup(BigInt(groupId))
+  }
 
   async getGroup(groupId: number): Promise<GroupConfig | null> {
     await this.initializeWithAuth()
