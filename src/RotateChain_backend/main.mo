@@ -5,6 +5,7 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import Float "mo:base/Float";
 import Time "mo:base/Time";
 import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
@@ -545,12 +546,8 @@ actor RotateChain {
             subaccount = chainAccountIdentifier;
         };
 
+        await Ledger.icrc1_balance_of(cAccount)
 
-        switch(token) {
-        case("ICP") { await Ledger.icrc1_balance_of(cAccount) };
-        case("LICP") { await Ledger.icrc1_balance_of(cAccount) };
-        case(_) { return 0 };
-        }
     };
 
     //user's accessible groupBalance
@@ -606,7 +603,13 @@ actor RotateChain {
 
         let amount = await chainBalance(token,chainAccountIdentifier);
 
-        let actualAmount = (amount * Types.PAYOUT_PERCENTAGE);
+        let rawFloat:Float = Float.fromInt(amount); 
+
+        let amountFloat:Float = Float.nearest(rawFloat * Types.PAYOUT_PERCENTAGE);
+
+        let refinedInt:Int = Float.toInt(amountFloat);
+
+        let actualAmount = Int.abs(refinedInt);  
 
 
         let args = {

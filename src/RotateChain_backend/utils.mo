@@ -10,6 +10,7 @@ import Int "mo:base/Int";
 import Blob "mo:base/Blob";
 import Int64 "mo:base/Int64";
 import Types "./types";
+import Sha256 "mo:sha2/Sha256";
 
 module Utils {
 
@@ -58,21 +59,14 @@ module Utils {
     };
 
     //create subaccount
-    public func createSubaccount(inputText : Text) : Blob {
-        // Convert text to UTF-8 encoded bytes
-        let utf8Bytes = Blob.toArray(Text.encodeUtf8(inputText));
+    public func createSubaccount(inputText : Text) : Blob {        
+
+        let inputBlob : Blob = Text.encodeUtf8(inputText);
         
-        // Create a 32-byte array, padding with zeros or truncating as needed
-        let subaccountBytes = Array.tabulate(32, func(i : Nat) : Nat8 {
-            if (i < utf8Bytes.size()) {
-            utf8Bytes[i]  // Use the UTF-8 byte if available
-            } else {
-            0 // Pad with zero if beyond the UTF-8 byte length
-            }
-        });
-        
-        // Return as a Blob (32-byte subaccount)
-        Blob.fromArray(subaccountBytes)
+        let hashBytes : Blob = Sha256.fromBlob(#sha256,inputBlob);
+            
+        //Blob.fromArray(hashBytes)
+        hashBytes
     };
 
 

@@ -64,3 +64,4 @@ ledger-ref/
 # Compiled binaries
 *.wasm
 *.wasm.gz
+.mops

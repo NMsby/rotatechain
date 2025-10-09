@@ -3,7 +3,10 @@
     "rotatechain_backend": {
       "main": "src/RotateChain_backend/main.mo",
       "type": "motoko",
-      "dependencies": ["icp_ledger_canister", "internet_identity"]
+      "dependencies": [
+        "icp_ledger_canister",
+        "internet_identity"
+      ]
     },
     "rotatechain_frontend": {
       "dependencies": [
@@ -19,7 +22,7 @@
       "type": "custom",
       "candid": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-08-15/ledger.did",
       "wasm": "https://github.com/dfinity/ic/releases/download/ledger-suite-icp-2025-08-15/ledger-canister_notify-method.wasm.gz",
-            "remote": {
+      "remote": {
         "id": {
           "ic": "ryjl3-tyaaa-aaaaa-aaaba-cai"
         }
@@ -39,19 +42,21 @@
     }
   },
   "networks": {
-    "local" :{
+    "local": {
       "type": "ephemeral",
       "bind": "127.0.0.1:4943"
     },
     "ic": {
       "type": "persistent",
-      "providers": ["https://ic0.app"]
+      "providers": [
+        "https://ic0.app"
+      ]
     }
   },
   "defaults": {
     "build": {
       "args": "",
-      "packtool": ""
+      "packtool": "mops sources"
     }
   },
   "output_env_file": ".env",
