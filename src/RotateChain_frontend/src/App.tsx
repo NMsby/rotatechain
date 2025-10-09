@@ -9,13 +9,12 @@ import ProtectedRoute from './components/common/ProtectedRoute'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
 import DashboardLayout from './components/layout/DashboardLayout'
-import MistralWidget from './components/common/AiAssistant'
+import AiAssistant from './components/common/AiAssistant'
 
 // Pages
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
-import AiAssistant from './components/common/AiAssistant'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -38,25 +37,28 @@ function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/*" element={<PublicLayout />} />
+                
                 {/* Protected Dashboard Routes */}
                 <Route
                   path="/dashboard/*"
                   element={
                     <ProtectedRoute>
-                      <DashboardLayout />
+                      <DashboardLayoutWithAI />
                     </ProtectedRoute>
                   }
                 />
+                
                 {/* Logout Route */}
                 <Route path="/logout" element={<LogoutPage />} />
               </Routes>
-
+              
               {/* Global Components */}
               <Toaster position="top-right" />
-              <AiAssistant /> {/* Add AiAssistant  here */}
+              {/* AI Assistant - appears on all pages */}
+              <AiAssistant />
             </div>
           </Router>
-
+          
           {/* Dev tools - only in development */}
           {process.env.NODE_ENV === 'development' && (
             <ReactQueryDevtools initialIsOpen={false} />
@@ -67,7 +69,7 @@ function App() {
   )
 }
 
-// Public layout with header and footer
+// Public layout with header and footer (no AI Assistant)
 function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -84,6 +86,11 @@ function PublicLayout() {
   )
 }
 
+// Dashboard layout (AI Assistant is global now)
+function DashboardLayoutWithAI() {
+  return <DashboardLayout />
+}
+
 // Logout page that clears auth and redirects
 function LogoutPage() {
   // This would typically be handled by the auth context
@@ -92,6 +99,7 @@ function LogoutPage() {
     localStorage.removeItem('rotatechain_authenticated')
     window.location.href = '/'
   }, [])
+
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
