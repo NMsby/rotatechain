@@ -9,6 +9,7 @@ import ProtectedRoute from './components/common/ProtectedRoute'
 import Header from './components/layout/Header'
 import Footer from './components/layout/Footer'
 import DashboardLayout from './components/layout/DashboardLayout'
+import AiAssistant from './components/common/AiAssistant'
 
 // Pages
 import LandingPage from './pages/LandingPage'
@@ -36,20 +37,25 @@ function App() {
               <Routes>
                 {/* Public Routes */}
                 <Route path="/*" element={<PublicLayout />} />
-
+                
                 {/* Protected Dashboard Routes */}
-                <Route path="/dashboard/*" element={
-                  <ProtectedRoute>
-                    <DashboardLayout />
-                  </ProtectedRoute>
-                } />
-
+                <Route
+                  path="/dashboard/*"
+                  element={
+                    <ProtectedRoute>
+                      <DashboardLayoutWithAI />
+                    </ProtectedRoute>
+                  }
+                />
+                
                 {/* Logout Route */}
                 <Route path="/logout" element={<LogoutPage />} />
               </Routes>
               
               {/* Global Components */}
               <Toaster position="top-right" />
+              {/* AI Assistant - appears on all pages */}
+              <AiAssistant />
             </div>
           </Router>
           
@@ -63,7 +69,7 @@ function App() {
   )
 }
 
-// Public layout with header and footer
+// Public layout with header and footer (no AI Assistant)
 function PublicLayout() {
   return (
     <div className="min-h-screen flex flex-col">
@@ -78,6 +84,11 @@ function PublicLayout() {
       <Footer />
     </div>
   )
+}
+
+// Dashboard layout (AI Assistant is global now)
+function DashboardLayoutWithAI() {
+  return <DashboardLayout />
 }
 
 // Logout page that clears auth and redirects
