@@ -199,7 +199,7 @@ actor RotateChain {
             receivedPayouts=0;
             pendingContributions= 0;    // Contributions not yet processed
             status= #pending;
-            lastContributionTime=null;
+            lastContributionTime=?0;
             missedContributions=0;        // Track defaults
             liquidTokenBalance= 0;      // rTokens for trading
         };

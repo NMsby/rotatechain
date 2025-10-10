@@ -40,7 +40,7 @@ module Utils {
         };
         
         // Validate rotation interval
-        if (params.rotationIntervalDays < Types.MIN_ROTATION_DAYS or 
+        /*if (params.rotationIntervalDays < Types.MIN_ROTATION_DAYS or 
         params.rotationIntervalDays > Types.MAX_ROTATION_DAYS) {
             return ?#InvalidTimestamp;
         };
@@ -53,7 +53,7 @@ module Utils {
                 };
             };
             case null { };
-        };
+        };*/
         
         null // No errors
     };
