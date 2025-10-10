@@ -11,20 +11,23 @@ export interface User {
 }
 
 export interface DashboardStats {
-  totalUsers: number;
-  totalChains: number;
-  totalVolume: number;
-  systemUptime: number;
-  lastBlockTime: string;
-  activeChains: number;
+  activeGroups: number
+  totalMembers: number
+  totalValueLocked: number
+  userContributions: number
+  userReturns: number
+  userGroups: number
+  pendingPayouts: number
 }
 
 export interface SystemHealth {
-  uptime: number;
-  lastBlock: string;
-  activeChains: number;
   status: 'healthy' | 'warning' | 'error';
-  timestamp: string;
+  uptime: number;
+  services: {
+    backend: boolean
+    database: boolean  
+    blockchain: boolean
+  }
 }
 
 export interface Chain {
@@ -138,6 +141,21 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+}
+
+// ICP-specific types
+export interface ICPAuthData {
+  principal: string
+  identity: string
+  delegationExpiry: number
+}
+
+// Wallet connection types
+export interface WalletConnection {
+  isConnected: boolean
+  principal: string | null
+  balance: number
+  walletType: 'internet-identity' | 'plug' | 'stoic' | null
 }
 
 // Theme types

@@ -21,7 +21,8 @@ import { Avatar, AvatarFallback, AvatarImage } from '../components/ui/avatar'
 import { Skeleton } from '../components/ui/skeleton'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../contexts/AuthContext'
-import { mockApi } from '../lib/mockApi'
+// import { mockApi } from '../lib/mockApi'
+import { realApi } from '../lib/realApi'
 import { formatCurrency, formatNumber, formatRelativeTime, formatPercentage } from '../lib/utils'
 import type { DashboardStats, SystemHealth, UserBalance, Activity as ActivityType, TimeSeriesDataPoint } from '../types'
 
@@ -45,11 +46,11 @@ export function Dashboard() {
           activityData,
           timelineData
         ] = await Promise.all([
-          mockApi.getDashboardStats(),
-          mockApi.getSystemHealth(),
-          mockApi.getUserBalance(),
-          mockApi.getRecentActivity(8),
-          mockApi.getHealthTimeline()
+          realApi.getDashboardStats(),
+          realApi.getSystemHealth(),
+          realApi.getUserBalance(),
+          realApi.getRecentActivity(8),
+          realApi.getHealthTimeline()
         ])
 
         setStats(statsData)
@@ -176,31 +177,31 @@ export function Dashboard() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {[
           {
-            title: 'Total Users',
-            value: formatNumber(stats?.totalUsers || 0),
+            title: 'Total Members',
+            value: formatNumber(stats?.totalMembers || 0),
             icon: Users,
             trend: '+12.5%',
             delay: 0.2
           },
           {
-            title: 'Active Chains',
-            value: stats?.activeChains || 0,
+            title: 'Active Groups',
+            value: stats?.activeGroups || 0,
             icon: Layers,
             trend: '+8.2%',
             delay: 0.3
           },
           {
-            title: 'Total Volume',
-            value: formatCurrency(stats?.totalVolume || 0),
+            title: 'Total Value Locked',
+            value: formatCurrency(stats?.totalValueLocked || 0),
             icon: DollarSign,
             trend: '+15.3%',
             delay: 0.4
           },
           {
-            title: 'System Uptime',
-            value: formatPercentage(stats?.systemUptime || 0),
+            title: 'System Health',
+            value: formatPercentage(systemHealth?.uptime || 0),
             icon: Shield,
-            trend: '+0.1%',
+            trend: '+99.9%',
             delay: 0.5
           }
         ].map((stat, index) => {
@@ -290,7 +291,7 @@ export function Dashboard() {
                     </span>
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Last block: {formatRelativeTime(systemHealth?.lastBlock || '')}
+                    Health: {formatRelativeTime(systemHealth?.status || '')}
                   </div>
                 </div>
               </CardContent>

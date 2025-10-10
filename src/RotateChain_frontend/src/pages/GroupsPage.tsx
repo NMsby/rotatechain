@@ -7,7 +7,8 @@ import { Badge } from '../components/ui/badge'
 import { Skeleton } from '../components/ui/skeleton'
 import BackButton from '../components/common/BackButton'
 import Pagination from '../components/common/Pagination'
-import { mockApi } from '../lib/mockApi'
+// import { mockApi } from '../lib/mockApi'
+import { realApi } from '../lib/realApi'
 import { formatCurrency, formatRelativeTime } from '../lib/utils'
 import type { Group, PaginatedResponse } from '../types'
 
@@ -26,7 +27,7 @@ export function GroupsPage() {
   const loadGroups = async () => {
     try {
       setIsLoading(true)
-      const response: PaginatedResponse<Group> = await mockApi.getGroups(currentPage, pageSize)
+      const response: PaginatedResponse<Group> = await realApi.getGroups(currentPage, pageSize)
       setGroups(response.data)
       setTotalPages(response.meta.totalPages)
     } catch (error) {

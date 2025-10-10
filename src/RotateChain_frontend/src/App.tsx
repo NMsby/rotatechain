@@ -14,6 +14,7 @@ import DashboardLayout from './components/layout/DashboardLayout'
 import LandingPage from './pages/LandingPage'
 import LoginPage from './pages/LoginPage'
 import NotFoundPage from './pages/NotFoundPage'
+import ErrorBoundary from './components/common/ErrorBoundary'
 
 // Create a client
 const queryClient = new QueryClient({
@@ -28,38 +29,40 @@ const queryClient = new QueryClient({
 
 function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
-        <AuthProvider>
-          <Router>
-            <div className="min-h-screen bg-background text-foreground">
-              <Routes>
-                {/* Public Routes */}
-                <Route path="/*" element={<PublicLayout />} />
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <AuthProvider>
+            <Router>
+              <div className="min-h-screen bg-background text-foreground">
+                <Routes>
+                  {/* Public Routes */}
+                  <Route path="/*" element={<PublicLayout />} />
 
-                {/* Protected Dashboard Routes */}
-                <Route path="/dashboard/*" element={
-                  <ProtectedRoute>
-                    <DashboardLayout />
-                  </ProtectedRoute>
-                } />
+                  {/* Protected Dashboard Routes */}
+                  <Route path="/dashboard/*" element={
+                    <ProtectedRoute>
+                      <DashboardLayout />
+                    </ProtectedRoute>
+                  } />
 
-                {/* Logout Route */}
-                <Route path="/logout" element={<LogoutPage />} />
-              </Routes>
-              
-              {/* Global Components */}
-              <Toaster position="top-right" />
-            </div>
-          </Router>
-          
-          {/* Dev tools - only in development */}
-          {process.env.NODE_ENV === 'development' && (
-            <ReactQueryDevtools initialIsOpen={false} />
-          )}
-        </AuthProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+                  {/* Logout Route */}
+                  <Route path="/logout" element={<LogoutPage />} />
+                </Routes>
+                
+                {/* Global Components */}
+                <Toaster position="top-right" />
+              </div>
+            </Router>
+            
+            {/* Dev tools - only in development */}
+            {process.env.NODE_ENV === 'development' && (
+              <ReactQueryDevtools initialIsOpen={false} />
+            )}
+          </AuthProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   )
 }
 

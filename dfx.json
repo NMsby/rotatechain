@@ -15,8 +15,7 @@
       "source": [
         "src/RotateChain_frontend/dist"
       ],
-      "type": "assets",
-      "workspace": "RotateChain_frontend"
+      "type": "assets"
     },
     "icp_ledger_canister": {
       "type": "custom",
@@ -32,6 +31,7 @@
     "internet_identity": {
       "candid": "https://github.com/dfinity/internet-identity/releases/latest/download/internet_identity.did",
       "type": "custom",
+      "init_arg": "(opt record { captcha_config = opt record { max_unsolved_captchas= 50:nat64; captcha_trigger = variant {Static = variant {CaptchaDisabled}}}})",
       "specified_id": "rdmx6-jaaaa-aaaaa-aaadq-cai",
       "remote": {
         "id": {

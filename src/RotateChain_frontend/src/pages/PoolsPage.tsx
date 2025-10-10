@@ -7,7 +7,8 @@ import { Badge } from '../components/ui/badge'
 import { Skeleton } from '../components/ui/skeleton'
 import BackButton from '../components/common/BackButton'
 import Pagination from '../components/common/Pagination'
-import { mockApi } from '../lib/mockApi'
+// import { mockApi } from '../lib/mockApi'
+import { realApi } from '../lib/realApi'
 import { formatCurrency, formatPercentage, formatNumber } from '../lib/utils'
 import type { Pool, PaginatedResponse } from '../types'
 
@@ -26,7 +27,7 @@ export function PoolsPage() {
   const loadPools = async () => {
     try {
       setIsLoading(true)
-      const response: PaginatedResponse<Pool> = await mockApi.getPools(currentPage, pageSize)
+      const response: PaginatedResponse<Pool> = await realApi.getPools(currentPage, pageSize)
       setPools(response.data)
       setTotalPages(response.meta.totalPages)
     } catch (error) {
