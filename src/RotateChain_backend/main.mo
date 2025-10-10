@@ -49,9 +49,8 @@ actor RotateChain {
         nextRecipient: ?Types.Member;
         createdAt: Int;
         completedAt: ?Int;
-        //added the chanAccountIdentifier,type,last,currency,interest
-        chainAccountIdentifier:?Blob;
         chainType:Text;
+        balance:Nat;
         lastDisbursedAt: Int;
         currency:Text;
         interestRate:Text;
@@ -138,31 +137,6 @@ actor RotateChain {
     // Call initialization
     initializeStateManager();
 
-    // ==================== HEARTBEAT ====================
-
-    
-    system func heartbeat(): async () {
-        
-        let now = Time.now();
-        
-        if (now - lastTick >= interval) {
-            lastTick := now;
-            await tick();
-        };
-    };
-
-    public func tick() : async () {
-        let now = Time.now() / 1_000_000_000; // Convert to seconds
-
-        let chains = stateManager.getAllTickerGroups();
-        for ((id, chain) in chains.entries()) {
-            if (((now - chain.lastDisbursedAt) >= (chain.rotationIntervalDays)) and (chain.status == #active) ) {
-                //advanceRound
-                let advanceResult = await advanceRound(chain.id);
-            };
-        };
-    };
-
 
     // ==================== HELPER FUNCTIONS ====================
 
@@ -232,8 +206,6 @@ actor RotateChain {
             lastContributionTime=null;
             missedContributions=0;        // Track defaults
             liquidTokenBalance= 0;      // rTokens for trading
-            //added the walletAddress
-            walletAddress=userSubAccount;
         };
     
         // Validation using utils.mo
@@ -267,8 +239,8 @@ actor RotateChain {
             nextRecipient = null;
             createdAt = Time.now();
             completedAt = null;
-            chainAccountIdentifier=storageSubAccount;
             chainType=chainType;
+            balance = 0;
             lastDisbursedAt=0;
             currency=currency;
             interestRate = Nat.toText(interestRate) ;
@@ -312,6 +284,7 @@ actor RotateChain {
             case (?group) {
                 if (group.members.size() >= group.totalRounds) {
                     return #err("Group is full");
+
                 };
             
                 if (group.isActive) {
@@ -331,7 +304,7 @@ actor RotateChain {
                 let userPrincipal = Principal.fromText(userId);
                 let chainName = Utils.sanitizeText(group.name);
                 let userSub = Utils.createSubaccount(userId # chainName);
-                let userSubAccount = ?Prim.arrayToBlob(Prim.blobToArray(userSub));
+                let userSubAccount = ?userSub;
 
                 let newMember : Types.Member = {
                     principal= msg.caller;
@@ -343,8 +316,6 @@ actor RotateChain {
                     lastContributionTime=null;
                     missedContributions=0;        // Track defaults
                     liquidTokenBalance= 0;      // rTokens for trading
-                    //added the walletAddress
-                    walletAddress=userSubAccount;
                 };
 
 
@@ -411,6 +382,13 @@ actor RotateChain {
                     contributionAmount
                 )) {
                     case (#ok(transactionId)) {
+
+                        let updatedGroup = { group with 
+                            balance = Nat64.toNat(contributionAmount);
+                        };
+                        updateGroup(updatedGroup);
+
+
                         recordContributionInternal(groupId, msg.caller, group.currentRound);
 
                         // Issue R Tokens for contribution
@@ -448,7 +426,7 @@ actor RotateChain {
     };
 
     // Advance to the next round
-    public shared(_msg) func advanceRound(groupId: Nat) : async Result.Result<Bool, Text> {
+    public shared(_msg) func  advanceRound(groupId: Nat) : async Result.Result<Bool, Text> {
         switch (findGroup(groupId)) {
             case (?group) {
                 if (not group.isActive) {
@@ -476,14 +454,18 @@ actor RotateChain {
                 // Process real payout to current recipient
                 switch (group.nextRecipient) {
                     case (?recipient) {
-                        let withdrawalResult = await chainWithdraw(group.chainAccountIdentifier,Principal.toText(recipient.principal),recipient.walletAddress,group.currency); 
-
-                        switch (withdrawalResult) {
-                            case ("Success") {
-                                let now = Time.now() / 1_000_000_000;
+                        switch (await PaymentHandler.processRotationPayout(
+                            groupId,
+                            recipient,
+                            totalPayout,
+                            group.currentRound
+                        )) {
+                            case (#ok(payoutTxId)) {             
                                 // Advance round after successful payout
                                 let newRound = group.currentRound + 1;
                                 let isCompleted = newRound > group.totalRounds;
+                                //updated balance
+                                let updatedBalance = group.balance - group.totalPayout;
                         
                                 // Safe recipient index calculation
                                 let nextRecipient = if (not isCompleted and group.members.size() > 0) {
@@ -500,14 +482,14 @@ actor RotateChain {
                                     currentRound = newRound;
                                     nextRecipient = nextRecipient;
                                     isActive = not isCompleted;
-                                    lastDisbursedAt = now;
+                                    balance = updatedBalance;
                                     completedAt = if (isCompleted) ?Time.now() else null;
                                 };
                                 updateGroup(updatedGroup);
 
                                 Debug.print("💰 Real ICP payout processed successfully!");
-                                //Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
-                                Debug.print("Recipient: " # Principal.toText(recipient.principal));
+                                Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
+                                Debug.print("Recipient: " # Principal.toText(recipient));
                                 Debug.print("Amount: " # Nat64.toText(totalPayout) # " e8s");
                         
                                 if (isCompleted) {
@@ -518,14 +500,12 @@ actor RotateChain {
 
                                 #ok(true)
                             };
-                            case ("Error") {
-                                //let errorText = Utils.errorToText(error);
-                                //Debug.print("❌ Payout failed: " # errorText);
-                                Debug.print("❌ payout failed");
-                                //#err("Payout failed: " # errorText)
-                                #err("Payout failed: ")
+                            case (#err(error)) {
+                                let errorText = Utils.errorToText(error);
+                                Debug.print("❌ Payout failed: " # errorText);
+                                #err("Payout failed: " # errorText)
                             };
-                        };
+                        }
                     };
                     case null {
                         #err("No recipient assigned for this round")
@@ -536,107 +516,55 @@ actor RotateChain {
         }
     };
 
-    //internal chainBalance
-    private func chainBalance(token : Text, chainAccountIdentifier:?Blob) : async Nat {
+    //entire chainBalance
+    private func chainBalance() : async Nat {
         
         let actorPrincipal = Principal.fromActor(RotateChain);
 
         let cAccount = {
             owner = actorPrincipal;
-            subaccount = chainAccountIdentifier;
+            subaccount = null;
         };
 
         await Ledger.icrc1_balance_of(cAccount)
-
     };
 
-    //user's accessible groupBalance
-    public shared({caller}) func groupBalance(token : Text, chainAccountIdentifier:?Blob) : async Nat {
+    //user's accessible groupBalance, check from the records
+    public shared({caller}) func groupBalance(groupId : Nat) : async Nat {
         if (Principal.isAnonymous(caller)) {
             return 0;
         };
 
-        let actorPrincipal = Principal.fromActor(RotateChain);
-
-        let cAccount = {
-            owner = actorPrincipal;
-            subaccount = chainAccountIdentifier;
-        };
-
-
-        switch(token) {
-        case("ICP") { await Ledger.icrc1_balance_of(cAccount) };
-        case("LICP") { await Ledger.icrc1_balance_of(cAccount) };
-        case(_) { return 0 };
+        switch (findGroup(groupId)) {
+            case (?group) {
+            
+                // Check if member exists
+                if (Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
+                    return group.balance;
+                };
+                else{
+                    return 0;
+                }
+            };
+            case null { return 0; };
         }
     };
 
 
     // a user's wallet balance
-    public shared ({ caller }) func walletBalance(token : Text, walletAddress:?Blob) : async Nat {
+    public shared ({ caller }) func walletBalance() : async Nat {
         if (Principal.isAnonymous(caller)) {
             return 0;
         };
         
         let account = {
             owner = caller;
-            subaccount = walletAddress;
+            subaccount = null;
         };
 
-
-        switch(token) {
-            case("ICP") { await Ledger.icrc1_balance_of(account) };
-            case("LICP") { await Ledger.icrc1_balance_of(account)};
-            case(_) { return 0 };
-        };
-    };
-
-
-
-    //chain withdrawal
-    private func chainWithdraw(chainAccountIdentifier : ?Blob,identity:Text,walletAddress:?Blob, token : Text) : async Text {
-
-        let account = {
-            owner = Principal.fromText(identity);
-            subaccount = walletAddress;
-        };
-
-        let amount = await chainBalance(token,chainAccountIdentifier);
-
-        let rawFloat:Float = Float.fromInt(amount); 
-
-        let amountFloat:Float = Float.nearest(rawFloat * Types.PAYOUT_PERCENTAGE);
-
-        let refinedInt:Int = Float.toInt(amountFloat);
-
-        let actualAmount = Int.abs(refinedInt);  
-
-
-        let args = {
-            to = account;
-            amount = actualAmount;
-            fee =  ?10_000;
-            memo = null;
-            from_subaccount = chainAccountIdentifier;
-            created_at_time = null;
-        };
-
-
-        let result = switch(token) {
-            case("ICP") { await Ledger.icrc1_transfer(args) };
-            case("LICP") { await Ledger.icrc1_transfer(args) };
-            case(_) { #Err(#GenericError({ message = "Unsupported token" })) };
-        };
-
-        switch(result) {
-            case(#Ok(txId)){ 
-                return "Success";
-            };
-            case (#Err(#InsufficientFunds({ balance }))) {
-                return "Error";
-            };
-            case(#Err(err)) return "Error";
-        }
+        await Ledger.icrc1_balance_of(account);
     };
 
 

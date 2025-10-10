@@ -235,8 +235,6 @@ module Types {
         lastContributionTime: ?Timestamp;
         missedContributions: Nat;        // Track defaults
         liquidTokenBalance: Amount;      // rTokens for trading
-        //added the walletAddress
-        walletAddress:?Blob;
     };
 
     // Rotation state and progress
