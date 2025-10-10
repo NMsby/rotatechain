@@ -179,7 +179,7 @@ actor RotateChain {
         maxMembers: Nat,
         currency:Text,
         interestRate:Nat,
-        roundDurationSeconds: Nat,
+        roundDuration: Nat,
         description:Text
     ) : async Result.Result<Nat, Text> {
 
@@ -191,10 +191,6 @@ actor RotateChain {
         let userId = Principal.toText(msg.caller);
         let userPrincipal = Principal.fromText(userId);
         let chainName = Utils.sanitizeText(name);
-        let sub1 = Utils.createSubaccount(Nat.toText(groupId) # ":" # userId # ":" # chainName);  
-        let userSub = Utils.createSubaccount(userId # ":" # chainName);
-        let userSubAccount = ?userSub;
-        let storageSubAccount = ?sub1; 
 
         let creatorMember : Types.Member = {
             principal= msg.caller;
@@ -252,7 +248,7 @@ actor RotateChain {
             description,
             maxMembers,
             Nat64.fromNat(contributionAmount),
-            roundDurationSeconds,
+            roundDuration,
             creatorMember
         );
         switch (result) {
@@ -303,8 +299,6 @@ actor RotateChain {
                 let userId = Principal.toText(msg.caller);
                 let userPrincipal = Principal.fromText(userId);
                 let chainName = Utils.sanitizeText(group.name);
-                let userSub = Utils.createSubaccount(userId # chainName);
-                let userSubAccount = ?userSub;
 
                 let newMember : Types.Member = {
                     principal= msg.caller;
@@ -449,15 +443,15 @@ actor RotateChain {
                 let baseAmount = Nat64.fromNat(group.contributionAmount * group.members.size());
                 let yieldAmount = Utils.calculateYield(baseAmount, Types.DEFAULT_YIELD_RATE, 30);
                 let platformFee = Utils.calculatePlatformFee(yieldAmount);
-                let totalPayout = baseAmount + yieldAmount - platformFee;
+                let totalPayout:Nat = Nat64.toNat(baseAmount)  + Nat64.toNat(yieldAmount) - Nat64.toNat(platformFee);
 
                 // Process real payout to current recipient
                 switch (group.nextRecipient) {
                     case (?recipient) {
                         switch (await PaymentHandler.processRotationPayout(
                             groupId,
-                            recipient,
-                            totalPayout,
+                            recipient.principal,
+                            Nat64.fromNat(totalPayout),
                             group.currentRound
                         )) {
                             case (#ok(payoutTxId)) {             
@@ -465,7 +459,7 @@ actor RotateChain {
                                 let newRound = group.currentRound + 1;
                                 let isCompleted = newRound > group.totalRounds;
                                 //updated balance
-                                let updatedBalance = group.balance - group.totalPayout;
+                                let updatedBalance = group.balance - totalPayout;
                         
                                 // Safe recipient index calculation
                                 let nextRecipient = if (not isCompleted and group.members.size() > 0) {
@@ -489,8 +483,8 @@ actor RotateChain {
 
                                 Debug.print("💰 Real ICP payout processed successfully!");
                                 Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
-                                Debug.print("Recipient: " # Principal.toText(recipient));
-                                Debug.print("Amount: " # Nat64.toText(totalPayout) # " e8s");
+                                Debug.print("Recipient: " # Principal.toText(recipient.principal));
+                                Debug.print("Amount: " # Nat64.toText(Nat64.fromNat(totalPayout)) # " e8s");
                         
                                 if (isCompleted) {
                                     Debug.print("🎉 Group " # Nat.toText(groupId) # " COMPLETED! All rounds finished.");
@@ -539,14 +533,13 @@ actor RotateChain {
             case (?group) {
             
                 // Check if member exists
-                if (Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                if (Utils.principalInArray(caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
                     return member.principal;
                 }))) {
                     return group.balance;
-                };
-                else{
+                } else {
                     return 0;
-                }
+                };
             };
             case null { return 0; };
         }
@@ -936,7 +929,6 @@ actor RotateChain {
                             lastContributionTime = ?Time.now();
                             missedContributions = 0;
                             liquidTokenBalance = Nat64.fromNat(group.contributionAmount);
-                            walletAddress = null; // Legacy groups don't have wallet addresses
                     }
                 });
                 
@@ -1021,7 +1013,6 @@ actor RotateChain {
                 lastContributionTime = ?Time.now();
                 missedContributions = 0;
                 liquidTokenBalance = Nat64.fromNat(g.contributionAmount);
-                walletAddress = null;
             }
         });
     
