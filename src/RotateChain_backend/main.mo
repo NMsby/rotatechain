@@ -174,7 +174,6 @@ persistent actor RotateChain {
     // Create new rotation group
     public shared(msg) func createGroup(
         name: Text,
-        description: Text,
         chainType:Text,
         contributionAmount: Nat,
         maxMembers: Nat,
@@ -284,7 +283,9 @@ persistent actor RotateChain {
                 };
             
                 // Check if member exists
-                if (Utils.principalInArray(msg.caller, group.members)) {
+                if (Utils.principalInArray(msg.caller,  Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
 
                     // remove member
                     let updatedMembers = Utils.removePrincipalFromArray(msg.caller, group.members);
@@ -293,8 +294,6 @@ persistent actor RotateChain {
                     };
                     updateGroup(updatedGroup);
                 
-                    Debug.print("Member left: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId));
-
                     #ok(true);
                 };
 
@@ -306,7 +305,7 @@ persistent actor RotateChain {
 
 
 
-    }
+    };
 
     // Join existing group
     public shared(msg) func joinGroup(groupId: Nat) : async Result.Result<Bool, Text> {
