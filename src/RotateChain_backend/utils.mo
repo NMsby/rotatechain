@@ -58,18 +58,6 @@ module Utils {
         null // No errors
     };
 
-    //create subaccount
-    public func createSubaccount(inputText : Text) : Blob {        
-
-        let inputBlob : Blob = Text.encodeUtf8(inputText);
-        
-        let hashBytes : Blob = Sha256.fromBlob(#sha256,inputBlob);
-            
-        //Blob.fromArray(hashBytes)
-        hashBytes
-    };
-
-
     
     // Validate contribution parameters
     public func validateContributionParams(params: Types.ContributionParams) : ?Types.Error {
