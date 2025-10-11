@@ -294,7 +294,7 @@ persistent actor RotateChain {
                     };
                     updateGroup(updatedGroup);
                 
-                    #ok(true);
+                    return #ok(true);
                 };
 
                 #err("member does not exist");

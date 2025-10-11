@@ -10,7 +10,6 @@ import Int "mo:base/Int";
 import Blob "mo:base/Blob";
 import Int64 "mo:base/Int64";
 import Types "./types";
-import Sha256 "mo:sha2/Sha256";
 
 module Utils {
 
