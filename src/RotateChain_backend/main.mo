@@ -5,12 +5,15 @@ import Principal "mo:base/Principal";
 import Result "mo:base/Result";
 import Nat "mo:base/Nat";
 import Debug "mo:base/Debug";
+import Float "mo:base/Float";
 import Time "mo:base/Time";
+import Int "mo:base/Int";
 import Nat64 "mo:base/Nat64";
 import Buffer "mo:base/Buffer";
 import Error "mo:base/Error";
 import Bool "mo:base/Bool";
-import Int "mo:base/Int";
+import Blob "mo:base/Blob";
+import Prim "mo:prim";
 
 // Import new modules for validation and utilities
 import Types "./types";
@@ -22,25 +25,35 @@ import PaymentHandler "./payment_handler";
 import StateManager "./state_manager";
 import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
+import GroupManagement "./group_management";
 import AnalyticsEngine "./analytics_engine";
 
 persistent actor RotateChain {
   
+    // heartbeat variables
+    var lastTick: Int = 0;
+    let interval: Nat = 1_000_000_000; // 1 second in nanoseconds
+
     // Complete types for rotational savings
+    // add account identifier property and the lastDisbursedAt property.    
     public type Group = {
         id: Nat;
         name: Text;
+        members: [Types.Member];
         description: Text;
-        chainType:Text;
-        members: [Principal];
         contributionAmount: Nat;
         currentRound: Nat;
         totalRounds: Nat;
         isActive: Bool;
         creator: Principal;
-        nextRecipient: ?Principal;
+        nextRecipient: ?Types.Member;
         createdAt: Int;
         completedAt: ?Int;
+        chainType:Text;
+        balance:Nat;
+        lastDisbursedAt: Int;
+        currency:Text;
+        interestRate:Text;
     };
 
     public type GroupSummary = {
@@ -52,7 +65,7 @@ persistent actor RotateChain {
         totalRounds: Nat;
         isActive: Bool;
         spotsRemaining: Nat;
-        nextRecipient: ?Principal;
+        nextRecipient: ?Types.Member;
         progress: Nat;
     };
 
@@ -124,6 +137,7 @@ persistent actor RotateChain {
     // Call initialization
     initializeStateManager();
 
+
     // ==================== HELPER FUNCTIONS ====================
 
     // Find a group by ID
@@ -160,12 +174,35 @@ persistent actor RotateChain {
     // Create new rotation group
     public shared(msg) func createGroup(
         name: Text,
-        description: Text,
         chainType:Text,
         contributionAmount: Nat,
         maxMembers: Nat,
-        _roundDurationDays: Nat
+        currency:Text,
+        interestRate:Nat,
+        roundDuration: Nat,
+        description:Text
     ) : async Result.Result<Nat, Text> {
+
+        let groupId = nextGroupId;
+        nextGroupId += 1;
+
+        let myPrincipal = Principal.fromActor(RotateChain); 
+        
+        let userId = Principal.toText(msg.caller);
+        let userPrincipal = Principal.fromText(userId);
+        let chainName = Utils.sanitizeText(name);
+
+        let creatorMember : Types.Member = {
+            principal= msg.caller;
+            joinedAt= Time.now();
+            totalContributions= 0;
+            receivedPayouts=0;
+            pendingContributions= 0;    // Contributions not yet processed
+            status= #pending;
+            lastContributionTime=?0;
+            missedContributions=0;        // Track defaults
+            liquidTokenBalance= 0;      // rTokens for trading
+        };
     
         // Validation using utils.mo
         if (Utils.isEmptyText(name)) { 
@@ -185,15 +222,12 @@ persistent actor RotateChain {
             return #err("Invalid caller principal");
         };
         
-        let groupId = nextGroupId;
-        nextGroupId += 1;
         
         let newGroup: Group = {
             id = groupId;
             name = Utils.sanitizeText(name);  // Enhanced: sanitize input
+            members = [creatorMember];
             description = description;
-            chainType = chainType;
-            members = [msg.caller];
             contributionAmount = contributionAmount;
             currentRound = 0;
             totalRounds = maxMembers;
@@ -202,8 +236,33 @@ persistent actor RotateChain {
             nextRecipient = null;
             createdAt = Time.now();
             completedAt = null;
+            chainType=chainType;
+            balance = 0;
+            lastDisbursedAt=0;
+            currency=currency;
+            interestRate = Nat.toText(interestRate) ;
         };
         
+        //validation of group during creation
+        let result = GroupManagement.createGroupWithValidation(
+            name,
+            description,
+            maxMembers,
+            Nat64.fromNat(contributionAmount),
+            roundDuration,
+            creatorMember
+        );
+        switch (result) {
+            case (#ok(groupConfig)) {
+                groupEntries := Array.append(groupEntries, [(groupConfig.id, groupConfig)]);
+                Debug.print("GroupConfig added to groupEntries: " # Nat.toText(groupConfig.id));
+            };
+            case (#err(error)) {
+                // Handle error as needed
+                return #err(Utils.errorToText(error));
+            };
+        };
+
         groupsArray := Array.append(groupsArray, [newGroup]);
             
         Debug.print("Group created: " # Nat.toText(groupId) # " - " # name);
@@ -224,7 +283,9 @@ persistent actor RotateChain {
                 };
             
                 // Check if member exists
-                if (Utils.principalInArray(msg.caller, group.members)) {
+                if (Utils.principalInArray(msg.caller,  Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
 
                     // remove member
                     let updatedMembers = Utils.removePrincipalFromArray(msg.caller, group.members);
@@ -233,9 +294,7 @@ persistent actor RotateChain {
                     };
                     updateGroup(updatedGroup);
                 
-                    Debug.print("Member left: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId));
-
-                    #ok(true);
+                    return #ok(true);
                 };
 
                 #err("member does not exist");
@@ -246,7 +305,7 @@ persistent actor RotateChain {
 
 
 
-    }
+    };
 
     // Join existing group
     public shared(msg) func joinGroup(groupId: Nat) : async Result.Result<Bool, Text> {
@@ -255,10 +314,12 @@ persistent actor RotateChain {
             return #err("Invalid caller principal");
         };
 
+
         switch (findGroup(groupId)) {
             case (?group) {
                 if (group.members.size() >= group.totalRounds) {
                     return #err("Group is full");
+
                 };
             
                 if (group.isActive) {
@@ -266,12 +327,33 @@ persistent actor RotateChain {
                 };
             
                 // Check if already a member
-                if (Utils.principalInArray(msg.caller, group.members)) {
+                if (Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
                     return #err("Already a member of this group");
                 };
-            
+
+
+                
+                let userId = Principal.toText(msg.caller);
+                let userPrincipal = Principal.fromText(userId);
+                let chainName = Utils.sanitizeText(group.name);
+
+                let newMember : Types.Member = {
+                    principal= msg.caller;
+                    joinedAt= Time.now();
+                    totalContributions= 0;
+                    receivedPayouts=0;
+                    pendingContributions= 0;    // Contributions not yet processed
+                    status= #pending;
+                    lastContributionTime=null;
+                    missedContributions=0;        // Track defaults
+                    liquidTokenBalance= 0;      // rTokens for trading
+                };
+
+
                 // Add new member
-                let updatedMembers = Utils.addPrincipalToArray(msg.caller, group.members);
+                let updatedMembers = Utils.addPrincipalToArray(newMember, group.members);
                 let isNowActive = updatedMembers.size() == group.totalRounds;
                 let updatedGroup = { group with 
                 members = updatedMembers;
@@ -283,7 +365,20 @@ persistent actor RotateChain {
             
                 Debug.print("Member joined: " # Principal.toText(msg.caller) # " -> Group " # Nat.toText(groupId));
                 if (isNowActive) {
+
                     Debug.print("Group " # Nat.toText(groupId) # " is now ACTIVE! Round 1 started.");
+                    
+                    let updatedGroupEntries = Array.map<(Types.GroupId, Types.GroupConfig), (Types.GroupId, Types.GroupConfig)>(
+                        groupEntries,
+                        func((id, config)) : (Types.GroupId, Types.GroupConfig) {
+                            if (id == groupId) {
+                                (id, { config with status = #active })
+                            } else {
+                                (id, config)
+                            }
+                        }
+                    );
+                    groupEntries := updatedGroupEntries;
                 };
                 #ok(true)
             };
@@ -300,7 +395,9 @@ persistent actor RotateChain {
                 };
             
                 // Check if caller is a member
-                if (not Utils.principalInArray(msg.caller, group.members)) {
+                if (not Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
                     return #err("Not a member of this group");
                 };
             
@@ -318,6 +415,13 @@ persistent actor RotateChain {
                     contributionAmount
                 )) {
                     case (#ok(transactionId)) {
+
+                        let updatedGroup = { group with 
+                            balance = Nat64.toNat(contributionAmount);
+                        };
+                        updateGroup(updatedGroup);
+
+
                         recordContributionInternal(groupId, msg.caller, group.currentRound);
 
                         // Issue R Tokens for contribution
@@ -355,7 +459,7 @@ persistent actor RotateChain {
     };
 
     // Advance to the next round
-    public shared(_msg) func advanceRound(groupId: Nat) : async Result.Result<Bool, Text> {
+    public shared(_msg) func  advanceRound(groupId: Nat) : async Result.Result<Bool, Text> {
         switch (findGroup(groupId)) {
             case (?group) {
                 if (not group.isActive) {
@@ -365,7 +469,7 @@ persistent actor RotateChain {
                 // Check if all members have contributed
                 var allContributed = true;
                 for (member in group.members.vals()) {
-                    if (not hasContributed(groupId, member, group.currentRound)) {
+                    if (not hasContributed(groupId, member.principal, group.currentRound)) {
                         allContributed := false;
                     };
                 };
@@ -378,21 +482,23 @@ persistent actor RotateChain {
                 let baseAmount = Nat64.fromNat(group.contributionAmount * group.members.size());
                 let yieldAmount = Utils.calculateYield(baseAmount, Types.DEFAULT_YIELD_RATE, 30);
                 let platformFee = Utils.calculatePlatformFee(yieldAmount);
-                let totalPayout = baseAmount + yieldAmount - platformFee;
+                let totalPayout:Nat = Nat64.toNat(baseAmount)  + Nat64.toNat(yieldAmount) - Nat64.toNat(platformFee);
 
                 // Process real payout to current recipient
                 switch (group.nextRecipient) {
                     case (?recipient) {
                         switch (await PaymentHandler.processRotationPayout(
                             groupId,
-                            recipient,
-                            totalPayout,
+                            recipient.principal,
+                            Nat64.fromNat(totalPayout),
                             group.currentRound
                         )) {
                             case (#ok(payoutTxId)) {             
                                 // Advance round after successful payout
                                 let newRound = group.currentRound + 1;
                                 let isCompleted = newRound > group.totalRounds;
+                                //updated balance
+                                let updatedBalance = group.balance - totalPayout;
                         
                                 // Safe recipient index calculation
                                 let nextRecipient = if (not isCompleted and group.members.size() > 0) {
@@ -409,14 +515,15 @@ persistent actor RotateChain {
                                     currentRound = newRound;
                                     nextRecipient = nextRecipient;
                                     isActive = not isCompleted;
+                                    balance = updatedBalance;
                                     completedAt = if (isCompleted) ?Time.now() else null;
                                 };
                                 updateGroup(updatedGroup);
 
                                 Debug.print("💰 Real ICP payout processed successfully!");
                                 Debug.print("Payout Transaction ID: " # Nat64.toText(payoutTxId));
-                                Debug.print("Recipient: " # Principal.toText(recipient));
-                                Debug.print("Amount: " # Nat64.toText(totalPayout) # " e8s");
+                                Debug.print("Recipient: " # Principal.toText(recipient.principal));
+                                Debug.print("Amount: " # Nat64.toText(Nat64.fromNat(totalPayout)) # " e8s");
                         
                                 if (isCompleted) {
                                     Debug.print("🎉 Group " # Nat.toText(groupId) # " COMPLETED! All rounds finished.");
@@ -441,6 +548,57 @@ persistent actor RotateChain {
             case null { #err("Group not found") };
         }
     };
+
+    //entire chainBalance
+    private func chainBalance() : async Nat {
+        
+        let actorPrincipal = Principal.fromActor(RotateChain);
+
+        let cAccount = {
+            owner = actorPrincipal;
+            subaccount = null;
+        };
+
+        await Ledger.icrc1_balance_of(cAccount)
+    };
+
+    //user's accessible groupBalance, check from the records
+    public shared({caller}) func groupBalance(groupId : Nat) : async Nat {
+        if (Principal.isAnonymous(caller)) {
+            return 0;
+        };
+
+        switch (findGroup(groupId)) {
+            case (?group) {
+            
+                // Check if member exists
+                if (Utils.principalInArray(caller, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
+                    return group.balance;
+                } else {
+                    return 0;
+                };
+            };
+            case null { return 0; };
+        }
+    };
+
+
+    // a user's wallet balance
+    public shared ({ caller }) func walletBalance() : async Nat {
+        if (Principal.isAnonymous(caller)) {
+            return 0;
+        };
+        
+        let account = {
+            owner = caller;
+            subaccount = null;
+        };
+
+        await Ledger.icrc1_balance_of(account);
+    };
+
 
     // ==================== R TOKEN OPERATIONS ====================
 
@@ -681,7 +839,7 @@ persistent actor RotateChain {
         }
     };
 
-    // Approve a loan (admin function - for now, any group member can approve)
+    //  any group member can approve
     public shared(msg) func approveLoan(
         loanId: Types.LoanId
     ) : async Result.Result<Bool, Types.Error> {
@@ -790,12 +948,16 @@ persistent actor RotateChain {
                     previousRecipients = [];
                     poolBalance = Nat64.fromNat(group.contributionAmount * group.members.size());
                     yieldGenerated = Nat64.fromNat(group.contributionAmount * group.members.size() / 20); // 5% yield
-                    rotationOrder = group.members;
+                    rotationOrder = Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                });
                     roundStartTime = group.createdAt;
                     contributionsThisRound = [];
                 };
                 
-                let mockMembers = Array.map<Principal, Types.Member>(group.members, func(p) : Types.Member {
+                let mockMembers = Array.map<Principal, Types.Member>(Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }), func(p) : Types.Member {
                     { 
                             principal = p;
                             joinedAt = group.createdAt;
@@ -823,6 +985,7 @@ persistent actor RotateChain {
                         rotationIntervalDays = 30;
                         startDate = group.createdAt;
                         endDate = group.completedAt;
+                        lastDisbursedAt = group.lastDisbursedAt;
                         status = if (group.isActive) #active else #completed;
                         createdAt = group.createdAt;
                         totalPoolSize = Nat64.fromNat(group.contributionAmount * group.totalRounds);
@@ -843,7 +1006,9 @@ persistent actor RotateChain {
     // Get user analytics for the caller
     public shared query(msg) func getMyAnalytics() : async AnalyticsEngine.UserAnalytics {
         let userGroups = Array.filter<Group>(groupsArray, func(g) = 
-            Utils.principalInArray(msg.caller, g.members)
+            Utils.principalInArray(msg.caller, Array.map<Types.Member, Principal>(g.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))
         );
         
         // Convert to enhanced types (simplified)
@@ -858,6 +1023,7 @@ persistent actor RotateChain {
                 minMembers = 2;
                 contributionAmount = Nat64.fromNat(g.contributionAmount);
                 rotationIntervalDays = 30;
+                lastDisbursedAt = g.lastDisbursedAt;
                 startDate = g.createdAt;
                 endDate = g.completedAt;
                 status = if (g.isActive) #active else #completed;
@@ -1194,7 +1360,9 @@ persistent actor RotateChain {
     // Get user's groups
     public query(msg) func getMyGroups() : async [GroupSummary] {
         let userGroups = Array.filter<Group>(groupsArray, func(g) = 
-            Utils.principalInArray(msg.caller, g.members)  // Enhanced: use utils
+            Utils.principalInArray(msg.caller,Array.map<Types.Member, Principal>(g.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))  // Enhanced: use utils
         );
         
         Array.map<Group, GroupSummary>(userGroups, func(g) = 
@@ -1207,7 +1375,7 @@ persistent actor RotateChain {
                 totalRounds = g.totalRounds;
                 isActive = g.isActive;
                 spotsRemaining = g.totalRounds - g.members.size();
-                nextRecipient = g.nextRecipient;
+                nextRecipient =  g.nextRecipient ;
                 progress = calculateProgress(g.currentRound, g.totalRounds);
             }
         )

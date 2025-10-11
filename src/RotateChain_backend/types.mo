@@ -1,6 +1,7 @@
 // types.mo - Complete type system for RotateChain
 import Principal "mo:base/Principal";
 import Result "mo:base/Result";
+import Blob "mo:base/Blob";
 
 module Types {
     // ==================== CORE IDENTIFIERS ====================
@@ -207,12 +208,13 @@ module Types {
         name: Text;
         description: Text;
         admin: Principal;
-        members: [Principal];
+        members: [Member];
         maxMembers: Nat;
         minMembers: Nat;
         contributionAmount: Amount;
-        rotationIntervalDays: Nat;
+        rotationIntervalDays: Nat; // should actually refer to seconds; copilot this is just a future implementation so ignore it
         startDate: Timestamp;
+        lastDisbursedAt:Int;
         endDate: ?Timestamp;
         status: GroupStatus;
         createdAt: Timestamp;
@@ -241,7 +243,7 @@ module Types {
         currentRound: RoundNumber;
         totalRounds: Nat;
         nextPayoutDate: Timestamp;
-        currentRecipient: ?Principal;
+        currentRecipient: ?Member;
         previousRecipients: [Principal];
         poolBalance: Amount;
         yieldGenerated: Amount;
@@ -355,4 +357,7 @@ module Types {
     public let MIN_ROTATION_DAYS : Nat = 7;          // 1 week minimum
     public let MAX_ROTATION_DAYS : Nat = 90;         // 3 months maximum
     public let DEFAULT_YIELD_RATE : Nat = 500;       // 5% annual yield
+    public let PAYOUT_PERCENTAGE:Float = 0.9;
+    //added the default yield rate
+    public let DEFAULT_YIELD_STRATEGY: YieldStrategy = #fixed(0);   
 }

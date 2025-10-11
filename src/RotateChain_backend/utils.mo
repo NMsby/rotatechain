@@ -7,6 +7,7 @@ import Nat "mo:base/Nat";
 import Nat64 "mo:base/Nat64";
 import Float "mo:base/Float";
 import Int "mo:base/Int";
+import Blob "mo:base/Blob";
 import Int64 "mo:base/Int64";
 import Types "./types";
 
@@ -38,7 +39,7 @@ module Utils {
         };
         
         // Validate rotation interval
-        if (params.rotationIntervalDays < Types.MIN_ROTATION_DAYS or 
+        /*if (params.rotationIntervalDays < Types.MIN_ROTATION_DAYS or 
         params.rotationIntervalDays > Types.MAX_ROTATION_DAYS) {
             return ?#InvalidTimestamp;
         };
@@ -51,10 +52,11 @@ module Utils {
                 };
             };
             case null { };
-        };
+        };*/
         
         null // No errors
     };
+
     
     // Validate contribution parameters
     public func validateContributionParams(params: Types.ContributionParams) : ?Types.Error {
@@ -139,18 +141,34 @@ module Utils {
             case null { false };
         }
     };
+
+    //added  the principal index to check for the user index
+    public func principalIndex(principal: Principal, array: [Types.Member]) : ?Nat {
+        
+        for (i in array.keys()) {
+            if (array[i].principal == principal) {
+            return ?i;
+            }
+        };
+        return null;
+    };
+
     
     // Remove principal from array
-    public func removePrincipalFromArray(principal: Principal, array: [Principal]) : [Principal] {
-        Array.filter<Principal>(array, func(p) = p != principal)
+    //changed to remove Member from array
+    public func removePrincipalFromArray(principal: Principal, array: [Types.Member]) : [Types.Member] {
+        Array.filter<Types.Member>(array, func(p) = p.principal != principal)
     };
     
     // Add principal to array if not already present
-    public func addPrincipalToArray(principal: Principal, array: [Principal]) : [Principal] {
-        if (principalInArray(principal, array)) {
+    //changed to add member to array
+    public func addPrincipalToArray(member: Types.Member, array: [Types.Member]) : [Types.Member] {
+        if (principalInArray(member.principal, Array.map<Types.Member, Principal>(array, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
             array
         } else {
-            Array.append<Principal>(array, [principal])
+            Array.append<Types.Member>(array, [member])
         }
     };
     

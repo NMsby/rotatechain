@@ -1,3 +1,5 @@
+import Array "mo:base/Array";
+
 // group_management.mo - Enhanced group operations module
 import Types "./types";
 import Utils "./utils";
@@ -14,7 +16,7 @@ module GroupManagement {
         maxMembers: Nat,
         contributionAmount: Nat64,
         rotationIntervalDays: Nat,
-        admin: Principal
+        admin: Types.Member
     ) : Result.Result<Types.GroupConfig, Types.Error> {
         
         // Use our comprehensive validation
@@ -35,19 +37,21 @@ module GroupManagement {
                     id = 0; // Will be set by state manager
                     name = Utils.sanitizeText(name);
                     description = Utils.sanitizeText(description);
-                    admin = admin;
+                    admin = admin.principal;
                     members = [admin];
                     maxMembers = maxMembers;
                     minMembers = Types.MIN_GROUP_SIZE;
                     contributionAmount = contributionAmount;
                     rotationIntervalDays = rotationIntervalDays;
                     startDate = now;
+                    lastDisbursedAt=0;
                     endDate = null;
                     status = #forming;
                     createdAt = now;
                     totalPoolSize = contributionAmount * Nat64.fromNat(maxMembers);
                     platformFeeRate = Types.PLATFORM_FEE_RATE;
                     yieldRate = Types.DEFAULT_YIELD_RATE;
+                    yieldStrategy = Types.DEFAULT_YIELD_STRATEGY;
                 };
                 #ok(groupConfig)
             };
@@ -64,7 +68,9 @@ module GroupManagement {
             return #err(#InvalidGroupStatus);
         };
         
-        if (Utils.principalInArray(newMember, group.members)) {
+        if (Utils.principalInArray(newMember, Array.map<Types.Member, Principal>(group.members, func (member : Types.Member) : Principal {
+                    return member.principal;
+                }))) {
             return #err(#AlreadyMember);
         };
         
@@ -78,6 +84,7 @@ module GroupManagement {
         
         #ok(true)
     };
+
     
     // Calculate if group should become active
     public func shouldActivateGroup(group: Types.GroupConfig) : Bool {
