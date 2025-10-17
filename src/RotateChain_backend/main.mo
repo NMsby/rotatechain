@@ -14,6 +14,7 @@ import Error "mo:base/Error";
 import Bool "mo:base/Bool";
 import Blob "mo:base/Blob";
 import Prim "mo:prim";
+import Scheduler "canister:scheduler";
 
 // Import new modules for validation and utilities
 import Types "./types";
@@ -27,12 +28,11 @@ import YieldManager "./yield_manager";
 import YieldDistributor "./yield_distributor";
 import GroupManagement "./group_management";
 import AnalyticsEngine "./analytics_engine";
+import ICPPaymentService "./icp_payment_service";
+
 
 persistent actor RotateChain {
   
-    // heartbeat variables
-    var lastTick: Int = 0;
-    let interval: Nat = 1_000_000_000; // 1 second in nanoseconds
 
     // Complete types for rotational savings
     // add account identifier property and the lastDisbursedAt property.    
@@ -44,6 +44,7 @@ persistent actor RotateChain {
         contributionAmount: Nat;
         currentRound: Nat;
         totalRounds: Nat;
+        roundDuration:Nat;
         isActive: Bool;
         creator: Principal;
         nextRecipient: ?Types.Member;
@@ -84,6 +85,10 @@ persistent actor RotateChain {
     private var groupsArray: [Group] = [];
     private var contributionsTracker: [(Nat, Principal, Nat)] = [];
 
+    // Standard ICP transfer fee (10,000 e8s = 0.0001 ICP)
+    private let ICP_TRANSFER_FEE : Nat = 10_000;  // 0.0001 ICP
+
+
     // StateManager stable storage - These persist across upgrades
     private var groupEntries: [(Types.GroupId, Types.GroupConfig)] = [];
     private var rotationEntries: [(Types.GroupId, Types.RotationState)] = [];
@@ -113,6 +118,13 @@ persistent actor RotateChain {
 
     // ==================== ANALYTICS ENGINE INSTANCE ====================
     private transient let analyticsEngine = AnalyticsEngine.AnalyticsEngine();
+
+    // ==================== SCHEDULER ENGINE =============================
+    let scheduler = actor(Principal.toText(Principal.fromActor(Scheduler))) : actor {
+        createTask : (Scheduler.CreateTaskRequest,Scheduler.TaskCallback) -> async Result.Result<Scheduler.TaskId, Text>;
+        cancelTask : Scheduler.TaskId -> async Result.Result<(), Text>;
+        getTask : Scheduler.TaskId -> async ?Scheduler.Task;
+    };
 
     // Initialize state on canister creation
     private func initializeStateManager() {
@@ -168,6 +180,117 @@ persistent actor RotateChain {
     private func calculateProgress(currentRound: Nat, totalRounds: Nat) : Nat {
         if (totalRounds == 0) { 0 } else { (currentRound * 100) / totalRounds }
     };
+
+    //rotation processing
+    private func processRotationPayout(
+        poolAccount: Principal,
+        recipient: Principal,
+        payoutAmount: Types.Amount,
+        groupId: Types.GroupId,
+        roundNumber: Nat
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        
+        // Input validation
+        if (not Utils.validatePrincipal(recipient)) {
+            return #err(#UnauthorizedAccess);
+        };
+        
+        if (not Utils.validateAmount(payoutAmount)) {
+            return #err(#InvalidAmount);
+        };
+
+        // Check pool balance
+        let poolAccountSrc = ICPPaymentService.principalToAccount(poolAccount);
+        let amountNat = Nat64.toNat(payoutAmount);
+        
+        try {
+            let balance = await Ledger.icrc1_balance_of(poolAccountSrc);
+            let requiredAmount = amountNat + ICP_TRANSFER_FEE;
+
+            if (balance < requiredAmount) {
+                Debug.print("Payout failed - Pool balance: " # Nat.toText(balance) # 
+                           ", Required: " # Nat.toText(requiredAmount));
+                return #err(#InsufficientBalance);
+            };
+
+            Debug.print("Pool balance check passed - Available: " # Nat.toText(balance));
+        } catch (_) {
+            Debug.print("Pool balance check failed: Network or ledger connection error");
+            return #err(#NetworkError);
+        };
+        
+        let recipientAccount = ICPPaymentService.principalToAccount(recipient);
+        
+        // Prepare payout transfer arguments
+        let transferArgs: Ledger.TransferArg = {
+            from_subaccount = null;
+            to = recipientAccount;
+            amount = amountNat;
+            fee = ?ICP_TRANSFER_FEE;
+            memo = ?ICPPaymentService.createMemo(groupId, ?roundNumber);
+            created_at_time = ?ICPPaymentService.getCurrentTimestamp();
+        };
+
+        Debug.print("Processing payout - Amount: " # Nat.toText(amountNat) # 
+        ", Round: " # Nat.toText(roundNumber));
+        
+        // Execute payout transfer
+        try {
+            switch (await Ledger.icrc1_transfer(transferArgs)) {
+                case (#Ok(blockIndex)) {
+                    Debug.print("Payout successful - Block: " # Nat.toText(blockIndex));
+                    #ok(Nat64.fromNat(blockIndex))
+                };
+                case (#Err(error)) {
+                    let mappedError = ICPPaymentService.handleTransferError(error, "processRotationPayout");
+                    #err(mappedError)
+                };
+            }
+        } catch (_) {
+            Debug.print("Payout call failed: Network or canister communication error");
+            #err(#NetworkError)
+        }
+    };
+
+
+    //payout processing
+    private func rotationPayout(
+        groupId: Types.GroupId,
+        recipient: Principal,
+        amount: Types.Amount,
+        roundNumber: Nat
+    ) : async Result.Result<Types.TransactionId, Types.Error> {
+        
+        // Validate recipient
+        if (not Utils.validatePrincipal(recipient)) {
+            return #err(#UnauthorizedAccess);
+        };
+        
+        // Validate amount
+        if (not Utils.validateAmount(amount)) {
+            return #err(#InvalidAmount);
+        };
+
+        // Get pool principal dynamically
+        let poolPrincipal = Principal.fromActor(RotateChain);
+
+        // Process real ICP payout transfer
+        switch (await processRotationPayout(
+            poolPrincipal,
+            recipient,
+            amount,
+            groupId,
+            roundNumber
+        )) {
+            case (#ok(blockIndex)) {
+                #ok(blockIndex)
+            };
+            case (#err(error)) {
+                #err(error)
+            };
+        }
+    };
+
 
     // ==================== GROUP MANAGEMENT ====================
 
@@ -230,6 +353,7 @@ persistent actor RotateChain {
             description = description;
             contributionAmount = contributionAmount;
             currentRound = 0;
+            roundDuration = roundDuration;
             totalRounds = maxMembers;
             isActive = false;
             creator = msg.caller;
@@ -379,6 +503,21 @@ persistent actor RotateChain {
                         }
                     );
                     groupEntries := updatedGroupEntries;
+
+                    switch (await scheduler.createTask({
+                        name = "group" # Nat.toText(groupId) # "" ;
+                        taskType = #recurring;
+                        groupId = groupId;
+                        delaySeconds = group.roundDuration;
+                        intervalSeconds = ?group.roundDuration; 
+                    },advanceRound)) {
+                        case (#ok(taskId)) {
+                            Debug.print("Group " # Nat.toText(groupId) # " rotation engine is now ACTIVE!");
+                        };
+                        case (#err(msg)) {
+                            Debug.print("Failed to start rotation engine: " # msg);
+                        };
+                    };
                 };
                 #ok(true)
             };
@@ -459,11 +598,11 @@ persistent actor RotateChain {
     };
 
     // Advance to the next round
-    public shared(_msg) func  advanceRound(groupId: Nat) : async Result.Result<Bool, Text> {
+    public shared(_msg) func  advanceRound(groupId: Nat) : async () {
         switch (findGroup(groupId)) {
             case (?group) {
                 if (not group.isActive) {
-                    return #err("Group is not active");
+                    //return #err("Group is not active");
                 };
             
                 // Check if all members have contributed
@@ -475,7 +614,7 @@ persistent actor RotateChain {
                 };
             
                 if (not allContributed) {
-                    return #err("Not all members have contributed to round " # Nat.toText(group.currentRound));
+                    //return #err("Not all members have contributed to round " # Nat.toText(group.currentRound));
                 };
 
                 // Calculate payment  amount (contributions + yield - fees)
@@ -487,7 +626,7 @@ persistent actor RotateChain {
                 // Process real payout to current recipient
                 switch (group.nextRecipient) {
                     case (?recipient) {
-                        switch (await PaymentHandler.processRotationPayout(
+                        switch (await rotationPayout(
                             groupId,
                             recipient.principal,
                             Nat64.fromNat(totalPayout),
@@ -531,26 +670,27 @@ persistent actor RotateChain {
                                     Debug.print("➡️ Group " # Nat.toText(groupId) # " advanced to round " # Nat.toText(newRound));
                                 };
 
-                                #ok(true)
+                                //#ok(true)
                             };
                             case (#err(error)) {
                                 let errorText = Utils.errorToText(error);
                                 Debug.print("❌ Payout failed: " # errorText);
-                                #err("Payout failed: " # errorText)
+                             // #err("Payout failed: " # errorText)
                             };
                         }
                     };
                     case null {
-                        #err("No recipient assigned for this round")
+                        //#err("No recipient assigned for this round")
                     };
                 }
             };
-            case null { #err("Group not found") };
+            case null {// #err("Group not found") 
+            };
         }
     };
 
     //entire chainBalance
-    private func chainBalance() : async Nat {
+    public shared({caller}) func chainBalance() : async Nat {
         
         let actorPrincipal = Principal.fromActor(RotateChain);
 

@@ -135,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             isLoading: false,
             error: null
           }))
+
           // Update wallet type and info
           const newWalletType = localStorage.getItem('rotatechain_wallet_type') as WalletType
           setWalletType(newWalletType)

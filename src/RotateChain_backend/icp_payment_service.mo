@@ -26,8 +26,9 @@ module ICPPaymentService {
     private let ICP_TRANSFER_FEE : Nat = 10_000;  // 0.0001 ICP
     
     // Ledger canister interface
-    private let ledger = actor("uxrrr-q7777-77774-qaaaq-cai") : actor {
+    private let ledger = actor("ryjl3-tyaaa-aaaaa-aaaba-cai") : actor {
         icrc1_transfer : (TransferArg) -> async Icrc1TransferResult;
+        icrc2_transfer_from : (Ledger.TransferFromArgs) -> async Ledger.Icrc1TransferResult;
         icrc1_balance_of : (Account) -> async Nat;
         icrc1_fee : () -> async Nat;
     };
@@ -35,7 +36,7 @@ module ICPPaymentService {
     // ==================== UTILITY FUNCTIONS ====================
 
     // Convert Principal to Account (simplied version for local development)
-    private func principalToAccount(principal: Principal) : Account {
+    public func principalToAccount(principal: Principal) : Account {
         {
             // For now, return the principal directly (simplified)
             // In production, use proper SHA224 + CRC32 calculation
@@ -45,12 +46,12 @@ module ICPPaymentService {
     };
 
     // Get current timestamp in nanoseconds
-    private func getCurrentTimestamp() : Nat64 {
+    public func getCurrentTimestamp() : Nat64 {
         Nat64.fromNat(Int.abs(Time.now()))
     };
     
     // Generate transaction memo from group ID and round
-    private func createMemo(groupId: Types.GroupId, roundNumber: ?Nat) : Blob {
+    public func createMemo(groupId: Types.GroupId, roundNumber: ?Nat) : Blob {
         let roundSuffix = switch (roundNumber) {
             case (?round) { ":round:" # Nat.toText(round) };
             case null { "" };
@@ -60,7 +61,7 @@ module ICPPaymentService {
     };
 
     // Handle transfer errors from the ledger
-    private func handleTransferError(error: Ledger.Icrc1TransferError, context: Text) : Types.Error {
+    public func handleTransferError(error: Ledger.Icrc1TransferError, context: Text) : Types.Error {
         // Log detailed error for debugging
         Debug.print("ICP Transfer Error in " # context # ": " # debug_show(error));
         
@@ -111,6 +112,7 @@ module ICPPaymentService {
         poolAccount: Principal
     ) : async Result.Result<Types.TransactionId, Types.Error> {
         
+
         // Input validation
         if (not Utils.validatePrincipal(contributor)) {
             return #err(#UnauthorizedAccess);
@@ -155,12 +157,30 @@ module ICPPaymentService {
             created_at_time = ?getCurrentTimestamp();
         };
 
+        //transferFrom arguments
+        let transferFromArgs : Ledger.TransferFromArgs = {
+            // The account from which to transfer tokens (the one who granted approval)
+            from = {
+                owner = contributor; // The principal of the user calling this function
+                subaccount = null;
+            };
+            // The destination account
+            to = poolAccountDest;
+            amount = netAmount;
+            // The subaccount of the *spender* (this canister) used for the approval
+            spender_subaccount = null;
+            fee = ?ICP_TRANSFER_FEE; // Uses the ledger's default fee
+            memo = ?createMemo(groupId, null);
+            created_at_time = ?getCurrentTimestamp();
+        };        
+
         Debug.print("Processing contribution - Amount: " # Nat.toText(netAmount) # 
                    ", Fee: " # Nat.toText(ICP_TRANSFER_FEE));
         
         // Execute ICP transfer
         try {
-            let result = await ledger.icrc1_transfer(transferArgs);
+            //let result = await ledger.icrc1_transfer(transferArgs);
+            let result = await ledger.icrc2_transfer_from(transferFromArgs);
             switch (result) {
                 case (#Ok(blockIndex)) {
                     Debug.print("Contribution successful - Block: " # Nat.toText(blockIndex));

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'motion/react'
+import BlurPopup from '../components/ui/blur-popup';
 import { 
   Plus, 
   TrendingUp, 
@@ -27,13 +28,14 @@ import { formatCurrency, formatNumber, formatRelativeTime, formatPercentage } fr
 import type { DashboardStats, SystemHealth, UserBalance, Activity as ActivityType, TimeSeriesDataPoint } from '../types'
 
 export function Dashboard() {
-  const { user } = useAuth()
+  const { user,getPrincipal,getIdentity} = useAuth()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null)
   const [userBalance, setUserBalance] = useState<UserBalance | null>(null)
   const [recentActivity, setRecentActivity] = useState<ActivityType[]>([])
   const [healthTimeline, setHealthTimeline] = useState<TimeSeriesDataPoint[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isPopupOpen, setIsPopupOpen] = useState(false);
 
   useEffect(() => {
     const loadDashboardData = async () => {
@@ -130,7 +132,14 @@ export function Dashboard() {
                 Browse Chains
               </Button>
             </Link>
+            <div onClick={e => setIsPopupOpen(true)}>
+              <Button variant="outline">
+                <Layers className="mr-2 h-4 w-4" />
+                  connect-wallet
+              </Button>
+            </div>
           </div>
+          
         </div>
       </motion.div>
 
@@ -140,6 +149,30 @@ export function Dashboard() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, delay: 0.1 }}
       >
+      {/*blur popup*/}
+      <BlurPopup
+        isOpen={isPopupOpen}
+        onClose={() => setIsPopupOpen(false)}
+        title="approval required"
+      >
+        <div className="bg-white space-y-4">
+          <p className="text-gray-600">
+            choose your option
+          </p>
+          <div onClick={async(e) => {return await realApi.approve({contributionAmount:1000000,option:"internet-identity"})}} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <Button className="text-sm text-blue-800">
+              connect internet-identity
+            </Button>
+          </div>
+
+          <div onClick={async(e) => { console.log(await realApi.approve({contributionAmount:1000000,option:"plug-wallet"}));  }} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <Button className="text-sm text-blue-800">
+              connect plug wallet
+            </Button>
+          </div>
+        </div>
+      </BlurPopup>
+
         <Card className="gradient-card">
           <CardHeader>
             <div className="flex items-center gap-4">

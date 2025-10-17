@@ -2,6 +2,8 @@ import { Secp256k1KeyIdentity } from '@dfinity/identity-secp256k1'
 import { Actor, HttpAgent, Identity } from '@dfinity/agent'
 import { Principal } from '@dfinity/principal'
 import { AuthClient } from '@dfinity/auth-client'
+import {canisterId as ledgerCanisterId} from "@declarations/icp_ledger_canister"
+
 
 // Environment configuration
 const isProduction = import.meta.env.MODE === 'production'
@@ -126,12 +128,7 @@ class PlugWalletService {
     }
 
     const defaultOptions: PlugRequestConnectOptions = {
-      whitelist: [
-        import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || 'trmuc-riaaa-aaaan-qz6dq-cai',
-        'rrkah-fqaaa-aaaaa-aaaaq-cai', // Internet Identity canister
-        'qoctq-giaaa-aaaaa-aaaea-cai', // NNS Dapp
-        'ryjl3-tyaaa-aaaaa-aaaba-cai', // ICP Ledger canister
-      ],
+      whitelist: [ledgerCanisterId],
       host: host,
       timeout: 60000, // 1 minute timeout
       ...options

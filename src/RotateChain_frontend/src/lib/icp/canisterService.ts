@@ -10,6 +10,12 @@ import {
   canisterId
 } from '@declarations/rotatechain_backend'
 import { 
+  icp_ledger_canister,
+  createActor as createLedgerActor,
+  canisterId as ledgerCanisterId
+} from '@declarations/icp_ledger_canister'
+
+import { 
   Group, 
   GroupSummary,
   RToken as CandidRToken,
@@ -21,8 +27,7 @@ import {
 } from '@declarations/rotatechain_backend/rotatechain_backend.did'
 
 export type BackendError = CandidError
-
-
+                
 // Fix memo type handling for RToken and RTokenTransfer
 const convertCandidRToken = (token: CandidRToken): RToken => ({
   ...token,
@@ -234,6 +239,69 @@ class CanisterService {
     await this.initializeWithAuth()
     return await this.actor!.runSystemTests()
   }
+    
+  // ==================== CONNECT WALLET ====================
+
+  async approveSpender({contributionAmount:number,option:string}):Promise<any> {
+    try {
+      let Time = new Date()
+      const authClient = await AuthClient.create()
+      const isAuthenticated = await authClient.isAuthenticated()
+      const agent = window.ic.plug.agent;
+
+      const approvalParams = {
+        spender: canisterId,
+        //contribution after all the rounds
+        amount: `${contributionAmount}n`, // Amount in e8s (0.01 ICP)
+        expected_allowance: [], // Optional
+        memo: [], // Optional memo
+        created_at_time: Time, // Optional creation time (nanoseconds)
+        fee: 10_000n, // Use the ledger's default fee
+        from_subaccount: [] // Use the default subaccount
+      };
+
+
+      if (option == "internet-identity" && isAuthenticated) {
+        const identity = authClient.getIdentity()
+        const ledgerCanister = await createLedgerActor(ledgerCanisterId, {
+          agentOptions:{
+            identity
+          }
+        })
+
+        const blockIndex = await ledgerCanister.icrc2_approve(approvalParams);
+        console.log(`Approval successful at block index: ${blockIndex}`);
+        return blockIndex;
+
+      }
+      else {
+        if (!await window.ic.plug.isConnected()) {
+          const whitelist = [Principal.toString(ledgerCanisterId)]; // ICP Ledger
+          await window.ic.plug.requestConnect({ whitelist });
+        }
+
+        const agent = window.ic.plug.agent;
+        const ledgerCanister = createLedgerActor({
+          agent,
+          canisterId: ledgerCanisterId
+        });
+
+
+        const blockIndex = await ledgerCanister.icrc2_approve(approvalParams);
+        console.log(`Approval successful at block index: ${blockIndex}`);
+        return blockIndex;
+      }
+
+
+    } catch (error) {
+      console.error("Approval failed:", error);
+      throw new Error(error);
+    }
+  }
+
+
+
+
 
   // ==================== GROUP MANAGEMENT ====================
   
@@ -263,7 +331,7 @@ class CanisterService {
     return await this.actor!.joinGroup(BigInt(groupId))
   }
 
-  // leaveGroup to be implemented (does not exist in backend yet)
+  // leaveGroup 
   async leaveGroup(groupId: number): Promise<BackendResult<bigint>> {
     await this.initializeWithAuth()
     return await this.actor!.leaveGroup(BigInt(groupId))

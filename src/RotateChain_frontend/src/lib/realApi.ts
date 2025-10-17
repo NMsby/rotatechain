@@ -26,6 +26,7 @@ import {
   type Loan
 } from './icp/canisterService'
 
+
 import { Principal } from '@dfinity/principal'
 
 // Helper function to convert backend types to frontend types
@@ -90,6 +91,19 @@ export const realApi = {
     } catch (error) {
       console.error('Failed to get current user:', error)
       throw new Error('Failed to get user information')
+    }
+  },
+
+  // ==================== WALLET ===================
+  async approve({contributionAmount:number,option:string}):Promise<any>{
+    console.log("contribution amount")
+    try{
+      const approve = await canisterService.approveSpender({contributionAmount:contributionAmount,option:option})
+      return approve
+    }
+    catch(error){
+      console.error('failed to approve request: \n',error)
+      throw new Error('failed to approve request')
     }
   },
 

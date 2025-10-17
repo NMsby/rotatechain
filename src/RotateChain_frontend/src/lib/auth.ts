@@ -9,6 +9,11 @@ import {
   type PlugWalletInfo,
 } from './wallet/plugWallet'
 
+import { 
+  canisterId as ledgerCanisterId
+} from '@declarations/icp_ledger_canister'
+
+
 // Internet Identity 2.0 Provider URLs
 const II_URL = import.meta.env.MODE === 'production' 
   ? 'https://identity.ic0.app'
@@ -190,7 +195,7 @@ class InternetIdentityService implements AuthService {
 
       const walletInfo = await plugWalletService.connect({
         whitelist: [
-          import.meta.env.VITE_ROTATECHAIN_BACKEND_CANISTER_ID || 'trmuc-riaaa-aaaan-qz6dq-cai'
+          ledgerCanisterId
         ]
       })
 
