@@ -165,7 +165,7 @@ export function Dashboard() {
             </Button>
           </div>
 
-          <div onClick={async(e) => { console.log(await realApi.approve({contributionAmount:1000000,option:"plug-wallet"}));  }} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div onClick={async(e) => { return await realApi.approve({contributionAmount:1000000,option:"plug-wallet"});  }} className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <Button className="text-sm text-blue-800">
               connect plug wallet
             </Button>
