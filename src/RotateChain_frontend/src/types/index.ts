@@ -8,7 +8,6 @@ export interface User {
   internetIdentityPrincipal?: string;
   createdAt: string;
   updatedAt: string;
-  role?: 'admin' | 'user'
 }
 
 export interface DashboardStats {
@@ -37,12 +36,14 @@ export interface Chain {
   rotationPeriod: number; // in days
   currentRound: number;
   totalRounds: number;
-  status: 'active' | 'completed' | 'paused';
+  status: 'active' | 'completed' | 'paused' | 'forming'; // Added 'forming' for clarity
   createdBy: string;
   createdAt: string;
   updatedAt: string;
   nextPayoutDate: string;
-  chainType: 'standard' | 'premium' | 'enterprise';
+  // --- UPDATED PROPERTIES ---
+  chainType: 'global' | 'social' | 'standard' | 'premium' | 'enterprise';
+  chainFeature: 'standard' | 'premium' | 'enterprise'; // New property for the secondary tier
 }
 
 export interface Group {
@@ -125,7 +126,9 @@ export interface CreateChainFormData {
   contributionAmount: number;
   rotationPeriod: number;
   maxMembers: number;
-  chainType: 'standard' | 'premium' | 'enterprise';
+  // --- UPDATED PROPERTIES ---
+  chainType: 'global' | 'social';
+  chainFeature: 'standard' | 'premium' | 'enterprise';
 }
 
 export interface JoinChainFormData {
@@ -135,10 +138,10 @@ export interface JoinChainFormData {
 
 // Authentication types
 export interface AuthState {
-  user: User | null
-  isAuthenticated: boolean
-  isLoading: boolean
-  error: string | null
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
 }
 
 // Theme types
