@@ -8,6 +8,7 @@ export interface User {
   internetIdentityPrincipal?: string;
   createdAt: string;
   updatedAt: string;
+  role?: 'admin' | 'user'
 }
 
 export interface DashboardStats {
@@ -134,10 +135,10 @@ export interface JoinChainFormData {
 
 // Authentication types
 export interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  error: string | null;
+  user: User | null
+  isAuthenticated: boolean
+  isLoading: boolean
+  error: string | null
 }
 
 // Theme types

@@ -10,7 +10,7 @@ import {
   Plus,
   TrendingUp,
   Shield,
-  HelpCircle
+  HelpCircle,
 } from 'lucide-react'
 import {
   Sidebar,
@@ -29,6 +29,11 @@ export function DashboardSidebar() {
   const location = useLocation()
 
   const mainNavigation = [
+    {
+      title: 'Overview',
+      url: '/dashboard',
+      icon: LayoutDashboard,
+    },
     {
       title: 'Overview',
       url: '/dashboard',
@@ -95,7 +100,7 @@ export function DashboardSidebar() {
   }
 
   return (
-    <Sidebar className="border-r">
+    <Sidebar className="border-r mt-16 h-[calc(100vh-4rem)]">
       <SidebarContent>
         {/* Main Navigation */}
         <SidebarGroup>
@@ -111,7 +116,8 @@ export function DashboardSidebar() {
                       isActive={isActivePath(item.url)}
                       className={cn(
                         'transition-colors',
-                        isActivePath(item.url) && 'bg-primary text-primary-foreground hover:bg-primary/90'
+                        isActivePath(item.url) &&
+                          'bg-primary text-primary-foreground hover:bg-primary/90'
                       )}
                     >
                       <Link to={item.url}>
@@ -142,7 +148,8 @@ export function DashboardSidebar() {
                       isActive={isActivePath(item.url)}
                       className={cn(
                         'transition-colors',
-                        isActivePath(item.url) && 'bg-accent text-accent-foreground'
+                        isActivePath(item.url) &&
+                          'bg-accent text-accent-foreground'
                       )}
                     >
                       <Link to={item.url}>
@@ -173,7 +180,8 @@ export function DashboardSidebar() {
                       isActive={isActivePath(item.url)}
                       className={cn(
                         'transition-colors',
-                        isActivePath(item.url) && 'bg-accent text-accent-foreground'
+                        isActivePath(item.url) &&
+                          'bg-accent text-accent-foreground'
                       )}
                     >
                       <Link to={item.url}>
