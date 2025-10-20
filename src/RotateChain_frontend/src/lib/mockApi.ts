@@ -12,6 +12,9 @@ import {
 } from '../types'
 import { sleep, generateId } from './utils'
 
+// In-memory mock storage for chains to simulate persistence
+const mockChainsStorage = new Map<string, Chain>();
+
 // Mock data generators
 function generateMockUser(): User {
   return {
@@ -28,8 +31,9 @@ function generateMockUser(): User {
 
 function generateMockChains(count: number): Chain[] {
   const chains: Chain[] = []
-  const chainTypes: Array<'standard' | 'premium' | 'enterprise'> = ['standard', 'premium', 'enterprise']
-  const statuses: Array<'active' | 'completed' | 'paused'> = ['active', 'completed', 'paused']
+  const chainTypes: Array<'global' | 'social'> = ['global', 'social']
+  const chainFeatures: Array<'standard' | 'premium' | 'enterprise'> = ['standard', 'premium', 'enterprise']
+  const statuses: Array<'active' | 'completed' | 'paused' | 'forming'> = ['active', 'completed', 'paused', 'forming']
 
   for (let i = 0; i < count; i++) {
     chains.push({
@@ -46,7 +50,9 @@ function generateMockChains(count: number): Chain[] {
       createdAt: new Date(Date.now() - Math.random() * 90 * 24 * 60 * 60 * 1000).toISOString(),
       updatedAt: new Date().toISOString(),
       nextPayoutDate: new Date(Date.now() + Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString(),
-      chainType: chainTypes[Math.floor(Math.random() * chainTypes.length)]
+      // Use the new properties for mock generation
+      chainType: chainTypes[Math.floor(Math.random() * chainTypes.length)],
+      chainFeature: chainFeatures[Math.floor(Math.random() * chainFeatures.length)]
     })
   }
   return chains
@@ -233,7 +239,9 @@ export const mockApi = {
   // Chains
   async getChains(page = 1, limit = 10): Promise<PaginatedResponse<Chain>> {
     await sleep(800)
-    const allChains = generateMockChains(45) // Generate more for pagination
+    const mockAndCreatedChains = [...mockChainsStorage.values(), ...generateMockChains(45 - mockChainsStorage.size)]
+    const allChains = mockAndCreatedChains.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    
     const start = (page - 1) * limit
     const end = start + limit
     const data = allChains.slice(start, end)
@@ -251,13 +259,21 @@ export const mockApi = {
 
   async getChain(id: string): Promise<Chain> {
     await sleep(500)
-    const chains = generateMockChains(1)
-    return { ...chains[0], id }
+    const chain = mockChainsStorage.get(id)
+    if (chain) {
+        return chain;
+    }
+    // Fallback: This simulates fetching a chain that was part of the initial mock load
+    const mockChain = generateMockChains(1)[0];
+    if (mockChain.id !== id) {
+        mockChain.id = id;
+    }
+    return mockChain;
   },
 
   async createChain(data: any): Promise<Chain> {
     await sleep(1200)
-    return {
+    const newChain: Chain = {
       id: generateId(),
       name: data.name,
       description: data.description,
@@ -266,13 +282,41 @@ export const mockApi = {
       rotationPeriod: data.rotationPeriod,
       currentRound: 1,
       totalRounds: data.maxMembers,
-      status: 'active',
+      status: 'forming', 
       createdBy: 'user-123',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       nextPayoutDate: new Date(Date.now() + data.rotationPeriod * 24 * 60 * 60 * 1000).toISOString(),
-      chainType: data.chainType
+      // Use the new properties passed from the form
+      chainType: data.chainType || 'global',
+      chainFeature: data.chainFeature || 'standard'
     }
+    mockChainsStorage.set(newChain.id, newChain)
+    return newChain
+  },
+
+  async updateChain(id: string, updatedData: Partial<Omit<Chain, 'id'>>): Promise<Chain> {
+    await sleep(800)
+    const existingChain = mockChainsStorage.get(id)
+    if (!existingChain) {
+        throw new Error('Chain not found for update')
+    }
+    const updatedChain = {
+        ...existingChain,
+        ...updatedData,
+        updatedAt: new Date().toISOString()
+    } as Chain;
+
+    mockChainsStorage.set(id, updatedChain)
+    return updatedChain
+  },
+
+  async deleteChain(id: string): Promise<void> {
+    await sleep(500)
+    if (!mockChainsStorage.has(id)) {
+        throw new Error('Chain not found for deletion')
+    }
+    mockChainsStorage.delete(id)
   },
 
   async joinChain(chainId: string): Promise<void> {
