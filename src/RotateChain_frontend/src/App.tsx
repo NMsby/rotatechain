@@ -43,7 +43,7 @@ function App() {
                   path="/dashboard/*"
                   element={
                     <ProtectedRoute>
-                      <DashboardLayoutWithAI />
+                      <DashboardLayout />
                     </ProtectedRoute>
                   }
                 />
